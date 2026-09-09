@@ -1,0 +1,408 @@
+<h1>Comprehensive UAT Test Cases &amp; Requirement Traceability Matrix</h1>
+<h2>E-Learning Platform &amp; Binary MLM System</h2>
+<p><strong>Document Version:</strong> 1.0.0<br><strong>Project Root Directory:</strong> <code>/Users/apple/Desktop/shamshad/e learning</code><br><strong>Scope:</strong> Web Application (<code>/client</code>), Mobile Android App (<code>/app</code>), and REST API Server (<code>/server</code>)  </p>
+<hr>
+<h1>1. UAT Strategy &amp; Execution Framework</h1>
+<h2>1.1 Objective</h2>
+<p>This User Acceptance Testing (UAT) suite ensures that all functional, visual, structural, and financial business requirements defined in the E-Learning &amp; Binary MLM Specification are fully verified before production deployment.</p>
+<h2>1.2 Testing Environment Setup</h2>
+<ul>
+<li><strong>Web Client:</strong> Vite React + TypeScript (<code>http://localhost:3000</code>)</li>
+<li><strong>API Backend:</strong> Node.js Express (<code>http://localhost:5000</code>)</li>
+<li><strong>Database:</strong> MongoDB (<code>mongodb://localhost:27017/elearning_db</code>)</li>
+<li><strong>Mobile Android App:</strong> React Native Android Emulator / Physical Device (<code>RZCY900D0JT</code>)</li>
+</ul>
+<hr>
+<h1>2. End-to-End UAT Test Case Matrix</h1>
+<h2>Suite 1: Authentication, Localization &amp; User Management</h2>
+<h3>TC-AUTH-01: Student Registration with Referral Sponsor Code</h3>
+<ul>
+<li><strong>Feature Area:</strong> User Management &amp; Binary Placement</li>
+<li><strong>Requirement Ref:</strong> Section 3.1 &amp; Section 4.1</li>
+<li><strong>Pre-conditions:</strong> Backend server running; valid referral code available (e.g. <code>EDU-99201</code>).</li>
+<li><strong>Test Steps:</strong><ol>
+<li>Open Signup page (<code>/register?ref=EDU-99201</code>).</li>
+<li>Enter Full Name (&quot;Amit Verma&quot;), Mobile Number (&quot;9876500001&quot;), State (&quot;Karnataka&quot;), and Password (&quot;Password@123&quot;).</li>
+<li>Click <strong>&quot;Register Account&quot;</strong>.</li>
+</ol>
+</li>
+<li><strong>Expected Outcome:</strong> User registered successfully; JWT token generated; new user automatically placed in sponsor&#39;s binary MLM tree under selected leg preference (<code>AUTO</code>/<code>LEFT</code>/<code>RIGHT</code>).</li>
+<li><strong>Pass/Fail Criteria:</strong> HTTP 201 response; user record created in MongoDB; <code>MLMNode</code> created with valid <code>parent</code> and <code>sponsor</code> fields.</li>
+</ul>
+<h3>TC-AUTH-02: User Login via Mobile / User ID / Name</h3>
+<ul>
+<li><strong>Feature Area:</strong> Authentication</li>
+<li><strong>Requirement Ref:</strong> Section 3.1</li>
+<li><strong>Pre-conditions:</strong> Account created in TC-AUTH-01.</li>
+<li><strong>Test Steps:</strong><ol>
+<li>Navigate to <code>/login</code>.</li>
+<li>Input Mobile Number (<code>9876500001</code>) or User ID (<code>EDU-99201</code>) and Password.</li>
+<li>Submit login form.</li>
+</ol>
+</li>
+<li><strong>Expected Outcome:</strong> Successful authentication; token saved to <code>localStorage</code> / SecureStore; redirected to main dashboard.</li>
+<li><strong>Pass/Fail Criteria:</strong> User profile loaded with correct state localization and wallet balance.</li>
+</ul>
+<h3>TC-AUTH-03: Regional State Localization Switching</h3>
+<ul>
+<li><strong>Feature Area:</strong> Localization</li>
+<li><strong>Requirement Ref:</strong> Section 3.1 &amp; Section 3.2</li>
+<li><strong>Pre-conditions:</strong> Logged in as student.</li>
+<li><strong>Test Steps:</strong><ol>
+<li>Click <strong>&quot;Change State Preference&quot;</strong> in header banner.</li>
+<li>Select state option (e.g., &quot;Karnataka (KA)&quot; or &quot;Delhi NCR (DL)&quot;).</li>
+<li>Confirm selection.</li>
+</ol>
+</li>
+<li><strong>Expected Outcome:</strong> Dashboard dynamically updates hero banners, student count (e.g., &quot;1.2 Lakh+ enrolled in Karnataka&quot;), state-specific board courses (SSLC / KAS prep).</li>
+<li><strong>Pass/Fail Criteria:</strong> State badge updates instantly; course listings reflect selected state code.</li>
+</ul>
+<h3>TC-AUTH-04: 1-Year Course Subscription Validity Enforcement</h3>
+<ul>
+<li><strong>Feature Area:</strong> Subscription Management</li>
+<li><strong>Requirement Ref:</strong> Section 3.1</li>
+<li><strong>Pre-conditions:</strong> Student enrolling in course batch.</li>
+<li><strong>Test Steps:</strong><ol>
+<li>Purchase annual pass for &quot;CBSE Class 10 Master Course&quot;.</li>
+<li>Inspect purchase record in MongoDB database (<code>purchases</code> collection).</li>
+</ol>
+</li>
+<li><strong>Expected Outcome:</strong> <code>validUntil</code> timestamp set to exactly <strong>365 days</strong> from purchase date (<code>Date.now() + 365 * 24 * 60 * 60 * 1000</code>).</li>
+<li><strong>Pass/Fail Criteria:</strong> Course status active for 1 full year.</li>
+</ul>
+<hr>
+<h2>Suite 2: KYC Identity Verification &amp; Upload Module</h2>
+<h3>TC-KYC-01: Aadhaar Card Number Format Validation</h3>
+<ul>
+<li><strong>Feature Area:</strong> KYC Module</li>
+<li><strong>Requirement Ref:</strong> Section 3.1</li>
+<li><strong>Pre-conditions:</strong> Student logged in; navigating to KYC tab.</li>
+<li><strong>Test Steps:</strong><ol>
+<li>Select Document Type: <strong>Aadhaar Card</strong>.</li>
+<li>Enter invalid Aadhaar number (e.g. <code>1234-ABCD</code>).</li>
+<li>Click <strong>&quot;Submit KYC&quot;</strong>.</li>
+</ol>
+</li>
+<li><strong>Expected Outcome:</strong> Validation error displayed: <em>&quot;Invalid Aadhaar Card Number! Must be exactly 12 numeric digits.&quot;</em> Form submission blocked.</li>
+<li><strong>Pass/Fail Criteria:</strong> Regex validation blocks non-12-digit numeric input.</li>
+</ul>
+<h3>TC-KYC-02: PAN Card Format Validation</h3>
+<ul>
+<li><strong>Feature Area:</strong> KYC Module</li>
+<li><strong>Requirement Ref:</strong> Section 3.1</li>
+<li><strong>Pre-conditions:</strong> Student logged in.</li>
+<li><strong>Test Steps:</strong><ol>
+<li>Select Document Type: <strong>PAN Card</strong>.</li>
+<li>Enter invalid PAN number (e.g. <code>12345ABCDE</code>).</li>
+<li>Click <strong>&quot;Submit KYC&quot;</strong>.</li>
+</ol>
+</li>
+<li><strong>Expected Outcome:</strong> Validation error displayed: <em>&quot;Invalid PAN Card Number! Format must be 5 Letters + 4 Digits + 1 Letter.&quot;</em></li>
+<li><strong>Pass/Fail Criteria:</strong> Regex <code>^[A-Z]{5}[0-9]{4}[A-Z]{1}$</code> strictly enforced.</li>
+</ul>
+<h3>TC-KYC-03: Mobile Camera/Gallery Document Image Upload</h3>
+<ul>
+<li><strong>Feature Area:</strong> KYC Module &amp; Native Mobile App</li>
+<li><strong>Requirement Ref:</strong> Section 3.1</li>
+<li><strong>Pre-conditions:</strong> Mobile app running on device/emulator.</li>
+<li><strong>Test Steps:</strong><ol>
+<li>Enter valid Aadhaar (<code>9900 1234 5678</code>).</li>
+<li>Click <strong>&quot;📷 Pick Document Image&quot;</strong>.</li>
+<li>Select photo from device image gallery.</li>
+<li>Submit KYC request.</li>
+</ol>
+</li>
+<li><strong>Expected Outcome:</strong> Image uploaded to Cloudinary/server storage; status updated to <code>PENDING</code> approval.</li>
+<li><strong>Pass/Fail Criteria:</strong> KYC record saved in backend with <code>documentImage</code> URL and <code>PENDING</code> state.</li>
+</ul>
+<hr>
+<h2>Suite 3: 6 Core Educational Verticals &amp; Content Drilldown</h2>
+<h3>TC-EDU-01: Vertical 1 — School Education (K-12) Navigation</h3>
+<ul>
+<li><strong>Feature Area:</strong> Content Hierarchy</li>
+<li><strong>Requirement Ref:</strong> Section 2 (Module I)</li>
+<li><strong>Test Steps:</strong> Click <strong>&quot;School Education (K-12)&quot;</strong> card -&gt; Verify State Board, CBSE, ICSE, PUC (+1/+2 Arts/Commerce/Science) categories.</li>
+<li><strong>Expected Outcome:</strong> Displays all 24 K-12 courses with grade levels and subjects.</li>
+</ul>
+<h3>TC-EDU-02: Vertical 2 — School Entrance &amp; Competitive Exams</h3>
+<ul>
+<li><strong>Feature Area:</strong> Content Hierarchy</li>
+<li><strong>Requirement Ref:</strong> Section 2 (Module II)</li>
+<li><strong>Test Steps:</strong> Select <strong>&quot;School Entrance &amp; Competitive&quot;</strong> -&gt; Verify Navodaya Entrance, NTS, G-MAT, NET, NEET, JEE batches.</li>
+<li><strong>Expected Outcome:</strong> Displays NEET &amp; JEE ultimate crash course packages with 5000+ MCQs.</li>
+</ul>
+<h3>TC-EDU-03: Vertical 3 — Higher Education (UG &amp; PG)</h3>
+<ul>
+<li><strong>Feature Area:</strong> Content Hierarchy</li>
+<li><strong>Requirement Ref:</strong> Section 2 (Module III)</li>
+<li><strong>Test Steps:</strong> Click <strong>&quot;Higher Education (UG &amp; PG)&quot;</strong> -&gt; Verify M.A, M.Com, M.Sc, MBA, Custom degree modules.</li>
+<li><strong>Expected Outcome:</strong> Displays degree courses with subject credits and chapter notes.</li>
+</ul>
+<h3>TC-EDU-04: Vertical 4 — State Government Jobs Preparation</h3>
+<ul>
+<li><strong>Feature Area:</strong> Content Hierarchy</li>
+<li><strong>Requirement Ref:</strong> Section 2 (Module IV)</li>
+<li><strong>Test Steps:</strong> Select <strong>&quot;State Government Jobs Prep&quot;</strong> -&gt; Verify SDA, FDA, GPT (Primary Teacher), KAS Officer prep.</li>
+<li><strong>Expected Outcome:</strong> Displays KAS Officer General Studies &amp; solved question archives.</li>
+</ul>
+<h3>TC-EDU-05: Vertical 5 — Central Government Jobs Preparation</h3>
+<ul>
+<li><strong>Feature Area:</strong> Content Hierarchy</li>
+<li><strong>Requirement Ref:</strong> Section 2 (Module V)</li>
+<li><strong>Test Steps:</strong> Select <strong>&quot;Central Government Jobs Prep&quot;</strong> -&gt; Verify Banking (IBPS/SBI), Railway RRB, IAS / Civil Services.</li>
+<li><strong>Expected Outcome:</strong> Displays IBPS PO, RRB NTPC, and UPSC GS Paper I &amp; II prep batches.</li>
+</ul>
+<h3>TC-EDU-06: Vertical 6 — Teacher Preparation &amp; Certifications</h3>
+<ul>
+<li><strong>Feature Area:</strong> Content Hierarchy</li>
+<li><strong>Requirement Ref:</strong> Section 2 (Module VI)</li>
+<li><strong>Test Steps:</strong> Select <strong>&quot;Teacher Prep &amp; Certifications&quot;</strong> -&gt; Verify B.Ed, M.Ed, State TET, CTET Paper 1 &amp; 2.</li>
+<li><strong>Expected Outcome:</strong> Displays teaching methodology, child pedagogy, and solved TET mock tests.</li>
+</ul>
+<hr>
+<h2>Suite 4: 5 Primary Learning Asset Formats</h2>
+<h3>TC-ASSET-01: Format 1 — Text Reading Lessons</h3>
+<ul>
+<li><strong>Test Steps:</strong> Open Chapter 1 (&quot;Light: Reflection &amp; Refraction&quot;) -&gt; Click <strong>&quot;Lesson Notes&quot;</strong>.</li>
+<li><strong>Expected Outcome:</strong> Displays formatted reading material and key conceptual rules.</li>
+</ul>
+<h3>TC-ASSET-02: Format 2 — Downloadable Notes (PDF)</h3>
+<ul>
+<li><strong>Test Steps:</strong> Click <strong>&quot;PDF Summary Notes&quot;</strong> icon in chapter breakdown.</li>
+<li><strong>Expected Outcome:</strong> Opens downloadable PDF viewer window.</li>
+</ul>
+<h3>TC-ASSET-03: Format 3 — Interactive MCQ Quiz Engine</h3>
+<ul>
+<li><strong>Test Steps:</strong><ol>
+<li>Click <strong>&quot;Test MCQs&quot;</strong>.</li>
+<li>Answer 5 questions with options (A, B, C, D).</li>
+<li>Submit Quiz.</li>
+</ol>
+</li>
+<li><strong>Expected Outcome:</strong> Real-time score summary (e.g., 4/5 - 80%), timer breakdown, and instant step-by-step explanations for each question.</li>
+</ul>
+<h3>TC-ASSET-04: Format 4 — Supplementary PDF Attachments</h3>
+<ul>
+<li><strong>Test Steps:</strong> Open attachments tab -&gt; View worksheet download link.</li>
+<li><strong>Expected Outcome:</strong> PDF lab worksheet accessible for offline revision.</li>
+</ul>
+<h3>TC-ASSET-05: Format 5 — DRM Video Lectures</h3>
+<ul>
+<li><strong>Test Steps:</strong> Click <strong>&quot;Play Video Class&quot;</strong> button.</li>
+<li><strong>Expected Outcome:</strong> Video player launches with playback speed controls (1.0x, 1.25x, 1.5x) and DRM stream verification.</li>
+</ul>
+<hr>
+<h2>Suite 5: Standalone E-Book Store &amp; Instant Delivery</h2>
+<h3>TC-EBOOK-01: Standalone E-Book Catalog Browsing</h3>
+<ul>
+<li><strong>Test Steps:</strong> Navigate to E-Book Store -&gt; Verify books: <em>KAS Prep Handbook (₹50)</em>, <em>Indian Constitution (₹100)</em>.</li>
+<li><strong>Expected Outcome:</strong> Catalog displays book title, cover, author, rating, page count, and standalone price without requiring full course subscription.</li>
+</ul>
+<h3>TC-EBOOK-02: E-Book Wallet Purchase &amp; Instant Unlocking</h3>
+<ul>
+<li><strong>Test Steps:</strong><ol>
+<li>Click <strong>&quot;Buy E-Book for ₹199&quot;</strong> on <em>Indian Polity Handbook</em>.</li>
+<li>Confirm wallet debit.</li>
+</ol>
+</li>
+<li><strong>Expected Outcome:</strong> Wallet balance deducted by ₹199; transaction logged; book status instantly changes to <code>&quot;PURCHASED&quot;</code>; <strong>&quot;Read PDF&quot;</strong> button unlocked.</li>
+</ul>
+<hr>
+<h2>Suite 6: In-App Wallet &amp; UPI Payment Engine</h2>
+<h3>TC-WLT-01: Wallet Balance &amp; Ledger Display</h3>
+<ul>
+<li><strong>Test Steps:</strong> Open Wallet tab -&gt; Review Current Balance &amp; Recent Transactions.</li>
+<li><strong>Expected Outcome:</strong> Displays formatted INR balance and credit/debit list with reference IDs.</li>
+</ul>
+<h3>TC-WLT-02: Razorpay UPI Wallet Top-Up</h3>
+<ul>
+<li><strong>Test Steps:</strong> Click <strong>&quot;+ Top-Up Wallet&quot;</strong> -&gt; Enter amount (<code>₹2,500</code>) -&gt; Confirm payment.</li>
+<li><strong>Expected Outcome:</strong> Wallet balance increases by ₹2,500; <code>CREDIT</code> transaction created in database.</li>
+</ul>
+<hr>
+<h2>Suite 7: Binary MLM Network Topology &amp; Placement Engine</h2>
+<h3>TC-MLM-01: Two-Leg Binary Tree Visualization (Depth 4)</h3>
+<ul>
+<li><strong>Test Steps:</strong> Navigate to <strong>&quot;Affiliate Downline Tree&quot;</strong> on Web Portal.</li>
+<li><strong>Expected Outcome:</strong> Visual hierarchical binary tree renders Root node, Left Leg node (L1), Right Leg node (R1), and Level-2 sub-nodes (L-L, L-R, R-L, R-R) with rank badges and PV metrics.</li>
+</ul>
+<h3>TC-MLM-02: Downline Leg Placement Preference Selector (<code>AUTO</code>/<code>LEFT</code>/<code>RIGHT</code>)</h3>
+<ul>
+<li><strong>Test Steps:</strong><ol>
+<li>Select placement preference <strong>&quot;LEFT&quot;</strong>.</li>
+<li>Register a new user using referral link.</li>
+</ol>
+</li>
+<li><strong>Expected Outcome:</strong> New user automatically placed at extreme left vacant spot in binary tree.</li>
+</ul>
+<h3>TC-MLM-03: Auto-Balance Placement Algorithm</h3>
+<ul>
+<li><strong>Test Steps:</strong> Set placement preference to <strong>&quot;AUTO&quot;</strong> -&gt; Register new user.</li>
+<li><strong>Expected Outcome:</strong> System evaluates left leg volume vs right leg volume and places new user in the weaker volume leg.</li>
+</ul>
+<hr>
+<h2>Suite 8: Binary Volume Matching, Payout Capping &amp; Deductions Engine</h2>
+<h3>TC-COMM-01: 1:1 Matched Volume &amp; 10% Weaker Leg Payout</h3>
+<ul>
+<li><strong>Pre-conditions:</strong> Left Leg PV = 12,500; Right Leg PV = 9,800.</li>
+<li><strong>Test Steps:</strong> Trigger payout preview / stats API (<code>GET /api/mlm/stats</code>).</li>
+<li><strong>Expected Outcome:</strong><ul>
+<li>Matched Volume = <code>min(12,500, 9,800) = 9,800 PV</code></li>
+<li>Gross Bonus (10%) = <code>₹980.00</code></li>
+</ul>
+</li>
+</ul>
+<h3>TC-COMM-02: Carry Forward Volume Calculation</h3>
+<ul>
+<li><strong>Test Steps:</strong> Inspect carry forward values after 9,800 PV matching.</li>
+<li><strong>Expected Outcome:</strong><ul>
+<li>Carried Left PV After = <code>12,500 - 9,800 = 2,700 PV</code></li>
+<li>Carried Right PV After = <code>9,800 - 9,800 = 0 PV</code></li>
+</ul>
+</li>
+</ul>
+<h3>TC-COMM-03: Daily Capping Protection Guard (₹25,000)</h3>
+<ul>
+<li><strong>Pre-conditions:</strong> Matched Volume = 300,000 PV (Gross Bonus = ₹30,000).</li>
+<li><strong>Test Steps:</strong> Run payout calculation engine.</li>
+<li><strong>Expected Outcome:</strong> Capped Gross Bonus capped at maximum <strong>₹25,000</strong> limit; <code>isCapped: true</code>.</li>
+</ul>
+<h3>TC-COMM-04: Mandatory Deductions (5% Admin + 5% TDS)</h3>
+<ul>
+<li><strong>Pre-conditions:</strong> Capped Gross Bonus = ₹25,000.</li>
+<li><strong>Test Steps:</strong> Verify net payout breakdown.</li>
+<li><strong>Expected Outcome:</strong><ul>
+<li>Admin Fee (5%) = <code>₹1,250.00</code></li>
+<li>TDS Deduction (5%) = <code>₹1,250.00</code></li>
+<li>Net Payable Payout = <code>₹25,000 - ₹2,500 = ₹22,500.00</code></li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2>Suite 9: Native Mobile Experience &amp; 1-Click Referral Share</h2>
+<h3>TC-MOB-01: Dual Theme System (Light / Dark Mode Toggle)</h3>
+<ul>
+<li><strong>Test Steps:</strong> Open Mobile App -&gt; Tap <strong>&quot;☀️ Light&quot; / &quot;🌙 Dark&quot;</strong> toggle button.</li>
+<li><strong>Expected Outcome:</strong> App theme seamlessly switches background, text, card borders, and metrics colors without layout glitch.</li>
+</ul>
+<h3>TC-MOB-02: 1-Click Clipboard Link Copy</h3>
+<ul>
+<li><strong>Test Steps:</strong> Tap <strong>&quot;📋 Copy Link&quot;</strong> in MLM tab.</li>
+<li><strong>Expected Outcome:</strong> Copies referral link (<code>http://&lt;ip&gt;:3000/register?ref=EDU-99201</code>) to device clipboard; displays alert toast.</li>
+</ul>
+<h3>TC-MOB-03: OS Native Share Sheet Integration</h3>
+<ul>
+<li><strong>Test Steps:</strong> Tap <strong>&quot;📲 Share Link&quot;</strong> on Android device.</li>
+<li><strong>Expected Outcome:</strong> Opens Android native share sheet allowing 1-click sharing to WhatsApp, Telegram, SMS, and Email.</li>
+</ul>
+<hr>
+<h2>Suite 10: Admin Panel &amp; Settlement Execution Engine</h2>
+<h3>TC-ADM-01: Batch Binary MLM Payout Settlement Cycle</h3>
+<ul>
+<li><strong>Test Steps:</strong> Log in as Super Admin -&gt; Click <strong>&quot;⚡ Run Payout Settlement&quot;</strong>.</li>
+<li><strong>Expected Outcome:</strong> Executes settlement for all accounts with matched PV; credits net payouts to user wallets; updates carry-forward volumes; logs transaction and <code>MlmPayout</code> audit records.</li>
+</ul>
+<hr>
+<h1>3. Requirement Traceability Matrix (RTM)</h1>
+<table>
+<thead>
+<tr>
+<th align="left">Requirement Description</th>
+<th align="left">Specification Ref</th>
+<th align="left">Primary Code Module</th>
+<th align="left">Verifying UAT Test Case IDs</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>User Login &amp; Registration</strong></td>
+<td align="left">Sec 3.1</td>
+<td align="left"><code>authController.js</code>, <code>AuthScreen.tsx</code></td>
+<td align="left">TC-AUTH-01, TC-AUTH-02</td>
+</tr>
+<tr>
+<td align="left"><strong>State Regional Localization</strong></td>
+<td align="left">Sec 3.1</td>
+<td align="left"><code>StatePickerModal.tsx</code>, <code>State.js</code></td>
+<td align="left">TC-AUTH-03</td>
+</tr>
+<tr>
+<td align="left"><strong>Aadhaar &amp; PAN KYC Scanner</strong></td>
+<td align="left">Sec 3.1</td>
+<td align="left"><code>kycController.js</code>, <code>StudentHomeScreen.tsx</code></td>
+<td align="left">TC-KYC-01, TC-KYC-02, TC-KYC-03</td>
+</tr>
+<tr>
+<td align="left"><strong>1-Year Subscription Period</strong></td>
+<td align="left">Sec 3.1</td>
+<td align="left"><code>Purchase.js</code>, <code>purchaseController.js</code></td>
+<td align="left">TC-AUTH-04</td>
+</tr>
+<tr>
+<td align="left"><strong>6 Core Verticals Taxonomy</strong></td>
+<td align="left">Sec 2</td>
+<td align="left"><code>ContentHierarchy.tsx</code>, <code>mockData.ts</code></td>
+<td align="left">TC-EDU-01 to TC-EDU-06</td>
+</tr>
+<tr>
+<td align="left"><strong>5 Primary Asset Formats</strong></td>
+<td align="left">Sec 3.3</td>
+<td align="left"><code>LearningAsset.js</code>, <code>McqQuizEngine.tsx</code></td>
+<td align="left">TC-ASSET-01 to TC-ASSET-05</td>
+</tr>
+<tr>
+<td align="left"><strong>Standalone E-Book Store</strong></td>
+<td align="left">Sec 3.4</td>
+<td align="left"><code>ebookController.js</code>, <code>WalletEbookStore.tsx</code></td>
+<td align="left">TC-EBOOK-01, TC-EBOOK-02</td>
+</tr>
+<tr>
+<td align="left"><strong>In-App Digital Wallet</strong></td>
+<td align="left">Sec 3.5</td>
+<td align="left"><code>walletController.js</code>, <code>Wallet.js</code></td>
+<td align="left">TC-WLT-01, TC-WLT-02</td>
+</tr>
+<tr>
+<td align="left"><strong>Two-Leg Binary Tree Topology</strong></td>
+<td align="left">Sec 4.1</td>
+<td align="left"><code>MLMNode.js</code>, <code>MlmTreeVisualizer.tsx</code></td>
+<td align="left">TC-MLM-01, TC-MLM-02, TC-MLM-03</td>
+</tr>
+<tr>
+<td align="left"><strong>1:1 Pair Match &amp; 10% Bonus</strong></td>
+<td align="left">Sec 4.2</td>
+<td align="left"><code>mlmController.js</code>, <code>mlmService.js</code></td>
+<td align="left">TC-COMM-01</td>
+</tr>
+<tr>
+<td align="left"><strong>Carry Forward PV Roll-over</strong></td>
+<td align="left">Sec 4.2</td>
+<td align="left"><code>mlmController.js</code>, <code>MLMNode.js</code></td>
+<td align="left">TC-COMM-02</td>
+</tr>
+<tr>
+<td align="left"><strong>₹25,000 Daily Capping Guard</strong></td>
+<td align="left">Sec 4.3</td>
+<td align="left"><code>mlmController.js</code>, <code>MlmPayout.js</code></td>
+<td align="left">TC-COMM-03</td>
+</tr>
+<tr>
+<td align="left"><strong>5% Admin + 5% TDS Deductions</strong></td>
+<td align="left">Sec 4.3</td>
+<td align="left"><code>mlmController.js</code>, <code>AdminPanel.tsx</code></td>
+<td align="left">TC-COMM-04</td>
+</tr>
+<tr>
+<td align="left"><strong>Mobile Dual Theme &amp; Share</strong></td>
+<td align="left">Sec 1.2</td>
+<td align="left"><code>StudentHomeScreen.tsx</code></td>
+<td align="left">TC-MOB-01, TC-MOB-02, TC-MOB-03</td>
+</tr>
+<tr>
+<td align="left"><strong>Admin Settlement Engine</strong></td>
+<td align="left">Sec 3.5</td>
+<td align="left"><code>mlmController.js</code></td>
+<td align="left">TC-ADM-01</td>
+</tr>
+</tbody></table>
+<hr>
+<p><strong>Approval Signature:</strong> ___________________________ (Lead QA Architect)<br><strong>Date of Execution:</strong> 04 / September / 2026</p>
