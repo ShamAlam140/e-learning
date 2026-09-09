@@ -86,7 +86,7 @@ const getAffiliateStats = catchAsync(async (req, res) => {
   const tdsDeduction = Math.round(cappedGrossBonus * 0.05); // 5% TDS
   const netPayableBonus = cappedGrossBonus - adminFee - tdsDeduction;
 
-  const hostOrigin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : 'http://localhost:3000');
+  const hostOrigin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : 'https://e-learning-63yb.onrender.com');
   const referralLink = `${hostOrigin}/register?ref=${req.user.referralCode || req.user.userId}`;
 
   return sendSuccess(res, 200, 'Affiliate stats retrieved successfully.', {

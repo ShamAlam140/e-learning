@@ -70,11 +70,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onCheckBackendHealth, ba
   const [filterKyc, setFilterKyc] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://e-learning-63yb.onrender.com/api';
+
   // Fetch Real-time Aggregated Analytics from Backend REST API
   const fetchGranularAnalytics = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/admin/users/analytics', {
+      const res = await fetch(`${API_BASE_URL}/admin/users/analytics`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -98,7 +100,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onCheckBackendHealth, ba
       if (filterKyc) params.append('kycStatus', filterKyc);
       if (searchQuery) params.append('search', searchQuery);
 
-      const res = await fetch(`http://localhost:5000/api/admin/users?${params.toString()}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/users?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

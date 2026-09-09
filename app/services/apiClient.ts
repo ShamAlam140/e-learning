@@ -1,8 +1,7 @@
 import { Platform } from 'react-native';
 
-// Mac IP on Wi-Fi: 10.14.223.86 (Works on Android physical devices, iOS devices, & emulators)
-export const LOCAL_MAC_IP = '10.139.77.87';
-export const DEFAULT_API_BASE_URL = `http://${LOCAL_MAC_IP}:5001/api`;
+export const RENDER_DEPLOYMENT_URL = 'https://e-learning-63yb.onrender.com/api';
+export const DEFAULT_API_BASE_URL = RENDER_DEPLOYMENT_URL;
 
 let currentApiBaseUrl = DEFAULT_API_BASE_URL;
 let authToken: string | null = null;

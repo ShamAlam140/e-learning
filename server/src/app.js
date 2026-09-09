@@ -30,9 +30,8 @@ const app = express();
 // Security Headers
 app.use(helmet());
 
-// Cross-Origin Resource Sharing
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: (origin, callback) => callback(null, true),
   credentials: true
 }));
 

@@ -1,7 +1,7 @@
 import { apiFetch } from './apiClient';
 import { CourseRecord } from './adminService';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://e-learning-63yb.onrender.com/api';
 
 export interface StudentStats {
   enrolledCoursesCount: number;
