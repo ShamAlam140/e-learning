@@ -28,6 +28,7 @@ import {
   purchaseEbook,
   fetchAffiliateStats,
   updateLegPreference,
+  fetchBinaryTree,
   StudentStats,
   CourseRecord,
   McqRecord,
@@ -36,6 +37,101 @@ import {
 } from '../services/studentService';
 
 const DEFAULT_COURSE_BANNER = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800';
+
+const MobileTreeNodeItem: React.FC<{
+  node?: any | null;
+  positionLabel: string;
+  depth: number;
+  maxDepth: number;
+  isDarkMode: boolean;
+  colors: any;
+}> = ({ node, positionLabel, depth, maxDepth, isDarkMode, colors }) => {
+  if (!node || node.userId === 'VACANT') {
+    return (
+      <View
+        style={{
+          borderWidth: 1,
+          borderStyle: 'dashed',
+          borderColor: colors.cardBorder,
+          borderRadius: 8,
+          paddingHorizontal: 8,
+          paddingVertical: 6,
+          alignItems: 'center',
+          minWidth: 100,
+          backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC',
+        }}
+      >
+        <Text style={{ fontSize: 9, color: colors.textMuted, fontWeight: '600' }}>
+          Empty Spot ({positionLabel})
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <View
+        style={{
+          paddingHorizontal: 10,
+          paddingVertical: 8,
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: depth === 1 ? '#6366F1' : colors.cardBorder,
+          backgroundColor: depth === 1
+            ? (isDarkMode ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.1)')
+            : colors.itemSubCard,
+          alignItems: 'center',
+          minWidth: 110,
+        }}
+      >
+        <View style={{ backgroundColor: '#10B981', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, marginBottom: 2 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '800' }}>
+            {node.rank || 'BRONZE'}
+          </Text>
+        </View>
+        <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '800' }}>
+          {node.name || node.user?.name || node.userId}
+        </Text>
+        <Text style={{ color: colors.textMuted, fontSize: 9, marginTop: 1 }}>
+          ID: {node.userId}
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
+          <Text style={{ color: '#10B981', fontSize: 9, fontWeight: '700' }}>
+            L: {node.leftVolume || node.carriedLeftPV || 0} PV
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: 9 }}>•</Text>
+          <Text style={{ color: '#6366F1', fontSize: 9, fontWeight: '700' }}>
+            R: {node.rightVolume || node.carriedRightPV || 0} PV
+          </Text>
+        </View>
+      </View>
+
+      {depth < maxDepth && (node.leftLeg || node.rightLeg) && (
+        <View style={{ alignItems: 'center', width: '100%', marginTop: 4 }}>
+          <View style={{ width: 2, height: 10, backgroundColor: '#6366F1' }} />
+          <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
+            <MobileTreeNodeItem
+              node={node.leftLeg}
+              positionLabel="L"
+              depth={depth + 1}
+              maxDepth={maxDepth}
+              isDarkMode={isDarkMode}
+              colors={colors}
+            />
+            <MobileTreeNodeItem
+              node={node.rightLeg}
+              positionLabel="R"
+              depth={depth + 1}
+              maxDepth={maxDepth}
+              isDarkMode={isDarkMode}
+              colors={colors}
+            />
+          </View>
+        </View>
+      )}
+    </View>
+  );
+};
 
 export const StudentHomeScreen: React.FC = () => {
   const { user, logout } = useAuth();
@@ -105,9 +201,11 @@ export const StudentHomeScreen: React.FC = () => {
   const [ebookMsg, setEbookMsg] = useState('');
 
   // MLM Affiliate Network State
-  const [mlmStats, setMlmStats] = useState<any>(null);
+  const [mlmStats, setMlmStats] = useState<any | null>(null);
   const [isUpdatingLeg, setIsUpdatingLeg] = useState(false);
   const [mlmMsg, setMlmMsg] = useState('');
+  const [binaryTree, setBinaryTree] = useState<any | null>(null);
+  const [isLoadingTree, setIsLoadingTree] = useState<boolean>(false);
 
   // Loaders
   const loadDashboardStats = async () => {
@@ -126,6 +224,15 @@ export const StudentHomeScreen: React.FC = () => {
     }
   };
 
+  const loadBinaryTreeData = async () => {
+    setIsLoadingTree(true);
+    const res = await fetchBinaryTree();
+    if (res.success && res.data) {
+      setBinaryTree(res.data.tree || null);
+    }
+    setIsLoadingTree(false);
+  };
+
   const handleLegPlacementChange = async (leg: 'AUTO' | 'LEFT' | 'RIGHT') => {
     setMlmMsg('');
     setIsUpdatingLeg(true);
@@ -134,6 +241,7 @@ export const StudentHomeScreen: React.FC = () => {
     if (res.success) {
       setMlmMsg(`✅ Leg preference updated to ${leg}`);
       loadMlmStats();
+      loadBinaryTreeData();
     } else {
       setMlmMsg(`⛔ ${res.message || 'Failed to update leg'}`);
     }
@@ -141,7 +249,7 @@ export const StudentHomeScreen: React.FC = () => {
 
   const getMobileShareUrl = () => {
     const code = mlmStats?.referralCode || user?.referralCode || user?.userId || 'REF-STUDENT';
-    return `http://10.139.77.87:3000/register?ref=${code}`;
+    return `https://e-learning-ashy-iota.vercel.app/register?ref=${code}`;
   };
 
   const handleCopyMobileLink = () => {
@@ -212,6 +320,7 @@ export const StudentHomeScreen: React.FC = () => {
     loadMcqs();
     loadEbooksData();
     loadMlmStats();
+    loadBinaryTreeData();
   }, []);
 
   // Handlers
@@ -749,6 +858,49 @@ export const StudentHomeScreen: React.FC = () => {
               • Daily Capping Guard: <Text style={{ color: '#10B981', fontWeight: '700' }}>₹25,000 / day</Text>{'\n'}
               • Deductions (10%): <Text style={{ color: '#EF4444', fontWeight: '700' }}>-₹{(mlmStats?.adminFee || 0) + (mlmStats?.tdsDeduction || 0)}</Text> (5% Admin + 5% TDS)
             </Text>
+          </View>
+
+          {/* Interactive Binary Tree Visualizer Section */}
+          <View style={{ backgroundColor: colors.itemSubCard, borderRadius: 14, padding: 14, marginTop: 14, borderWidth: 1, borderColor: colors.cardBorder }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '800' }}>
+                  🌳 Downline Tree & Leg Structure
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+                  Interactive 3-level binary network downline tree
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={loadBinaryTreeData}
+                style={{ backgroundColor: colors.cardBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder }}
+              >
+                <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>
+                  🔄 Reload Tree
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {isLoadingTree ? (
+              <ActivityIndicator color="#6366F1" style={{ marginVertical: 20 }} />
+            ) : binaryTree ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={true} contentContainerStyle={{ paddingVertical: 10, alignItems: 'center', minWidth: '100%' }}>
+                <MobileTreeNodeItem
+                  node={binaryTree}
+                  positionLabel="ROOT"
+                  depth={1}
+                  maxDepth={3}
+                  isDarkMode={isDarkMode}
+                  colors={colors}
+                />
+              </ScrollView>
+            ) : (
+              <View style={{ padding: 16, alignItems: 'center' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  No downline members joined yet. Share your referral link to build your binary team!
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       )}
