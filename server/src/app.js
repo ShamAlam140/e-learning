@@ -30,9 +30,36 @@ const app = express();
 // Security Headers
 app.use(helmet());
 
+const allowedOrigins = [
+  'https://e-learning-ashy-iota.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5001'
+];
+
+if (process.env.CORS_ORIGIN) {
+  process.env.CORS_ORIGIN.split(',').forEach((orig) => {
+    const trimmed = orig.trim();
+    if (trimmed && !allowedOrigins.includes(trimmed)) {
+      allowedOrigins.push(trimmed);
+    }
+  });
+}
+
 app.use(cors({
-  origin: (origin, callback) => callback(null, true),
-  credentials: true
+  origin: (origin, callback) => {
+    // Allow non-browser clients (mobile apps, Postman, server-to-server) where origin is undefined
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
 
 // Global Rate Limiting
