@@ -43,9 +43,11 @@ const MobileTreeNodeItem: React.FC<{
   positionLabel: string;
   depth: number;
   maxDepth: number;
+  displayRootId?: string;
+  onNodeClick: (node: any) => void;
   isDarkMode: boolean;
   colors: any;
-}> = ({ node, positionLabel, depth, maxDepth, isDarkMode, colors }) => {
+}> = ({ node, positionLabel, depth, maxDepth, displayRootId, onNodeClick, isDarkMode, colors }) => {
   if (!node || node.userId === 'VACANT') {
     return (
       <View
@@ -68,31 +70,49 @@ const MobileTreeNodeItem: React.FC<{
     );
   }
 
+  const isFocused = displayRootId && (node.id === displayRootId || node.userId === displayRootId);
+  const hasChildren = Boolean(node.leftLeg || node.rightLeg);
+
   return (
     <View style={{ alignItems: 'center' }}>
-      <View
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => onNodeClick(node)}
         style={{
           paddingHorizontal: 10,
           paddingVertical: 8,
-          borderRadius: 10,
-          borderWidth: 1,
-          borderColor: depth === 1 ? '#6366F1' : colors.cardBorder,
-          backgroundColor: depth === 1
-            ? (isDarkMode ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.1)')
-            : colors.itemSubCard,
+          borderRadius: 12,
+          borderWidth: isFocused ? 2 : 1,
+          borderColor: isFocused ? '#6366F1' : (depth === 1 ? '#818CF8' : colors.cardBorder),
+          backgroundColor: isFocused
+            ? (isDarkMode ? 'rgba(99,102,241,0.35)' : 'rgba(99,102,241,0.18)')
+            : (depth === 1 ? (isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.08)') : colors.itemSubCard),
           alignItems: 'center',
-          minWidth: 110,
+          minWidth: 120,
+          shadowColor: isFocused ? '#6366F1' : '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: isFocused ? 0.3 : 0.05,
+          shadowRadius: 4,
+          elevation: isFocused ? 4 : 1,
         }}
       >
-        <View style={{ backgroundColor: '#10B981', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, marginBottom: 2 }}>
-          <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '800' }}>
-            {node.rank || 'BRONZE'}
-          </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+          <View style={{ backgroundColor: '#10B981', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '800' }}>
+              {node.rank || 'BRONZE'}
+            </Text>
+          </View>
+          {hasChildren && (
+            <Text style={{ fontSize: 9, color: '#6366F1', fontWeight: '800' }}>
+              🔍 Zoom
+            </Text>
+          )}
         </View>
+
         <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '800' }}>
           {node.name || node.user?.name || node.userId}
         </Text>
-        <Text style={{ color: colors.textMuted, fontSize: 9, marginTop: 1 }}>
+        <Text style={{ color: colors.textMuted, fontSize: 9, marginTop: 1, fontFamily: 'monospace' }}>
           ID: {node.userId}
         </Text>
         <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
@@ -104,17 +124,19 @@ const MobileTreeNodeItem: React.FC<{
             R: {node.rightVolume || node.carriedRightPV || 0} PV
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {depth < maxDepth && (node.leftLeg || node.rightLeg) && (
         <View style={{ alignItems: 'center', width: '100%', marginTop: 4 }}>
-          <View style={{ width: 2, height: 10, backgroundColor: '#6366F1' }} />
+          <View style={{ width: 2, height: 12, backgroundColor: '#6366F1' }} />
           <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
             <MobileTreeNodeItem
               node={node.leftLeg}
               positionLabel="L"
               depth={depth + 1}
               maxDepth={maxDepth}
+              displayRootId={displayRootId}
+              onNodeClick={onNodeClick}
               isDarkMode={isDarkMode}
               colors={colors}
             />
@@ -123,6 +145,8 @@ const MobileTreeNodeItem: React.FC<{
               positionLabel="R"
               depth={depth + 1}
               maxDepth={maxDepth}
+              displayRootId={displayRootId}
+              onNodeClick={onNodeClick}
               isDarkMode={isDarkMode}
               colors={colors}
             />
@@ -205,6 +229,7 @@ export const StudentHomeScreen: React.FC = () => {
   const [isUpdatingLeg, setIsUpdatingLeg] = useState(false);
   const [mlmMsg, setMlmMsg] = useState('');
   const [binaryTree, setBinaryTree] = useState<any | null>(null);
+  const [focusedNode, setFocusedNode] = useState<any | null>(null);
   const [isLoadingTree, setIsLoadingTree] = useState<boolean>(false);
 
   // Loaders
@@ -868,28 +893,62 @@ export const StudentHomeScreen: React.FC = () => {
                   🌳 Downline Tree & Leg Structure
                 </Text>
                 <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
-                  Interactive 3-level binary network downline tree
+                  Tap any node to drill down into its personal downline tree
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={loadBinaryTreeData}
-                style={{ backgroundColor: colors.cardBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder }}
-              >
-                <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>
-                  🔄 Reload Tree
-                </Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {focusedNode && (
+                  <TouchableOpacity
+                    onPress={() => setFocusedNode(null)}
+                    style={{ backgroundColor: '#F59E0B', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8 }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800' }}>
+                      ↺ Reset Root
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={loadBinaryTreeData}
+                  style={{ backgroundColor: colors.cardBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder }}
+                >
+                  <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>
+                    🔄 Reload
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
+
+            {focusedNode && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDarkMode ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.12)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, marginBottom: 10 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#6366F1', flex: 1 }}>
+                  🔍 Focused on: {focusedNode.name || focusedNode.userId} (ID: {focusedNode.userId})
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setFocusedNode(null)}
+                  style={{ backgroundColor: colors.cardBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: colors.cardBorder }}
+                >
+                  <Text style={{ color: colors.textPrimary, fontSize: 10, fontWeight: '700' }}>
+                    Show Top Root
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {isLoadingTree ? (
               <ActivityIndicator color="#6366F1" style={{ marginVertical: 20 }} />
             ) : binaryTree ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={true} contentContainerStyle={{ paddingVertical: 10, alignItems: 'center', minWidth: '100%' }}>
                 <MobileTreeNodeItem
-                  node={binaryTree}
+                  node={focusedNode || binaryTree}
                   positionLabel="ROOT"
                   depth={1}
                   maxDepth={3}
+                  displayRootId={(focusedNode || binaryTree)?.id || (focusedNode || binaryTree)?.userId}
+                  onNodeClick={(clickedNode) => {
+                    if (clickedNode && clickedNode.userId !== 'VACANT') {
+                      setFocusedNode(clickedNode);
+                    }
+                  }}
                   isDarkMode={isDarkMode}
                   colors={colors}
                 />
