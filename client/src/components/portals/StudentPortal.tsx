@@ -392,7 +392,7 @@ export const StudentPortal: React.FC = () => {
             MY ENROLLED BATCHES
           </div>
           <div style={{ fontSize: '1.4rem', fontWeight: '800' }}>
-            {stats ? stats.enrolledCoursesCount : enrolledCourses.length} Courses
+            {enrolledCourses.length > 0 ? enrolledCourses.length : (stats ? stats.enrolledCoursesCount : 0)} Courses
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Live Classes & Recorded Videos</div>
         </div>

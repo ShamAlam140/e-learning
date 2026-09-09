@@ -470,7 +470,7 @@ export const StudentHomeScreen: React.FC = () => {
         <View style={{ flex: 1, minWidth: 140, backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.08)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(99, 102, 241, 0.3)' }}>
           <Text style={{ color: '#6366F1', fontSize: 10, fontWeight: '700' }}>ENROLLED BATCHES</Text>
           <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '800', marginTop: 4 }}>
-            {stats ? stats.enrolledCoursesCount : enrolledCourses.length} Courses
+            {enrolledCourses.length > 0 ? enrolledCourses.length : (stats ? stats.enrolledCoursesCount : 0)} Courses
           </Text>
           <Text style={{ color: colors.textSecondary, fontSize: 10, marginTop: 2 }}>Live & Recorded Classes</Text>
         </View>
