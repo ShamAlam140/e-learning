@@ -18,6 +18,20 @@ const mcqAttemptSchema = new mongoose.Schema(
       ref: 'Subject',
       index: true
     },
+    course: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Course',
+      index: true
+    },
+    quizSetTitle: {
+      type: String,
+      trim: true
+    },
+    quizSetId: {
+      type: String,
+      trim: true,
+      index: true
+    },
     answers: [
       {
         question: {

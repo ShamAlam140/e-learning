@@ -17,6 +17,40 @@ const mcqQuestionSchema = new mongoose.Schema(
       ref: 'User',
       index: true
     },
+    course: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Course',
+      index: true
+    },
+    quizSetTitle: {
+      type: String,
+      default: 'Practice Test Set #1',
+      trim: true
+    },
+    quizSetId: {
+      type: String,
+      trim: true,
+      index: true
+    },
+    stateCode: {
+      type: String,
+      default: 'GLOBAL',
+      trim: true
+    },
+    boardOrGrade: {
+      type: String,
+      default: 'General Batch',
+      trim: true
+    },
+    subCategory: {
+      type: String,
+      trim: true
+    },
+    subjectName: {
+      type: String,
+      default: 'All Subjects',
+      trim: true
+    },
     questionText: {
       type: String,
       required: [true, 'Question text is required'],

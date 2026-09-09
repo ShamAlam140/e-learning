@@ -33,6 +33,7 @@ import {
   CourseRecord,
   McqRecord,
   QuizAttemptResult,
+  QuizSetGroup,
   EbookRecord,
 } from '../services/studentService';
 
@@ -181,6 +182,8 @@ export const StudentHomeScreen: React.FC = () => {
   const [enrolledCourses, setEnrolledCourses] = useState<CourseRecord[]>([]);
   const [browseCoursesList, setBrowseCoursesList] = useState<CourseRecord[]>([]);
   const [mcqList, setMcqList] = useState<McqRecord[]>([]);
+  const [quizSetsList, setQuizSetsList] = useState<QuizSetGroup[]>([]);
+  const [selectedQuizSetId, setSelectedQuizSetId] = useState<string>('');
   const [ebookList, setEbookList] = useState<EbookRecord[]>([]);
 
   // Selected Course Details Inspection Modal State
@@ -324,9 +327,43 @@ export const StudentHomeScreen: React.FC = () => {
     setIsLoadingMcqs(true);
     const res = await fetchPracticeMcqs();
     if (res.success && res.data) {
-      setMcqList(res.data.mcqs || []);
+      const sets = res.data.quizSets || [];
+      setQuizSetsList(sets);
+
+      if (sets.length > 0) {
+        const initialSet = sets[0];
+        setSelectedQuizSetId(initialSet.quizSetId);
+        setMcqList(initialSet.mcqs || []);
+        if (initialSet.hasAttempted && initialSet.lastAttempt) {
+          setQuizResult(initialSet.lastAttempt);
+        } else {
+          setQuizResult(null);
+        }
+      } else {
+        setMcqList(res.data.mcqs || []);
+        if (res.data.hasAttempted && res.data.lastAttempt) {
+          setQuizResult(res.data.lastAttempt);
+        } else {
+          setQuizResult(null);
+        }
+      }
     }
     setIsLoadingMcqs(false);
+  };
+
+  const handleSelectQuizSet = (quizSetId: string) => {
+    setSelectedQuizSetId(quizSetId);
+    setQuizMsg('');
+    setSelectedAnswers({});
+    const foundSet = quizSetsList.find((s) => s.quizSetId === quizSetId);
+    if (foundSet) {
+      setMcqList(foundSet.mcqs || []);
+      if (foundSet.hasAttempted && foundSet.lastAttempt) {
+        setQuizResult(foundSet.lastAttempt);
+      } else {
+        setQuizResult(null);
+      }
+    }
   };
 
   const loadEbooksData = async () => {
@@ -409,12 +446,21 @@ export const StudentHomeScreen: React.FC = () => {
       return;
     }
 
+    const activeSet = quizSetsList.find((s) => s.quizSetId === selectedQuizSetId);
+    const quizSetTitle = activeSet?.quizSetTitle || undefined;
+
     setIsSubmittingQuiz(true);
-    const res = await submitStudentQuiz(answersPayload);
+    const res = await submitStudentQuiz(answersPayload, selectedQuizSetId || undefined, quizSetTitle);
     setIsSubmittingQuiz(false);
 
     if (res.success && res.data) {
-      setQuizResult(res.data.attempt);
+      const newAttempt = res.data.attempt;
+      setQuizResult(newAttempt);
+      setQuizSetsList((prevSets) =>
+        prevSets.map((s) =>
+          s.quizSetId === selectedQuizSetId ? { ...s, hasAttempted: true, lastAttempt: newAttempt } : s
+        )
+      );
       loadDashboardStats();
     } else {
       setQuizMsg(`⛔ ${res.message || 'Failed to submit quiz.'}`);
@@ -1177,19 +1223,71 @@ export const StudentHomeScreen: React.FC = () => {
             Test your knowledge with live MCQ questions
           </Text>
 
+          {quizSetsList.length > 0 && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 13, marginBottom: 8 }}>
+                📁 Select Test Paper / Quiz Set ({quizSetsList.length} Available)
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+                {quizSetsList.map((setObj) => {
+                  const isSelected = setObj.quizSetId === selectedQuizSetId;
+                  return (
+                    <TouchableOpacity
+                      key={setObj.quizSetId}
+                      onPress={() => handleSelectQuizSet(setObj.quizSetId)}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                        borderRadius: 10,
+                        marginRight: 8,
+                        borderWidth: isSelected ? 2 : 1,
+                        borderColor: isSelected ? '#6366F1' : colors.cardBorder,
+                        backgroundColor: isSelected ? (isDarkMode ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.1)') : colors.itemSubCard,
+                        minWidth: 150,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <Text style={{ color: isSelected ? '#6366F1' : colors.textPrimary, fontWeight: '700', fontSize: 12 }}>
+                          {setObj.quizSetTitle || 'Practice Set'}
+                        </Text>
+                        {setObj.hasAttempted && (
+                          <Text style={{ color: '#10B981', fontWeight: '800', fontSize: 10 }}>🔒 Attempted</Text>
+                        )}
+                      </View>
+                      <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+                        {setObj.count} Questions {setObj.subjectName ? `• ${setObj.subjectName}` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
           {quizResult && (
             <View
               style={{
                 backgroundColor: quizResult.passed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
+                padding: 14,
                 borderRadius: 10,
-                padding: 12,
                 marginBottom: 14,
+                borderWidth: 1,
+                borderColor: quizResult.passed ? '#10B981' : '#F43F5E',
               }}
             >
-              <Text style={{ color: quizResult.passed ? '#10B981' : '#F43F5E', fontWeight: '800', fontSize: 14 }}>
-                Result: Score {quizResult.score}/{quizResult.totalMarks} ({quizResult.percentage}%) -{' '}
-                {quizResult.passed ? 'PASSED 🎉' : 'NEEDS IMPROVEMENT ⚠️'}
-              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: quizResult.passed ? '#10B981' : '#F43F5E', fontWeight: '800', fontSize: 14 }}>
+                    Official Permanent Scorecard: {quizResult.score} / {quizResult.totalMarks} ({quizResult.percentage}%)
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 4 }}>
+                    Status: {quizResult.passed ? 'PASSED 🎉' : 'NEEDS IMPROVEMENT ⚠️'} • 🔒 Retakes Disabled (Permanent Record)
+                  </Text>
+                </View>
+                <View style={{ backgroundColor: quizResult.passed ? '#10B981' : '#F43F5E', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800' }}>RECORDED</Text>
+                </View>
+              </View>
             </View>
           )}
 
@@ -1216,7 +1314,11 @@ export const StudentHomeScreen: React.FC = () => {
                   return (
                     <TouchableOpacity
                       key={optIdx}
-                      onPress={() => handleSelectQuizOption(mcq._id, optIdx)}
+                      onPress={() => {
+                        if (!quizResult) {
+                          handleSelectQuizOption(mcq._id, optIdx);
+                        }
+                      }}
                       style={{
                         backgroundColor: isSelected ? 'rgba(99, 102, 241, 0.15)' : colors.cardBg,
                         borderWidth: 1,
@@ -1224,6 +1326,7 @@ export const StudentHomeScreen: React.FC = () => {
                         borderRadius: 8,
                         padding: 10,
                         marginBottom: 6,
+                        opacity: quizResult ? 0.8 : 1,
                       }}
                     >
                       <Text style={{ color: isSelected ? '#6366F1' : colors.textPrimary, fontSize: 13 }}>
@@ -1237,17 +1340,23 @@ export const StudentHomeScreen: React.FC = () => {
           )}
 
           {mcqList.length > 0 && (
-            <TouchableOpacity
-              onPress={handleQuizSubmit}
-              disabled={isSubmittingQuiz}
-              style={{ backgroundColor: '#F59E0B', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 8 }}
-            >
-              {isSubmittingQuiz ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>Submit Quiz Answers</Text>
-              )}
-            </TouchableOpacity>
+            quizResult ? (
+              <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#10B981' }}>
+                <Text style={{ color: '#10B981', fontWeight: '800', fontSize: 13 }}>🔒 Test Completed — Official Scorecard Recorded Permanently</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={handleQuizSubmit}
+                disabled={isSubmittingQuiz}
+                style={{ backgroundColor: '#F59E0B', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 8 }}
+              >
+                {isSubmittingQuiz ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>Submit Quiz Answers</Text>
+                )}
+              </TouchableOpacity>
+            )
           )}
         </View>
       )}

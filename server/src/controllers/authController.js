@@ -359,11 +359,29 @@ const updateStudentPreference = catchAsync(async (req, res, next) => {
   });
 });
 
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Logout user and clear HttpOnly access & refresh token cookies
+ * @access  Public
+ */
+const logout = catchAsync(async (req, res) => {
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  };
+  res.clearCookie('accessToken', cookieOptions);
+  res.clearCookie('refreshToken', cookieOptions);
+  res.clearCookie('jwt', cookieOptions);
+  return sendSuccess(res, 200, 'Logged out successfully. Token cookies cleared.');
+});
+
 module.exports = {
   register,
   verifyOTP,
   verifyEmailOTP,
   login,
+  logout,
   getMe,
   updateStatePreference,
   updateStudentPreference,

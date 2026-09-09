@@ -4,6 +4,7 @@ const {
   verifyOTP,
   verifyEmailOTP,
   login,
+  logout,
   getMe,
   updateStatePreference,
   updateStudentPreference,
@@ -24,6 +25,7 @@ router.post('/register', validateRequest(registerSchema), register);
 router.post('/verify-otp', validateRequest(verifyOtpSchema), verifyOTP);
 router.post('/verify-email-otp', verifyEmailOTP);
 router.post('/login', validateRequest(loginSchema), login);
+router.post('/logout', logout);
 router.post('/refresh-token', refreshAccessToken);
 
 // Protected Routes

@@ -77,13 +77,26 @@ export const topUpStudentWallet = async (amount: number) => {
   });
 };
 
+export interface QuizSetGroup {
+  quizSetId: string;
+  quizSetTitle: string;
+  courseId?: string | null;
+  courseTitle?: string;
+  subjectName?: string;
+  boardOrGrade?: string;
+  count: number;
+  hasAttempted: boolean;
+  lastAttempt?: QuizAttemptResult | null;
+  mcqs: any[];
+}
+
 /**
  * Submit student quiz attempt, evaluate score, and save attempt record
  */
-export const submitStudentQuiz = async (answers: QuizSubmissionAnswer[]) => {
+export const submitStudentQuiz = async (answers: QuizSubmissionAnswer[], quizSetId?: string, quizSetTitle?: string) => {
   return apiFetch<{ attempt: QuizAttemptResult }>('/student/quiz/submit', {
     method: 'POST',
-    body: JSON.stringify({ answers })
+    body: JSON.stringify({ answers, quizSetId, quizSetTitle })
   });
 };
 
@@ -132,4 +145,19 @@ export const submitStudentKyc = async (
     return { success: false, message: data.message || 'Failed to submit KYC scan.' };
   }
   return { success: true, data: data.data as { kycRecord: any } };
+};
+
+/**
+ * Fetch practice MCQs exclusively for courses in which the student is ENROLLED
+ */
+export const fetchStudentPracticeMcqs = async () => {
+  return apiFetch<{
+    count: number;
+    quizSets?: QuizSetGroup[];
+    mcqs: any[];
+    isEnrolled: boolean;
+    message?: string;
+    hasAttempted?: boolean;
+    lastAttempt?: any;
+  }>('/student/mcqs');
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, BookOpen, ShoppingBag, HelpCircle, FileCheck, RefreshCw, Eye, X, AlertCircle, Video, Radio, PlusCircle, Target, Share2, Megaphone } from 'lucide-react';
+import { GraduationCap, BookOpen, ShoppingBag, HelpCircle, FileCheck, RefreshCw, Eye, X, AlertCircle, Video, Radio, PlusCircle, Target, Share2, Megaphone, Lock, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { StudentPreferenceModal } from '../StudentPreferenceModal';
 import { AffiliateMlmPortal } from './AffiliateMlmPortal';
@@ -11,10 +11,12 @@ import {
   topUpStudentWallet,
   submitStudentQuiz,
   submitStudentKyc,
+  fetchStudentPracticeMcqs,
   StudentStats,
-  QuizAttemptResult
+  QuizAttemptResult,
+  QuizSetGroup
 } from '../../services/studentService';
-import { fetchTeacherMcqs, McqRecord } from '../../services/teacherService';
+import { McqRecord } from '../../services/teacherService';
 import { CourseRecord } from '../../services/adminService';
 
 export const StudentPortal: React.FC = () => {
@@ -40,6 +42,8 @@ export const StudentPortal: React.FC = () => {
   const [enrolledCourses, setEnrolledCourses] = useState<CourseRecord[]>([]);
   const [browseCoursesList, setBrowseCoursesList] = useState<CourseRecord[]>([]);
   const [mcqList, setMcqList] = useState<McqRecord[]>([]);
+  const [quizSetsList, setQuizSetsList] = useState<QuizSetGroup[]>([]);
+  const [selectedQuizSetId, setSelectedQuizSetId] = useState<string>('');
 
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [isLoadingEnrolled, setIsLoadingEnrolled] = useState(false);
@@ -109,14 +113,58 @@ export const StudentPortal: React.FC = () => {
     setIsLoadingBrowse(false);
   };
 
-  // Load Quiz Questions
+  // Load Quiz Questions & Sets
   const loadMcqs = async () => {
     setIsLoadingMcqs(true);
-    const res = await fetchTeacherMcqs();
+    const res = await fetchStudentPracticeMcqs();
     if (res.success && res.data) {
-      setMcqList(res.data.mcqs || []);
+      const sets = res.data.quizSets || [];
+      setQuizSetsList(sets);
+
+      let currentSet = sets.find((s) => s.quizSetId === selectedQuizSetId);
+      if (!currentSet && sets.length > 0) {
+        currentSet = sets[0];
+        setSelectedQuizSetId(currentSet.quizSetId);
+      }
+
+      if (currentSet) {
+        setMcqList(currentSet.mcqs || []);
+        if (currentSet.hasAttempted && currentSet.lastAttempt) {
+          setQuizResult({
+            _id: currentSet.lastAttempt._id,
+            score: currentSet.lastAttempt.score,
+            totalMarks: currentSet.lastAttempt.totalMarks,
+            percentage: currentSet.lastAttempt.percentage,
+            passed: currentSet.lastAttempt.passed,
+            createdAt: currentSet.lastAttempt.createdAt
+          });
+        } else {
+          setQuizResult(null);
+        }
+      } else {
+        setMcqList(res.data.mcqs || []);
+      }
     }
     setIsLoadingMcqs(false);
+  };
+
+  const handleSelectQuizSet = (setObj: QuizSetGroup) => {
+    setSelectedQuizSetId(setObj.quizSetId);
+    setMcqList(setObj.mcqs || []);
+    setSelectedAnswers({});
+    setQuizErrorMsg('');
+    if (setObj.hasAttempted && setObj.lastAttempt) {
+      setQuizResult({
+        _id: setObj.lastAttempt._id,
+        score: setObj.lastAttempt.score,
+        totalMarks: setObj.lastAttempt.totalMarks,
+        percentage: setObj.lastAttempt.percentage,
+        passed: setObj.lastAttempt.passed,
+        createdAt: setObj.lastAttempt.createdAt
+      });
+    } else {
+      setQuizResult(null);
+    }
   };
 
   // Student Learning Goal Preference State
@@ -160,7 +208,12 @@ export const StudentPortal: React.FC = () => {
       loadStats();
       loadEnrolled();
     } else {
-      setEnrollErrorMsg(res.message || 'Course enrollment failed.');
+      const errMsg = res.message || 'Course enrollment failed.';
+      setEnrollErrorMsg(errMsg);
+      if (errMsg.toLowerCase().includes('insufficient') || errMsg.toLowerCase().includes('balance') || errMsg.toLowerCase().includes('top up')) {
+        setShowTopUpModal(true);
+        setTopUpErrorMsg(`Your wallet balance is low for enrolling in "${course.title}". Top-up below to complete enrollment!`);
+      }
     }
   };
 
@@ -216,13 +269,16 @@ export const StudentPortal: React.FC = () => {
       return;
     }
 
+    const activeSet = quizSetsList.find((s) => s.quizSetId === selectedQuizSetId);
+
     setIsSubmittingQuiz(true);
-    const res = await submitStudentQuiz(answerPayload);
+    const res = await submitStudentQuiz(answerPayload, selectedQuizSetId, activeSet?.quizSetTitle);
     setIsSubmittingQuiz(false);
 
     if (res.success && res.data) {
       setQuizResult(res.data.attempt);
       loadStats();
+      loadMcqs();
     } else {
       setQuizErrorMsg(res.message || 'Failed to submit quiz.');
     }
@@ -397,14 +453,23 @@ export const StudentPortal: React.FC = () => {
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Live Classes & Recorded Videos</div>
         </div>
 
-        <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '12px' }}>
-          <div style={{ fontSize: '0.72rem', color: '#34D399', fontWeight: '700', marginBottom: '2px' }}>
-            STUDENT WALLET BALANCE
+        <div className="glass-card" style={{ padding: '14px 18px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.08) 100%)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '0.74rem', color: '#34D399', fontWeight: '800', marginBottom: '2px', letterSpacing: '0.5px' }}>
+              STUDENT WALLET BALANCE
+            </div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)' }}>
+              ₹ {stats ? (stats.walletBalance || 0).toLocaleString('en-IN') : '0'}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>Used for 1-Click Course Enrollments</div>
           </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: '800' }}>
-            ₹ {stats ? (stats.walletBalance || 0).toLocaleString('en-IN') : '0'}
-          </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Used for 1-Click Course Enrollments</div>
+          <button
+            className="btn-emerald"
+            onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }}
+            style={{ marginTop: '10px', padding: '6px 14px', fontSize: '0.8rem', fontWeight: '800', width: 'fit-content', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+          >
+            💳 + Add Money (Top-Up)
+          </button>
         </div>
 
         <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '12px' }}>
@@ -491,7 +556,7 @@ export const StudentPortal: React.FC = () => {
           }}
         >
           <HelpCircle size={15} style={{ display: 'inline', marginRight: '6px' }} />
-          Live Practice Quiz ({mcqList.length})
+          Live Practice Quiz {quizResult ? '(Completed)' : `(${mcqList.length})`}
         </button>
 
         <button
@@ -722,106 +787,239 @@ export const StudentPortal: React.FC = () => {
 
       {/* SUB-TAB 3: LIVE PRACTICE QUIZ */}
       {activeTab === 'QUIZ' && (
-        <div className="glass-card" style={{ padding: '20px 24px', borderRadius: '16px', maxWidth: '700px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+        <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <span className="badge badge-amber" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>INTERACTIVE PRACTICE QUIZ</span>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginTop: '4px' }}>
+              <span className="badge badge-amber" style={{ fontSize: '0.72rem', padding: '3px 8px', fontWeight: '800' }}>INTERACTIVE PRACTICE QUIZ</span>
+              <h3 style={{ fontSize: '1.35rem', fontWeight: '800', marginTop: '6px', color: 'var(--text-primary)' }}>
                 Live MCQ Test & Self-Assessment
               </h3>
             </div>
-            <button className="btn-secondary" onClick={loadMcqs} style={{ fontSize: '0.78rem', padding: '6px 12px' }}>
-              <RefreshCw size={14} className={isLoadingMcqs ? 'animate-spin' : ''} /> Reload Quiz
+            <button className="btn-secondary" onClick={loadMcqs} style={{ fontSize: '0.8rem', padding: '8px 14px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <RefreshCw size={14} className={isLoadingMcqs ? 'animate-spin' : ''} /> Reload Quiz Data
             </button>
           </div>
 
-          {quizResult && (
-            <div style={{ padding: '16px', borderRadius: '12px', background: quizResult.passed ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)', border: quizResult.passed ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(244,63,94,0.4)', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', color: quizResult.passed ? '#34D399' : '#FB7185', fontWeight: '700' }}>QUIZ RESULT SCORECARD</div>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#FFF' }}>
-                    Score: {quizResult.score} / {quizResult.totalMarks} ({quizResult.percentage}%)
-                  </div>
-                </div>
-                <span className={`badge ${quizResult.passed ? 'badge-emerald' : 'badge-rose'}`} style={{ fontSize: '0.85rem', padding: '4px 10px' }}>
-                  {quizResult.passed ? '🎉 PASSED' : '⚠️ NEEDS IMPROVEMENT'}
-                </span>
+          {/* Quiz Sets Selection Bar */}
+          {quizSetsList.length > 0 && (
+            <div style={{ marginBottom: '22px' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                📁 Select Test Paper / Quiz Set ({quizSetsList.length} Available)
+              </div>
+              <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px' }}>
+                {quizSetsList.map((setObj) => {
+                  const isSelected = setObj.quizSetId === selectedQuizSetId;
+                  return (
+                    <button
+                      key={setObj.quizSetId}
+                      type="button"
+                      onClick={() => handleSelectQuizSet(setObj)}
+                      style={{
+                        padding: '12px 18px',
+                        borderRadius: '12px',
+                        border: isSelected ? '2px solid #F59E0B' : '1px solid var(--border-color)',
+                        background: isSelected
+                          ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%)'
+                          : 'rgba(255, 255, 255, 0.02)',
+                        color: 'var(--text-primary)',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        minWidth: '220px',
+                        flexShrink: 0,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: '800', fontSize: '0.9rem', color: isSelected ? '#FBBF24' : 'var(--text-primary)' }}>
+                          {setObj.quizSetTitle}
+                        </span>
+                        {setObj.hasAttempted ? (
+                          <span className="badge badge-emerald" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                            🔒 COMPLETED
+                          </span>
+                        ) : (
+                          <span className="badge badge-amber" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                            ✍️ AVAILABLE
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                        {setObj.count} Questions • {setObj.courseTitle || 'Batch Test'}
+                      </div>
+                      {setObj.hasAttempted && setObj.lastAttempt && (
+                        <div style={{ fontSize: '0.74rem', color: setObj.lastAttempt.passed ? '#34D399' : '#FB7185', fontWeight: '800', marginTop: '4px' }}>
+                          Score: {setObj.lastAttempt.score}/{setObj.lastAttempt.totalMarks} ({setObj.lastAttempt.percentage}%)
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {quizErrorMsg && (
-            <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#FB7185', fontSize: '0.8rem', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <AlertCircle size={15} />
-              <span>{quizErrorMsg}</span>
-            </div>
-          )}
-
-          {isLoadingMcqs ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading quiz questions...</div>
-          ) : mcqList.length === 0 ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No MCQ questions available for practice test right now.</div>
-          ) : (
-            <form onSubmit={handleQuizSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {mcqList.map((mcq, idx) => (
-                <div key={mcq._id} style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontWeight: '700', fontSize: '0.9rem', marginBottom: '10px' }}>
-                    Q{idx + 1}. {mcq.questionText}
+          {quizResult ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Grand Scorecard Banner */}
+              <div
+                style={{
+                  padding: '24px 28px',
+                  borderRadius: '16px',
+                  background: quizResult.passed
+                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.08) 100%)'
+                    : 'linear-gradient(135deg, rgba(244, 63, 94, 0.18) 0%, rgba(225, 29, 72, 0.08) 100%)',
+                  border: quizResult.passed
+                    ? '1px solid rgba(16, 185, 129, 0.4)'
+                    : '1px solid rgba(244, 63, 94, 0.4)',
+                  boxShadow: quizResult.passed
+                    ? '0 10px 30px rgba(16, 185, 129, 0.12)'
+                    : '0 10px 30px rgba(244, 63, 94, 0.12)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.82rem', color: quizResult.passed ? '#34D399' : '#FB7185', fontWeight: '800', letterSpacing: '0.8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Lock size={15} /> OFFICIAL PERMANENT TEST SCORECARD
+                    </div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: '900', color: 'var(--text-primary)', margin: '6px 0 2px 0', letterSpacing: '-0.5px' }}>
+                      Score: {quizResult.score} / {quizResult.totalMarks} <span style={{ fontSize: '1.4rem', color: quizResult.passed ? '#34D399' : '#FB7185' }}>({quizResult.percentage}%)</span>
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      Submitted At: <strong>{quizResult.createdAt ? new Date(quizResult.createdAt).toLocaleString('en-IN') : 'Official Record'}</strong> • Permanently Recorded in Student Profile
+                    </div>
                   </div>
+                  <span className={`badge ${quizResult.passed ? 'badge-emerald' : 'badge-rose'}`} style={{ fontSize: '1rem', padding: '8px 18px', fontWeight: '900', borderRadius: '10px' }}>
+                    {quizResult.passed ? '🎉 PASSED' : '⚠️ NEEDS IMPROVEMENT'}
+                  </span>
+                </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {mcq.options?.map((opt, optIdx) => {
-                      const isSelected = selectedAnswers[mcq._id] === optIdx;
+                <div style={{ paddingTop: '14px', borderTop: '1px solid rgba(255, 255, 255, 0.12)', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle size={16} style={{ color: '#34D399', flexShrink: 0 }} />
+                  <span>Official Test Record Submitted. You have already completed this practice assessment test. Your score is permanently saved in your profile and visible to your course instructor. Retakes are not permitted.</span>
+                </div>
+              </div>
 
-                      return (
-                        <label
-                          key={optIdx}
-                          onClick={() => handleSelectQuizOption(mcq._id, optIdx)}
-                          style={{
-                            padding: '8px 12px',
-                            borderRadius: '8px',
-                            border: isSelected ? '1px solid #818CF8' : '1px solid var(--border-color)',
-                            background: isSelected ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.02)',
-                            color: isSelected ? '#818CF8' : 'var(--text-primary)',
-                            fontSize: '0.82rem',
-                            fontWeight: isSelected ? '700' : 'normal',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                          }}
-                        >
-                          <input
-                            type="radio"
-                            name={`question_${mcq._id}`}
-                            checked={isSelected}
-                            onChange={() => {}}
-                          />
-                          <span>{String.fromCharCode(65 + optIdx)}) {opt}</span>
-                        </label>
-                      );
-                    })}
+              {/* Questions Review in Locked Mode */}
+              {mcqList.length > 0 && (
+                <div style={{ marginTop: '10px' }}>
+                  <h4 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '14px', color: 'var(--text-primary)' }}>
+                    Assessment Questions Review (Locked)
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {mcqList.map((mcq, idx) => (
+                      <div key={mcq._id} style={{ padding: '16px 20px', borderRadius: '12px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontWeight: '700', fontSize: '0.92rem', marginBottom: '12px', color: 'var(--text-primary)' }}>
+                          Q{idx + 1}. {mcq.questionText}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {mcq.options?.map((opt, optIdx) => (
+                            <div
+                              key={optIdx}
+                              style={{
+                                padding: '10px 14px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border-color)',
+                                background: 'rgba(255, 255, 255, 0.02)',
+                                color: 'var(--text-muted)',
+                                fontSize: '0.85rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                opacity: 0.85
+                              }}
+                            >
+                              <span style={{ fontWeight: '700' }}>{String.fromCharCode(65 + optIdx)})</span>
+                              <span>{opt}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
+            </div>
+          ) : (
+            <>
+              {quizErrorMsg && (
+                <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.4)', color: '#FB7185', fontSize: '0.85rem', fontWeight: '600', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertCircle size={16} />
+                  <span>{quizErrorMsg}</span>
+                </div>
+              )}
 
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={isSubmittingQuiz}
-                style={{ padding: '10px 18px', fontSize: '0.88rem', fontWeight: '700', width: 'fit-content' }}
-              >
-                {isSubmittingQuiz ? 'Evaluating Answers...' : 'Submit Quiz Answers'}
-              </button>
-            </form>
+              {isLoadingMcqs ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Loading quiz questions...</div>
+              ) : mcqList.length === 0 ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
+                  No MCQ practice questions published for your enrolled courses right now.
+                </div>
+              ) : (
+                <form onSubmit={handleQuizSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  {mcqList.map((mcq, idx) => (
+                    <div key={mcq._id} style={{ padding: '18px 22px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontWeight: '800', fontSize: '0.98rem', marginBottom: '14px', color: 'var(--text-primary)' }}>
+                        Q{idx + 1}. {mcq.questionText}
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {mcq.options?.map((opt, optIdx) => {
+                          const isSelected = selectedAnswers[mcq._id] === optIdx;
+
+                          return (
+                            <label
+                              key={optIdx}
+                              onClick={() => handleSelectQuizOption(mcq._id, optIdx)}
+                              style={{
+                                padding: '10px 16px',
+                                borderRadius: '10px',
+                                border: isSelected ? '1px solid #818CF8' : '1px solid var(--border-color)',
+                                background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                                color: isSelected ? '#818CF8' : 'var(--text-primary)',
+                                fontSize: '0.88rem',
+                                fontWeight: isSelected ? '700' : 'normal',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name={`question_${mcq._id}`}
+                                checked={isSelected}
+                                onChange={() => { }}
+                              />
+                              <span>{String.fromCharCode(65 + optIdx)}) {opt}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={isSubmittingQuiz}
+                    style={{ padding: '12px 24px', fontSize: '0.92rem', fontWeight: '800', borderRadius: '10px', width: 'fit-content' }}
+                  >
+                    {isSubmittingQuiz ? 'Evaluating Answers...' : 'Submit Quiz Answers'}
+                  </button>
+                </form>
+              )}
+            </>
           )}
         </div>
       )}
 
       {/* SUB-TAB 4: SUBMIT DUAL KYC DOCUMENT SCANS (AADHAAR & PAN TOGETHER) */}
       {activeTab === 'KYC' && (
-        <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px', maxWidth: '780px' }}>
+        <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px', width: '100%', boxSizing: 'border-box' }}>
           <div style={{ marginBottom: '18px' }}>
             <span className="badge badge-emerald" style={{ fontSize: '0.72rem', padding: '3px 8px' }}>
               STUDENT IDENTITY VERIFICATION ENGINE
@@ -863,7 +1061,7 @@ export const StudentPortal: React.FC = () => {
 
           <form onSubmit={handleKycSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-              
+
               {/* CARD 1: AADHAAR CARD DETAILS */}
               <div style={{ background: 'rgba(255,255,255,0.02)', padding: '18px', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontWeight: '800', fontSize: '0.95rem', color: '#34D399' }}>

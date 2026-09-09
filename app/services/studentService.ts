@@ -109,20 +109,41 @@ export const topUpStudentWallet = async (amount: number) => {
   });
 };
 
+export interface QuizSetGroup {
+  quizSetId: string;
+  quizSetTitle: string;
+  courseId?: string | null;
+  courseTitle?: string;
+  subjectName?: string;
+  boardOrGrade?: string;
+  count: number;
+  hasAttempted: boolean;
+  lastAttempt?: QuizAttemptResult | null;
+  mcqs: McqRecord[];
+}
+
 /**
  * Fetch MCQ practice questions for student test engine
  */
 export const fetchPracticeMcqs = async () => {
-  return apiFetch<{ count: number; mcqs: McqRecord[] }>('/mcq/questions');
+  return apiFetch<{
+    count: number;
+    quizSets?: QuizSetGroup[];
+    mcqs: McqRecord[];
+    isEnrolled?: boolean;
+    message?: string;
+    hasAttempted?: boolean;
+    lastAttempt?: QuizAttemptResult;
+  }>('/student/mcqs');
 };
 
 /**
  * Submit student quiz attempt, evaluate score, and save attempt record
  */
-export const submitStudentQuiz = async (answers: QuizSubmissionAnswer[]) => {
+export const submitStudentQuiz = async (answers: QuizSubmissionAnswer[], quizSetId?: string, quizSetTitle?: string) => {
   return apiFetch<{ attempt: QuizAttemptResult }>('/student/quiz/submit', {
     method: 'POST',
-    body: JSON.stringify({ answers }),
+    body: JSON.stringify({ answers, quizSetId, quizSetTitle }),
   });
 };
 

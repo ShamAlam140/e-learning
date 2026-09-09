@@ -86,7 +86,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem('accessToken', token);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await apiFetch('/auth/logout', { method: 'POST' });
+    } catch (err) {
+      // Ignore network errors on logout
+    }
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('accessToken');

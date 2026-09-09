@@ -295,17 +295,62 @@ export const TeacherPortal: React.FC = () => {
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
   const [courseCreatedSuccess, setCourseCreatedSuccess] = useState(false);
 
-  // Live MCQ Builder State
-  const [mcqQuestionText, setMcqQuestionText] = useState('What is the SI unit of Magnetic Flux Density?');
-  const [optionA, setOptionA] = useState('Weber');
-  const [optionB, setOptionB] = useState('Tesla');
-  const [optionC, setOptionC] = useState('Henry');
-  const [optionD, setOptionD] = useState('Farad');
-  const [correctOptionIndex, setCorrectOptionIndex] = useState(1); // Option B (Tesla)
-  const [explanation, setExplanation] = useState('The SI unit of magnetic flux density (B) is Tesla (T), named after Nikola Tesla.');
+  const [selectedMcqCourseId, setSelectedMcqCourseId] = useState<string>('');
+  const [quizSetTitleInput, setQuizSetTitleInput] = useState<string>('Practice Test Set #1');
+  const [mcqQuestionsList, setMcqQuestionsList] = useState<Array<{
+    id: string;
+    questionText: string;
+    optionA: string;
+    optionB: string;
+    optionC: string;
+    optionD: string;
+    correctOptionIndex: number;
+    explanation: string;
+  }>>([
+    {
+      id: 'q-1',
+      questionText: 'What is the SI unit of Magnetic Flux Density?',
+      optionA: 'Weber',
+      optionB: 'Tesla',
+      optionC: 'Henry',
+      optionD: 'Farad',
+      correctOptionIndex: 1,
+      explanation: 'The SI unit of magnetic flux density (B) is Tesla (T), named after Nikola Tesla.'
+    }
+  ]);
   const [mcqSavedSuccess, setMcqSavedSuccess] = useState(false);
+  const [mcqSavedCount, setMcqSavedCount] = useState(0);
   const [mcqError, setMcqError] = useState('');
   const [isSavingMcq, setIsSavingMcq] = useState(false);
+
+  const handleAddMcqQuestionItem = () => {
+    setMcqQuestionsList((prev) => [
+      ...prev,
+      {
+        id: `q-${Date.now()}-${prev.length + 1}`,
+        questionText: '',
+        optionA: '',
+        optionB: '',
+        optionC: '',
+        optionD: '',
+        correctOptionIndex: 0,
+        explanation: ''
+      }
+    ]);
+  };
+
+  const handleRemoveMcqQuestionItem = (id: string) => {
+    if (mcqQuestionsList.length <= 1) return;
+    setMcqQuestionsList((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleUpdateMcqQuestionItem = (index: number, field: string, value: any) => {
+    setMcqQuestionsList((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
 
   // Payout Request State
   const [payoutAmount, setPayoutAmount] = useState('50000');
@@ -533,39 +578,64 @@ export const TeacherPortal: React.FC = () => {
     }
   };
 
-  // Submit MCQ Form
+  // Submit MCQ Form (Multi-Question Batch)
   const handleSaveMcqSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMcqError('');
     setMcqSavedSuccess(false);
 
-    if (!mcqQuestionText.trim()) {
-      setMcqError('Please enter question text.');
+    if (!selectedMcqCourseId) {
+      setMcqError('Please select a Target Course Batch for this MCQ test.');
       return;
     }
-    if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
-      setMcqError('Please enter all 4 MCQ options (A, B, C, D).');
-      return;
+
+    for (let i = 0; i < mcqQuestionsList.length; i++) {
+      const q = mcqQuestionsList[i];
+      if (!q.questionText.trim()) {
+        setMcqError(`Question #${i + 1}: Please enter the question statement.`);
+        return;
+      }
+      if (!q.optionA.trim() || !q.optionB.trim() || !q.optionC.trim() || !q.optionD.trim()) {
+        setMcqError(`Question #${i + 1}: Please enter all 4 options (A, B, C, D).`);
+        return;
+      }
     }
 
     setIsSavingMcq(true);
     const res = await createTeacherMcq({
-      questionText: mcqQuestionText.trim(),
-      optionA: optionA.trim(),
-      optionB: optionB.trim(),
-      optionC: optionC.trim(),
-      optionD: optionD.trim(),
-      correctOptionIndex,
-      explanation: explanation.trim()
+      courseId: selectedMcqCourseId,
+      quizSetTitle: quizSetTitleInput.trim() || 'Practice Test Set #1',
+      questions: mcqQuestionsList
     });
     setIsSavingMcq(false);
 
     if (res.success) {
+      const addedCount = res.data?.count || mcqQuestionsList.length;
+      setMcqSavedCount(addedCount);
       setMcqSavedSuccess(true);
+      setMcqQuestionsList([
+        {
+          id: `q-${Date.now()}-1`,
+          questionText: '',
+          optionA: '',
+          optionB: '',
+          optionC: '',
+          optionD: '',
+          correctOptionIndex: 0,
+          explanation: ''
+        }
+      ]);
       loadMcqs();
-      setTimeout(() => setMcqSavedSuccess(false), 4000);
+      const match = quizSetTitleInput.match(/#(\d+)/);
+      if (match) {
+        const currentNum = parseInt(match[1], 10);
+        setQuizSetTitleInput(quizSetTitleInput.replace(`#${currentNum}`, `#${currentNum + 1}`));
+      } else {
+        setQuizSetTitleInput('Practice Test Set #' + (Math.floor(Math.random() * 90) + 10));
+      }
+      setTimeout(() => setMcqSavedSuccess(false), 5000);
     } else {
-      setMcqError(res.message || 'Failed to save MCQ question.');
+      setMcqError(res.message || 'Failed to save MCQ questions.');
     }
   };
 
@@ -1231,135 +1301,249 @@ export const TeacherPortal: React.FC = () => {
 
       {/* TAB 3: LIVE MCQ QUESTION BUILDER */}
       {activeTab === 'MCQ_BUILDER' && (
-        <div className="glass-card" style={{ padding: '20px 24px', borderRadius: '16px', maxWidth: '650px' }}>
-          <div style={{ marginBottom: '14px' }}>
-            <span className="badge badge-amber" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>MCQ QUESTION BANK AUTHORING</span>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginTop: '4px' }}>
-              Build & Publish Live MCQ Question
-            </h3>
+        <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <span className="badge badge-amber" style={{ fontSize: '0.72rem', padding: '3px 8px', fontWeight: '800' }}>
+                MCQ QUESTION BANK AUTHORING
+              </span>
+              <h3 style={{ fontSize: '1.35rem', fontWeight: '800', marginTop: '6px', color: 'var(--text-primary)' }}>
+                Build & Publish Live MCQ Test Paper
+              </h3>
+            </div>
+            <button
+              type="button"
+              className="btn-amber"
+              onClick={handleAddMcqQuestionItem}
+              style={{ fontSize: '0.85rem', padding: '8px 16px', borderRadius: '8px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <PlusCircle size={16} /> ➕ Add Another Question
+            </button>
           </div>
 
           {mcqSavedSuccess && (
-            <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34D399', fontSize: '0.84rem', fontWeight: '700', marginBottom: '14px' }}>
-              ✅ MCQ question added to platform question bank successfully!
+            <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#34D399', fontSize: '0.88rem', fontWeight: '700', marginBottom: '16px' }}>
+              ✅ Successfully published {mcqSavedCount} MCQ question(s) to course test bank!
             </div>
           )}
 
           {mcqError && (
-            <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#FB7185', fontSize: '0.8rem', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <AlertCircle size={15} />
+            <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.4)', color: '#FB7185', fontSize: '0.85rem', fontWeight: '600', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={16} />
               <span>{mcqError}</span>
             </div>
           )}
 
-          <form onSubmit={handleSaveMcqSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                Question Statement *
-              </label>
-              <textarea
-                className="form-input"
-                rows={2}
-                value={mcqQuestionText}
-                onChange={(e) => setMcqQuestionText(e.target.value)}
-                placeholder="e.g. What is the SI unit of Magnetic Flux Density?"
-                style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div>
-                <label style={{ fontSize: '0.76rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '2px', display: 'block' }}>
-                  Option A *
+          <form onSubmit={handleSaveMcqSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+              <div style={{ padding: '16px 20px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                <label style={{ fontSize: '0.88rem', fontWeight: '800', color: '#818CF8', marginBottom: '8px', display: 'block' }}>
+                  🎯 Select Target Course Batch *
                 </label>
-                <input
-                  type="text"
+                <select
                   className="form-input"
-                  value={optionA}
-                  onChange={(e) => setOptionA(e.target.value)}
-                  style={{ padding: '6px 10px', fontSize: '0.82rem' }}
-                />
+                  value={selectedMcqCourseId}
+                  onChange={(e) => setSelectedMcqCourseId(e.target.value)}
+                  style={{ padding: '12px 14px', fontSize: '0.92rem', fontWeight: '700', borderColor: '#818CF8', borderRadius: '8px', width: '100%' }}
+                >
+                  <option value="">-- Choose Course Batch --</option>
+                  {coursesList.map((c: CourseRecord) => (
+                    <option key={c._id} value={c._id}>
+                      📚 {c.title} ({c.boardOrGrade || 'General'} • {c.subjectName || 'All Subjects'} • ₹{c.price})
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div>
-                <label style={{ fontSize: '0.76rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '2px', display: 'block' }}>
-                  Option B *
+              <div style={{ padding: '16px 20px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                <label style={{ fontSize: '0.88rem', fontWeight: '800', color: '#FBBF24', marginBottom: '8px', display: 'block' }}>
+                  📝 Test Paper / Quiz Set Title *
                 </label>
                 <input
                   type="text"
                   className="form-input"
-                  value={optionB}
-                  onChange={(e) => setOptionB(e.target.value)}
-                  style={{ padding: '6px 10px', fontSize: '0.82rem' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.76rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '2px', display: 'block' }}>
-                  Option C *
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={optionC}
-                  onChange={(e) => setOptionC(e.target.value)}
-                  style={{ padding: '6px 10px', fontSize: '0.82rem' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.76rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '2px', display: 'block' }}>
-                  Option D *
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={optionD}
-                  onChange={(e) => setOptionD(e.target.value)}
-                  style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                  value={quizSetTitleInput}
+                  onChange={(e) => setQuizSetTitleInput(e.target.value)}
+                  placeholder="e.g. Unit 1 Physics Test, Practice Test Set #2..."
+                  style={{ padding: '12px 14px', fontSize: '0.92rem', fontWeight: '700', borderColor: '#FBBF24', borderRadius: '8px', width: '100%' }}
                 />
               </div>
             </div>
 
-            <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: '700', color: '#34D399', marginBottom: '4px', display: 'block' }}>
-                Select Correct Answer Option *
-              </label>
-              <select
-                className="form-input"
-                value={correctOptionIndex}
-                onChange={(e) => setCorrectOptionIndex(Number(e.target.value))}
-                style={{ padding: '8px 10px', fontSize: '0.85rem', fontWeight: '700' }}
+            {/* Questions List Iteration */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {mcqQuestionsList.map((item, index) => (
+                <div
+                  key={item.id}
+                  style={{
+                    padding: '20px 22px',
+                    borderRadius: '14px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span className="badge badge-primary" style={{ fontSize: '0.82rem', padding: '4px 10px', fontWeight: '800' }}>
+                        Question #{index + 1}
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Fill details below</span>
+                    </div>
+
+                    {mcqQuestionsList.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMcqQuestionItem(item.id)}
+                        style={{
+                          background: 'rgba(244, 63, 94, 0.12)',
+                          border: '1px solid rgba(244, 63, 94, 0.3)',
+                          color: '#FB7185',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontSize: '0.78rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <X size={14} /> Remove Q#{index + 1}
+                      </button>
+                    )}
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                      Question Statement *
+                    </label>
+                    <textarea
+                      className="form-input"
+                      rows={2}
+                      value={item.questionText}
+                      onChange={(e) => handleUpdateMcqQuestionItem(index, 'questionText', e.target.value)}
+                      placeholder={`e.g. Question ${index + 1} statement...`}
+                      style={{ padding: '10px 12px', fontSize: '0.88rem' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                        Option A *
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={item.optionA}
+                        onChange={(e) => handleUpdateMcqQuestionItem(index, 'optionA', e.target.value)}
+                        placeholder="Option A"
+                        style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                        Option B *
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={item.optionB}
+                        onChange={(e) => handleUpdateMcqQuestionItem(index, 'optionB', e.target.value)}
+                        placeholder="Option B"
+                        style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                        Option C *
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={item.optionC}
+                        onChange={(e) => handleUpdateMcqQuestionItem(index, 'optionC', e.target.value)}
+                        placeholder="Option C"
+                        style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                        Option D *
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={item.optionD}
+                        onChange={(e) => handleUpdateMcqQuestionItem(index, 'optionD', e.target.value)}
+                        placeholder="Option D"
+                        style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#34D399', marginBottom: '4px', display: 'block' }}>
+                        Select Correct Answer Option *
+                      </label>
+                      <select
+                        className="form-input"
+                        value={item.correctOptionIndex}
+                        onChange={(e) => handleUpdateMcqQuestionItem(index, 'correctOptionIndex', Number(e.target.value))}
+                        style={{ padding: '8px 12px', fontSize: '0.85rem', fontWeight: '700' }}
+                      >
+                        <option value={0}>Option A: {item.optionA || 'Option A'}</option>
+                        <option value={1}>Option B: {item.optionB || 'Option B'}</option>
+                        <option value={2}>Option C: {item.optionC || 'Option C'}</option>
+                        <option value={3}>Option D: {item.optionD || 'Option D'}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                        Detailed Solution & Explanation
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={item.explanation}
+                        onChange={(e) => handleUpdateMcqQuestionItem(index, 'explanation', e.target.value)}
+                        placeholder="Step-by-step solution..."
+                        style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom Actions Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap', gap: '12px' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleAddMcqQuestionItem}
+                style={{ padding: '10px 18px', fontSize: '0.88rem', fontWeight: '700', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <option value={0}>Option A: {optionA || 'Option A'}</option>
-                <option value={1}>Option B: {optionB || 'Option B'}</option>
-                <option value={2}>Option C: {optionC || 'Option C'}</option>
-                <option value={3}>Option D: {optionD || 'Option D'}</option>
-              </select>
-            </div>
+                <PlusCircle size={16} /> ➕ Add Another Question (Q#{mcqQuestionsList.length + 1})
+              </button>
 
-            <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                Detailed Solution & Explanation
-              </label>
-              <textarea
-                className="form-input"
-                rows={2}
-                value={explanation}
-                onChange={(e) => setExplanation(e.target.value)}
-                placeholder="Step-by-step solution explanation..."
-                style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-              />
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={isSavingMcq}
+                style={{ padding: '12px 24px', fontSize: '0.92rem', fontWeight: '800', borderRadius: '8px' }}
+              >
+                {isSavingMcq ? 'Publishing Test Paper...' : `🚀 Publish ${mcqQuestionsList.length} Question(s) to Course Bank`}
+              </button>
             </div>
-
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={isSavingMcq}
-              style={{ padding: '10px 18px', fontSize: '0.88rem', fontWeight: '700' }}
-            >
-              {isSavingMcq ? 'Saving MCQ Question...' : 'Save MCQ Question to Bank'}
-            </button>
           </form>
         </div>
       )}
@@ -1386,8 +1570,13 @@ export const TeacherPortal: React.FC = () => {
               ) : (
                 mcqsList.map((mcq, idx) => (
                   <div key={mcq._id} style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderLeft: '4px solid #F59E0B' }}>
-                    <div style={{ fontWeight: '700', fontSize: '0.9rem', marginBottom: '6px' }}>
-                      Q{idx + 1}. {mcq.questionText}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>
+                        Q{idx + 1}. {mcq.questionText}
+                      </div>
+                      <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: '700' }}>
+                        📁 {mcq.quizSetTitle || 'Practice Test Set'}
+                      </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '0.78rem', marginBottom: '6px' }}>
                       <div style={{ color: mcq.correctOption === 0 ? '#34D399' : 'var(--text-secondary)', fontWeight: mcq.correctOption === 0 ? '700' : 'normal' }}>
@@ -1434,10 +1623,13 @@ export const TeacherPortal: React.FC = () => {
                 attemptsList.map((att) => (
                   <div key={att._id} style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                     <div>
-                      <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>
-                        {att.user?.name || 'Student'} ({att.user?.userId || 'N/A'})
+                      <div style={{ fontWeight: '700', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span>{att.user?.name || 'Student'} ({att.user?.userId || 'N/A'})</span>
+                        <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(99, 102, 241, 0.15)', color: '#818CF8', border: '1px solid rgba(99, 102, 241, 0.3)', fontWeight: '700' }}>
+                          📁 {att.quizSetTitle || 'Practice Test Set'}
+                        </span>
                       </div>
-                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                         Subject: {att.subject?.title || 'General Science'} • Mobile: {att.user?.mobile || 'N/A'}
                       </div>
                     </div>

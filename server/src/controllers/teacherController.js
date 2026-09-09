@@ -22,25 +22,22 @@ const getTeacherStats = catchAsync(async (req, res) => {
   const teacherCourses = await Course.find({ instructor: teacherId }).select('_id price active');
   const courseIds = teacherCourses.map((c) => c._id);
 
-  // 2. Fetch total purchases for these courses
-  const purchasesCount = await Purchase.countDocuments({ course: { $in: courseIds }, status: 'SUCCESS' });
-
-  // 3. Calculate actual total revenue (70% instructor royalty share from successful student purchases)
-  const purchases = await Purchase.find({ course: { $in: courseIds }, status: 'SUCCESS' });
-  const totalGrossSales = purchases.reduce((acc, item) => acc + (item.amount || 0), 0);
+  // 2. Calculate actual total revenue (70% instructor royalty share from successful student purchases)
+  const purchases = await Purchase.find({ course: { $in: courseIds }, status: { $ne: 'FAILED' } });
+  const purchasesCount = purchases.length;
+  const totalGrossSales = purchases.reduce((acc, item) => acc + (item.amountPaid || item.amount || 0), 0);
   const calculatedRoyalty = totalGrossSales * 0.7;
 
   // 4. Fetch or sync wallet balance for teacher
   let wallet = await Wallet.findOne({ user: teacherId });
   if (!wallet) {
     wallet = await Wallet.create({ user: teacherId, balance: calculatedRoyalty });
-  } else if (purchasesCount === 0 && wallet.balance === 345000) {
-    // Reset legacy mock seed balance in MongoDB Atlas if teacher has 0 purchases
-    wallet.balance = 0;
+  } else {
+    wallet.balance = calculatedRoyalty;
     await wallet.save();
   }
 
-  const actualRevenue = purchasesCount > 0 ? (wallet.balance > 0 ? wallet.balance : calculatedRoyalty) : 0;
+  const actualRevenue = calculatedRoyalty;
 
   return sendSuccess(res, 200, 'Teacher analytics overview retrieved successfully.', {
     stats: {
@@ -297,6 +294,7 @@ const getTeacherMcqs = catchAsync(async (req, res) => {
   const mcqs = await McqQuestion.find({
     $or: [{ author: teacherId }, { author: { $exists: false } }]
   })
+    .populate('course', 'title stateCode boardOrGrade subjectName price')
     .select('+correctOption')
     .sort({ createdAt: -1 })
     .lean();
@@ -327,12 +325,85 @@ const getTeacherMcqAttempts = catchAsync(async (req, res) => {
 
 /**
  * @route   POST /api/teacher/mcqs
- * @desc    Add a new MCQ question to the question bank
+ * @desc    Add a new MCQ question to the question bank (linked to Course Batch, Class, State, Subject)
  * @access  Private (Teacher / Admin)
  */
 const createTeacherMcq = catchAsync(async (req, res, next) => {
-  const { questionText, optionA, optionB, optionC, optionD, correctOptionIndex, explanation, marks } = req.body;
+  const {
+    courseId,
+    quizSetTitle,
+    stateCode,
+    boardOrGrade,
+    subCategory,
+    subjectName,
+    questions,
+    questionText,
+    optionA,
+    optionB,
+    optionC,
+    optionD,
+    correctOptionIndex,
+    explanation,
+    marks
+  } = req.body;
 
+  let courseObj = null;
+  if (courseId) {
+    const mongoose = require('mongoose');
+    if (mongoose.Types.ObjectId.isValid(courseId)) {
+      courseObj = await Course.findById(courseId).lean();
+    }
+  }
+
+  const finalStateCode = stateCode || (courseObj ? courseObj.stateCode : 'GLOBAL');
+  const finalBoardOrGrade = boardOrGrade || (courseObj ? courseObj.boardOrGrade : 'General Batch');
+  const finalSubCategory = subCategory || (courseObj ? courseObj.subCategory : '');
+  const finalSubjectName = subjectName || (courseObj ? courseObj.subjectName : 'All Subjects');
+  const finalQuizSetTitle = (quizSetTitle || '').trim() || 'Practice Test Set #1';
+  const finalQuizSetId = `set_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+  // Handle Bulk Array of Questions for Test Paper Set
+  if (Array.isArray(questions) && questions.length > 0) {
+    const docsToCreate = questions
+      .map((q) => {
+        const opts = [
+          (q.optionA || '').trim(),
+          (q.optionB || '').trim(),
+          (q.optionC || '').trim(),
+          (q.optionD || '').trim()
+        ];
+        return {
+          author: req.user._id,
+          course: courseObj ? courseObj._id : undefined,
+          quizSetTitle: finalQuizSetTitle,
+          quizSetId: finalQuizSetId,
+          stateCode: finalStateCode,
+          boardOrGrade: finalBoardOrGrade,
+          subCategory: finalSubCategory,
+          subjectName: finalSubjectName,
+          questionText: (q.questionText || '').trim(),
+          options: opts,
+          correctOption: Number(q.correctOptionIndex) || 0,
+          explanation: (q.explanation || '').trim(),
+          marks: Number(q.marks) || 1
+        };
+      })
+      .filter((d) => d.questionText.length > 0 && d.options.every((o) => o.length > 0));
+
+    if (docsToCreate.length === 0) {
+      return next(new AppError('Please fill in complete details for at least 1 question (Question text + all 4 options).', 400));
+    }
+
+    const createdMcqs = await McqQuestion.insertMany(docsToCreate);
+    return sendSuccess(res, 201, `Successfully published ${createdMcqs.length} MCQ questions for Test Set "${finalQuizSetTitle}"!`, {
+      count: createdMcqs.length,
+      quizSetId: finalQuizSetId,
+      quizSetTitle: finalQuizSetTitle,
+      mcqs: createdMcqs
+    });
+  }
+
+  // Handle Single Question Payload
   if (!questionText || !questionText.trim()) {
     return next(new AppError('Question text is required.', 400));
   }
@@ -342,6 +413,13 @@ const createTeacherMcq = catchAsync(async (req, res, next) => {
 
   const mcq = await McqQuestion.create({
     author: req.user._id,
+    course: courseObj ? courseObj._id : undefined,
+    quizSetTitle: finalQuizSetTitle,
+    quizSetId: finalQuizSetId,
+    stateCode: finalStateCode,
+    boardOrGrade: finalBoardOrGrade,
+    subCategory: finalSubCategory,
+    subjectName: finalSubjectName,
     questionText: questionText.trim(),
     options: [optionA.trim(), optionB.trim(), optionC.trim(), optionD.trim()],
     correctOption: Number(correctOptionIndex) || 0,
@@ -350,6 +428,8 @@ const createTeacherMcq = catchAsync(async (req, res, next) => {
   });
 
   return sendSuccess(res, 201, 'MCQ Question added to question bank successfully.', {
+    quizSetId: finalQuizSetId,
+    quizSetTitle: finalQuizSetTitle,
     mcq
   });
 });

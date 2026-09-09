@@ -266,19 +266,47 @@ const topUpStudentWallet = catchAsync(async (req, res, next) => {
  */
 const submitStudentQuiz = catchAsync(async (req, res, next) => {
   const studentId = req.user._id;
-  const { answers } = req.body; // Array of { questionId, selectedOptionIndex }
+  const { quizSetId, quizSetTitle, courseId, answers } = req.body; // Array of { questionId, selectedOptionIndex }
 
   if (!answers || !Array.isArray(answers) || answers.length === 0) {
     return next(new AppError('Please submit answers for at least 1 question.', 400));
   }
 
+  // Enforce single permanent test attempt guard PER QUIZ SET
+  let existingAttempt = null;
+  let targetSetId = quizSetId;
+
+  if (!targetSetId && answers[0]?.questionId) {
+    const firstQ = await McqQuestion.findById(answers[0].questionId).lean();
+    if (firstQ?.quizSetId) {
+      targetSetId = firstQ.quizSetId;
+    }
+  }
+
+  if (targetSetId) {
+    existingAttempt = await McqAttempt.findOne({ user: studentId, quizSetId: targetSetId });
+  } else {
+    existingAttempt = await McqAttempt.findOne({ user: studentId });
+  }
+
+  if (existingAttempt) {
+    return next(new AppError('You have already completed and submitted this test paper set! Official test records are permanently recorded and retakes are not permitted.', 400));
+  }
+
   let totalScore = 0;
   let totalMarks = answers.length;
   const processedAnswers = [];
+  let detectedQuizSetId = targetSetId;
+  let detectedQuizSetTitle = quizSetTitle;
+  let detectedCourseId = courseId;
 
   for (const item of answers) {
     const question = await McqQuestion.findById(item.questionId).select('+correctOption');
     if (question) {
+      if (!detectedQuizSetId && question.quizSetId) detectedQuizSetId = question.quizSetId;
+      if (!detectedQuizSetTitle && question.quizSetTitle) detectedQuizSetTitle = question.quizSetTitle;
+      if (!detectedCourseId && question.course) detectedCourseId = question.course;
+
       const isCorrect = question.correctOption === item.selectedOptionIndex;
       if (isCorrect) totalScore += question.marks || 1;
 
@@ -295,6 +323,9 @@ const submitStudentQuiz = catchAsync(async (req, res, next) => {
 
   const attempt = await McqAttempt.create({
     user: studentId,
+    quizSetId: detectedQuizSetId,
+    quizSetTitle: detectedQuizSetTitle || 'Practice Test Set',
+    course: detectedCourseId,
     answers: processedAnswers,
     score: totalScore,
     totalMarks,
@@ -394,6 +425,109 @@ const submitStudentKyc = catchAsync(async (req, res, next) => {
   });
 });
 
+/**
+ * @route   GET /api/student/mcqs
+ * @desc    Fetch Practice MCQs exclusively for courses in which the student is ENROLLED
+ * @access  Private (Student / Admin)
+ */
+const getStudentPracticeMcqs = catchAsync(async (req, res) => {
+  const studentId = req.user._id;
+
+  // 1. Fetch all active non-failed purchases of this student
+  const purchases = await Purchase.find({
+    user: studentId,
+    status: { $ne: 'FAILED' }
+  }).select('course itemType').lean();
+
+  const enrolledCourseIds = purchases
+    .filter((p) => p.course)
+    .map((p) => p.course);
+
+  if (enrolledCourseIds.length === 0) {
+    return sendSuccess(res, 200, 'No enrolled courses found. Please enroll in a course batch to unlock practice MCQs.', {
+      count: 0,
+      quizSets: [],
+      mcqs: [],
+      isEnrolled: false,
+      message: '🔒 Practice MCQs are locked to your enrolled classroom batches. Please enroll in a batch to attempt practice quizzes!'
+    });
+  }
+
+  // 2. Fetch details of enrolled courses to extract stateCode, boardOrGrade, subjectName, instructor
+  const enrolledCourses = await Course.find({ _id: { $in: enrolledCourseIds } }).select('_id title stateCode boardOrGrade subjectName instructor').lean();
+
+  const enrolledInstructorIds = enrolledCourses.map((c) => c.instructor).filter(Boolean);
+  const enrolledSubjects = enrolledCourses.map((c) => c.subjectName).filter(Boolean);
+  const enrolledGrades = enrolledCourses.map((c) => c.boardOrGrade).filter(Boolean);
+
+  // 3. Fetch questions matching enrolled courses OR enrolled teachers OR enrolled subjects/classes
+  const mcqs = await McqQuestion.find({
+    $or: [
+      { course: { $in: enrolledCourseIds } },
+      { author: { $in: enrolledInstructorIds } },
+      {
+        $and: [
+          { subjectName: { $in: enrolledSubjects } },
+          { boardOrGrade: { $in: enrolledGrades } }
+        ]
+      }
+    ]
+  })
+    .populate('course', 'title stateCode boardOrGrade subjectName price')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // 4. Fetch all attempts by this student
+  const attempts = await McqAttempt.find({ user: studentId })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const attemptMapByQuizSetId = {};
+  attempts.forEach((att) => {
+    if (att.quizSetId && !attemptMapByQuizSetId[att.quizSetId]) {
+      attemptMapByQuizSetId[att.quizSetId] = att;
+    }
+  });
+
+  // 5. Group questions set-wise
+  const quizSetsMap = {};
+  mcqs.forEach((q) => {
+    const setId = q.quizSetId || `set_legacy_${q.course?._id || 'general'}`;
+    const setTitle = q.quizSetTitle || (q.course ? `${q.course.title} - Quiz Set` : 'Practice Test Set #1');
+
+    if (!quizSetsMap[setId]) {
+      const setAttempt = attemptMapByQuizSetId[setId] || (attempts.length > 0 && !q.quizSetId ? attempts[0] : null);
+      quizSetsMap[setId] = {
+        quizSetId: setId,
+        quizSetTitle: setTitle,
+        courseId: q.course?._id || null,
+        courseTitle: q.course?.title || 'General Batch',
+        subjectName: q.subjectName || 'All Subjects',
+        boardOrGrade: q.boardOrGrade || 'General Batch',
+        count: 0,
+        hasAttempted: Boolean(setAttempt),
+        lastAttempt: setAttempt || null,
+        mcqs: []
+      };
+    }
+
+    quizSetsMap[setId].mcqs.push(q);
+    quizSetsMap[setId].count = quizSetsMap[setId].mcqs.length;
+  });
+
+  const quizSets = Object.values(quizSetsMap);
+
+  return sendSuccess(res, 200, 'Student practice MCQs retrieved successfully based on enrolled classroom batches.', {
+    count: mcqs.length,
+    quizSets,
+    mcqs,
+    hasAttempted: quizSets.length > 0 ? quizSets.every((s) => s.hasAttempted) : false,
+    lastAttempt: attempts[0] || null,
+    isEnrolled: true,
+    enrolledCoursesCount: enrolledCourseIds.length
+  });
+});
+
 module.exports = {
   getStudentDashboardStats,
   getMyEnrolledCourses,
@@ -401,5 +535,6 @@ module.exports = {
   enrollInCourse,
   topUpStudentWallet,
   submitStudentQuiz,
-  submitStudentKyc
+  submitStudentKyc,
+  getStudentPracticeMcqs
 };

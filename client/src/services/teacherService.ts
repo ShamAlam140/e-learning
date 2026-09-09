@@ -29,18 +29,36 @@ export interface CreateTeacherCoursePayload {
 }
 
 export interface CreateMcqPayload {
-  questionText: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctOptionIndex: number;
+  courseId?: string;
+  quizSetTitle?: string;
+  stateCode?: string;
+  boardOrGrade?: string;
+  subCategory?: string;
+  subjectName?: string;
+  questions?: Array<{
+    questionText: string;
+    optionA: string;
+    optionB: string;
+    optionC: string;
+    optionD: string;
+    correctOptionIndex: number;
+    explanation?: string;
+    marks?: number;
+  }>;
+  questionText?: string;
+  optionA?: string;
+  optionB?: string;
+  optionC?: string;
+  optionD?: string;
+  correctOptionIndex?: number;
   explanation?: string;
   marks?: number;
 }
 
 export interface McqRecord {
   _id: string;
+  quizSetTitle?: string;
+  quizSetId?: string;
   questionText: string;
   options: string[];
   correctOption?: number;
@@ -51,6 +69,8 @@ export interface McqRecord {
 
 export interface McqAttemptRecord {
   _id: string;
+  quizSetTitle?: string;
+  quizSetId?: string;
   user?: { _id: string; name: string; mobile: string; email?: string; userId: string };
   subject?: { _id: string; title: string };
   score: number;
@@ -170,7 +190,7 @@ export const deleteTeacherCourse = async (courseId: string) => {
  * Add a new MCQ question to question bank
  */
 export const createTeacherMcq = async (payload: CreateMcqPayload) => {
-  return apiFetch<{ mcq: any }>('/teacher/mcqs', {
+  return apiFetch<{ mcq?: any; count?: number; mcqs?: any[] }>('/teacher/mcqs', {
     method: 'POST',
     body: JSON.stringify(payload)
   });

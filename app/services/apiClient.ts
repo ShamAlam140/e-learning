@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 
+export const LOCAL_SERVER_URL = Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api';
 export const RENDER_DEPLOYMENT_URL = 'https://e-learning-63yb.onrender.com/api';
 export const DEFAULT_API_BASE_URL = RENDER_DEPLOYMENT_URL;
 
