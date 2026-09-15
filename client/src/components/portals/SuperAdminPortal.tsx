@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Users, BookOpen, FileCheck, DollarSign, Megaphone, Plus, RefreshCw, CheckCircle2, XCircle, Eye, AlertCircle, Search, X, Trash2, Edit3, Phone, Mail, MapPin, GraduationCap, Share2, UploadCloud, Download, FileSpreadsheet, HelpCircle } from 'lucide-react';
+import { ShieldCheck, Users, BookOpen, FileCheck, DollarSign, Megaphone, Plus, RefreshCw, CheckCircle2, XCircle, Eye, AlertCircle, Search, X, Trash2, Edit3, Phone, Mail, MapPin, GraduationCap, Share2, UploadCloud, Download, FileSpreadsheet, HelpCircle, Tv, Play, ExternalLink, Image as ImageIcon, Film } from 'lucide-react';
 import { INDIAN_STATES_LIST, CORE_MODULES_LIST, getSubCategoriesForModuleAndState, getSubjectsForStateAndModule } from '../../services/taxonomyTree';
 import {
   fetchAdminStats,
@@ -26,6 +26,15 @@ import {
   PayoutRecord
 } from '../../services/adminService';
 import { executeBinaryPayoutSettlement } from '../../services/affiliateService';
+import {
+  fetchAdminAds,
+  createAd,
+  updateAd,
+  toggleAdActive,
+  deleteAd,
+  AdRecord,
+  AdStats
+} from '../../services/adService';
 
 interface SuperAdminPortalProps {
   onCheckBackendHealth?: () => void;
@@ -34,7 +43,7 @@ interface SuperAdminPortalProps {
 }
 
 export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptime = 'Online', dbStatus = 'CONNECTED' }) => {
-  const [activeTab, setActiveTab] = useState<'ANALYTICS' | 'USERS' | 'COURSES' | 'KYC' | 'PAYOUTS' | 'ANNOUNCEMENTS'>('ANALYTICS');
+  const [activeTab, setActiveTab] = useState<'ANALYTICS' | 'USERS' | 'COURSES' | 'KYC' | 'PAYOUTS' | 'ANNOUNCEMENTS' | 'ADS'>('ANALYTICS');
 
   // Stats State
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -539,6 +548,161 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
   });
   const [announcementUpdated, setAnnouncementUpdated] = useState(false);
 
+  // Advertisement & Banners Management State
+  const [adsList, setAdsList] = useState<AdRecord[]>([]);
+  const [adStats, setAdStats] = useState<AdStats | null>(null);
+  const [isLoadingAds, setIsLoadingAds] = useState(false);
+  const [adSearchQuery, setAdSearchQuery] = useState('');
+  const [adTypeFilter, setAdTypeFilter] = useState<'ALL' | 'IMAGE' | 'VIDEO'>('ALL');
+  const [showCreateAdModal, setShowCreateAdModal] = useState(false);
+  const [editingAd, setEditingAd] = useState<AdRecord | null>(null);
+  const [isSubmittingAd, setIsSubmittingAd] = useState(false);
+  const [adFormError, setAdFormError] = useState('');
+  const [adFormSuccess, setAdFormSuccess] = useState('');
+  const [previewMediaAd, setPreviewMediaAd] = useState<AdRecord | null>(null);
+
+  // Ad Form Fields
+  const [adTitle, setAdTitle] = useState('');
+  const [adType, setAdType] = useState<'IMAGE' | 'VIDEO'>('IMAGE');
+  const [adMediaUrl, setAdMediaUrl] = useState('');
+  const [adTargetUrl, setAdTargetUrl] = useState('');
+  const [adDescription, setAdDescription] = useState('');
+  const [adPlacement, setAdPlacement] = useState<'HOME_HERO' | 'BANNER' | 'POPUP'>('HOME_HERO');
+  const [adIsActive, setAdIsActive] = useState(true);
+  const [adPriority, setAdPriority] = useState(0);
+
+  // Fetch Ads Data
+  const loadAds = async () => {
+    setIsLoadingAds(true);
+    try {
+      const res = await fetchAdminAds();
+      if (res.success && res.data) {
+        setAdsList(res.data.ads || []);
+        setAdStats(res.data.stats || null);
+      }
+    } catch (err) {
+      console.error('Failed to load advertisements', err);
+    } finally {
+      setIsLoadingAds(false);
+    }
+  };
+
+  const handleOpenCreateAd = () => {
+    setEditingAd(null);
+    setAdTitle('');
+    setAdType('IMAGE');
+    setAdMediaUrl('');
+    setAdTargetUrl('');
+    setAdDescription('');
+    setAdPlacement('HOME_HERO');
+    setAdIsActive(true);
+    setAdPriority(0);
+    setAdFormError('');
+    setAdFormSuccess('');
+    setShowCreateAdModal(true);
+  };
+
+  const handleOpenEditAd = (ad: AdRecord) => {
+    setEditingAd(ad);
+    setAdTitle(ad.title);
+    setAdType(ad.type);
+    setAdMediaUrl(ad.mediaUrl);
+    setAdTargetUrl(ad.targetUrl || '');
+    setAdDescription(ad.description || '');
+    setAdPlacement(ad.placement);
+    setAdIsActive(ad.isActive);
+    setAdPriority(ad.priority || 0);
+    setAdFormError('');
+    setAdFormSuccess('');
+    setShowCreateAdModal(true);
+  };
+
+  const handleSaveAd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdFormError('');
+    setAdFormSuccess('');
+
+    if (!adTitle.trim()) {
+      setAdFormError('Ad Title is required');
+      return;
+    }
+    if (!adMediaUrl.trim()) {
+      setAdFormError('Media URL is required (Direct image link or MP4/HLS/video streaming link)');
+      return;
+    }
+
+    setIsSubmittingAd(true);
+    try {
+      if (editingAd) {
+        const res = await updateAd(editingAd._id, {
+          title: adTitle.trim(),
+          type: adType,
+          mediaUrl: adMediaUrl.trim(),
+          targetUrl: adTargetUrl.trim(),
+          description: adDescription.trim(),
+          placement: adPlacement,
+          isActive: adIsActive,
+          priority: Number(adPriority) || 0
+        });
+        if (res.success) {
+          setAdFormSuccess('Advertisement updated successfully!');
+          setTimeout(() => {
+            setShowCreateAdModal(false);
+            setEditingAd(null);
+          }, 800);
+          loadAds();
+        } else {
+          setAdFormError(res.message || 'Failed to update advertisement');
+        }
+      } else {
+        const res = await createAd({
+          title: adTitle.trim(),
+          type: adType,
+          mediaUrl: adMediaUrl.trim(),
+          targetUrl: adTargetUrl.trim(),
+          description: adDescription.trim(),
+          placement: adPlacement,
+          isActive: adIsActive,
+          priority: Number(adPriority) || 0
+        });
+        if (res.success) {
+          setAdFormSuccess('Advertisement published successfully!');
+          setTimeout(() => {
+            setShowCreateAdModal(false);
+          }, 800);
+          loadAds();
+        } else {
+          setAdFormError(res.message || 'Failed to create advertisement');
+        }
+      }
+    } catch (err: any) {
+      setAdFormError(err.message || 'An error occurred while saving advertisement');
+    } finally {
+      setIsSubmittingAd(false);
+    }
+  };
+
+  const handleToggleAdActive = async (ad: AdRecord) => {
+    const res = await toggleAdActive(ad._id);
+    if (res.success) {
+      loadAds();
+    } else {
+      alert(res.message || 'Failed to update status');
+    }
+  };
+
+  const handleDeleteAd = async (ad: AdRecord) => {
+    if (!window.confirm(`Are you sure you want to permanently delete advertisement: "${ad.title}"?`)) {
+      return;
+    }
+    const res = await deleteAd(ad._id);
+    if (res.success) {
+      loadAds();
+    } else {
+      alert(res.message || 'Failed to delete advertisement');
+    }
+  };
+
   // Load Grouped Student Analytics & Faculty Matrix from Backend Aggregations
   const loadGroupedAnalytics = async () => {
     try {
@@ -667,6 +831,7 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
     loadPendingKyc();
     loadPayouts();
     loadGroupedAnalytics();
+    loadAds();
   }, []);
 
   useEffect(() => {
@@ -677,6 +842,7 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
     if (activeTab === 'COURSES') loadCourses(courseDirectoryPage, courseDirectorySortBy, courseSearch, courseModeFilter);
     if (activeTab === 'KYC') loadPendingKyc();
     if (activeTab === 'PAYOUTS') loadPayouts();
+    if (activeTab === 'ADS') loadAds();
   }, [activeTab, kycStatusFilter, roleFilter, userSearch, userDirectoryPage, userDirectorySortBy, userStateFilter, userKycFilter, userBoardFilter, userSubjectFilter, courseDirectoryPage, courseDirectorySortBy, courseSearch, courseModeFilter]);
 
   // Handle Thumbnail File Selection (2MB Validation Limit)
@@ -1123,6 +1289,24 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
         >
           <Megaphone size={15} style={{ display: 'inline', marginRight: '6px' }} />
           Announcements
+        </button>
+
+        <button
+          onClick={() => setActiveTab('ADS')}
+          style={{
+            flex: 1,
+            padding: '8px 14px',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeTab === 'ADS' ? 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' : 'transparent',
+            color: activeTab === 'ADS' ? '#FFF' : 'var(--text-secondary)',
+            fontWeight: '700',
+            fontSize: '0.82rem',
+            cursor: 'pointer'
+          }}
+        >
+          <Tv size={15} style={{ display: 'inline', marginRight: '6px' }} />
+          Ads & Banners ({adsList.length})
         </button>
       </div>
 
@@ -2456,6 +2640,334 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
           >
             Broadcast Announcement
           </button>
+        </div>
+      )}
+
+      {/* ADS & BANNERS MANAGEMENT TAB */}
+      {activeTab === 'ADS' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Header Metrics Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+            <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '14px', borderLeft: '4px solid #F59E0B' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#F59E0B', marginBottom: '4px', textTransform: 'uppercase' }}>
+                📢 Total Advertisements
+              </div>
+              <div style={{ fontSize: '1.6rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                {adStats?.totalAds ?? adsList.length}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Total campaigns published
+              </div>
+            </div>
+
+            <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '14px', borderLeft: '4px solid #10B981' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#10B981', marginBottom: '4px', textTransform: 'uppercase' }}>
+                🟢 Active Live Ads
+              </div>
+              <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#10B981' }}>
+                {adStats?.activeAds ?? adsList.filter(a => a.isActive).length}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Visible to Students on Web & Mobile
+              </div>
+            </div>
+
+            <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '14px', borderLeft: '4px solid #3B82F6' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#3B82F6', marginBottom: '4px', textTransform: 'uppercase' }}>
+                🖼️ Image Banners
+              </div>
+              <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#3B82F6' }}>
+                {adStats?.imageAds ?? adsList.filter(a => a.type === 'IMAGE').length}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Static and animated image ads
+              </div>
+            </div>
+
+            <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '14px', borderLeft: '4px solid #EC4899' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#EC4899', marginBottom: '4px', textTransform: 'uppercase' }}>
+                🎬 Video Advertisements
+              </div>
+              <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#EC4899' }}>
+                {adStats?.videoAds ?? adsList.filter(a => a.type === 'VIDEO').length}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Interactive streaming video ads
+              </div>
+            </div>
+          </div>
+
+          {/* Controls Bar: Search, Filter, Refresh & Create Ad */}
+          <div className="glass-card" style={{ padding: '14px 18px', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '260px' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Search ads by title, description, or target link..."
+                  value={adSearchQuery}
+                  onChange={(e) => setAdSearchQuery(e.target.value)}
+                  style={{ paddingLeft: '32px', fontSize: '0.82rem', height: '36px' }}
+                />
+                {adSearchQuery && (
+                  <button
+                    onClick={() => setAdSearchQuery('')}
+                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Type Filter */}
+              <select
+                className="form-input"
+                value={adTypeFilter}
+                onChange={(e) => setAdTypeFilter(e.target.value as any)}
+                style={{ width: '130px', fontSize: '0.8rem', height: '36px' }}
+              >
+                <option value="ALL">All Media Types</option>
+                <option value="IMAGE">🖼️ Image Only</option>
+                <option value="VIDEO">🎬 Video Only</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                className="btn-secondary"
+                onClick={loadAds}
+                style={{ padding: '7px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                title="Refresh advertisements"
+              >
+                <RefreshCw size={14} className={isLoadingAds ? 'animate-spin' : ''} /> Refresh
+              </button>
+
+              <button
+                className="btn-primary"
+                onClick={handleOpenCreateAd}
+                style={{
+                  padding: '7px 16px',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                  border: 'none',
+                  color: '#FFFFFF'
+                }}
+              >
+                <Plus size={16} /> + Create Advertisement
+              </button>
+            </div>
+          </div>
+
+          {/* Advertisement List / Grid */}
+          {isLoadingAds ? (
+            <div className="glass-card" style={{ padding: '40px', textAlign: 'center', borderRadius: '14px' }}>
+              <RefreshCw size={28} className="animate-spin" style={{ color: '#F59E0B', margin: '0 auto 10px' }} />
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Loading advertisements...</div>
+            </div>
+          ) : (() => {
+            const filteredAds = adsList.filter((ad) => {
+              const matchesType = adTypeFilter === 'ALL' || ad.type === adTypeFilter;
+              const matchesSearch = !adSearchQuery ||
+                ad.title.toLowerCase().includes(adSearchQuery.toLowerCase()) ||
+                (ad.description && ad.description.toLowerCase().includes(adSearchQuery.toLowerCase())) ||
+                (ad.targetUrl && ad.targetUrl.toLowerCase().includes(adSearchQuery.toLowerCase()));
+              return matchesType && matchesSearch;
+            });
+
+            if (filteredAds.length === 0) {
+              return (
+                <div className="glass-card" style={{ padding: '50px 20px', textAlign: 'center', borderRadius: '16px' }}>
+                  <Tv size={48} style={{ color: 'var(--text-muted)', opacity: 0.5, margin: '0 auto 12px' }} />
+                  <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '6px' }}>
+                    {adSearchQuery || adTypeFilter !== 'ALL' ? 'No Matching Advertisements Found' : 'No Advertisements Created Yet'}
+                  </h4>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', maxWidth: '440px', margin: '0 auto 16px' }}>
+                    Create attractive Image banners or Video advertisements to broadcast promotions, courses, and sponsor offers directly to students across the Web & Mobile app.
+                  </p>
+                  <button
+                    className="btn-primary"
+                    onClick={handleOpenCreateAd}
+                    style={{ padding: '8px 18px', fontSize: '0.85rem', background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' }}
+                  >
+                    <Plus size={15} style={{ display: 'inline', marginRight: '6px' }} />
+                    Create First Advertisement
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: '18px' }}>
+                {filteredAds.map((ad) => (
+                  <div
+                    key={ad._id}
+                    className="glass-card"
+                    style={{
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      border: ad.isActive ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid rgba(148, 163, 184, 0.15)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      position: 'relative',
+                      boxShadow: ad.isActive ? '0 4px 20px rgba(245, 158, 11, 0.08)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {/* Media Preview Thumbnail */}
+                    <div
+                      style={{
+                        position: 'relative',
+                        height: '170px',
+                        backgroundColor: '#0F172A',
+                        overflow: 'hidden',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setPreviewMediaAd(ad)}
+                    >
+                      {ad.type === 'IMAGE' ? (
+                        <img
+                          src={ad.mediaUrl}
+                          alt={ad.title}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800';
+                          }}
+                        />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)' }}>
+                          <video
+                            src={ad.mediaUrl}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }}
+                            muted
+                            playsInline
+                          />
+                          <div style={{ position: 'absolute', width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(236, 72, 153, 0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 15px rgba(236, 72, 153, 0.6)' }}>
+                            <Play size={22} color="#FFFFFF" style={{ marginLeft: '3px' }} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Badges on Thumbnail */}
+                      <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '6px' }}>
+                        <span
+                          className={`badge ${ad.type === 'IMAGE' ? 'badge-primary' : 'badge-rose'}`}
+                          style={{ fontSize: '0.7rem', padding: '3px 8px', fontWeight: '800' }}
+                        >
+                          {ad.type === 'IMAGE' ? <ImageIcon size={11} style={{ marginRight: '4px', display: 'inline' }} /> : <Film size={11} style={{ marginRight: '4px', display: 'inline' }} />}
+                          {ad.type} AD
+                        </span>
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: '0.7rem',
+                            padding: '3px 8px',
+                            fontWeight: '800',
+                            backgroundColor: 'rgba(0,0,0,0.65)',
+                            color: '#F1F5F9'
+                          }}
+                        >
+                          Priority: {ad.priority}
+                        </span>
+                      </div>
+
+                      {/* Active Status Badge */}
+                      <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
+                        <span
+                          className={`badge ${ad.isActive ? 'badge-emerald' : 'badge-amber'}`}
+                          style={{ fontSize: '0.7rem', padding: '3px 8px', fontWeight: '800' }}
+                        >
+                          {ad.isActive ? '● LIVE ACTIVE' : '○ PAUSED'}
+                        </span>
+                      </div>
+
+                      {/* Click-to-preview overlay hint */}
+                      <div style={{ position: 'absolute', bottom: '8px', right: '10px', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', color: '#FFFFFF', fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Eye size={10} /> Click to Preview
+                      </div>
+                    </div>
+
+                    {/* Card Body */}
+                    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>
+                          {ad.title}
+                        </h4>
+                      </div>
+
+                      {ad.description && (
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 10px 0', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {ad.description}
+                        </p>
+                      )}
+
+                      {/* Placement & Target Link */}
+                      <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Placement:</span>
+                          <span className="badge badge-secondary" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                            {ad.placement}
+                          </span>
+                        </div>
+
+                        {ad.targetUrl ? (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Redirect Link:</span>
+                            <a
+                              href={ad.targetUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: '#38BDF8', fontWeight: '700', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              title={ad.targetUrl}
+                            >
+                              {ad.targetUrl.replace(/^https?:\/\//, '')} <ExternalLink size={11} />
+                            </a>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            No target link specified (display only)
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Action Buttons */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
+                        <button
+                          onClick={() => handleToggleAdActive(ad)}
+                          className={ad.isActive ? 'btn-secondary' : 'btn-emerald'}
+                          style={{ flex: 1, padding: '6px 10px', fontSize: '0.75rem', fontWeight: '700', borderRadius: '8px' }}
+                        >
+                          {ad.isActive ? '⏸️ Pause Ad' : '▶️ Activate'}
+                        </button>
+
+                        <button
+                          onClick={() => handleOpenEditAd(ad)}
+                          className="btn-secondary"
+                          style={{ padding: '6px 10px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          title="Edit Advertisement"
+                        >
+                          <Edit3 size={13} /> Edit
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteAd(ad)}
+                          className="btn-rose"
+                          style={{ padding: '6px 10px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          title="Delete Advertisement"
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -4788,6 +5300,334 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
             <div style={{ marginTop: '20px', textAlign: 'right' }}>
               <button className="btn-primary" onClick={() => setSelectedCourseRoster(null)} style={{ padding: '8px 24px', fontSize: '0.85rem' }}>
                 Close Roster
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE / EDIT ADVERTISEMENT MODAL */}
+      {showCreateAdModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateAdModal(false)} style={{ zIndex: 10060 }}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '640px', padding: '24px', borderRadius: '18px' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <span className="badge badge-amber" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
+                  {editingAd ? 'EDIT ADVERTISEMENT' : 'NEW ADVERTISEMENT'}
+                </span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginTop: '4px' }}>
+                  {editingAd ? `Edit: ${editingAd.title}` : 'Create Promotion / Advertisement'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowCreateAdModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {adFormError && (
+              <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#FB7185', fontSize: '0.82rem', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={16} />
+                <span>{adFormError}</span>
+              </div>
+            )}
+
+            {adFormSuccess && (
+              <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34D399', fontSize: '0.82rem', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle2 size={16} />
+                <span>{adFormSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveAd} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Media Type Selection (IMAGE vs VIDEO) */}
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                  Select Advertisement Media Type *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setAdType('IMAGE')}
+                    style={{
+                      padding: '12px',
+                      borderRadius: '12px',
+                      border: adType === 'IMAGE' ? '2px solid #3B82F6' : '1px solid var(--border-color)',
+                      background: adType === 'IMAGE' ? 'rgba(59, 130, 246, 0.15)' : 'var(--card-bg)',
+                      color: adType === 'IMAGE' ? '#60A5FA' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      fontWeight: '800',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    <ImageIcon size={18} /> 🖼️ Image Banner / Graphic
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAdType('VIDEO')}
+                    style={{
+                      padding: '12px',
+                      borderRadius: '12px',
+                      border: adType === 'VIDEO' ? '2px solid #EC4899' : '1px solid var(--border-color)',
+                      background: adType === 'VIDEO' ? 'rgba(236, 72, 153, 0.15)' : 'var(--card-bg)',
+                      color: adType === 'VIDEO' ? '#F472B6' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      fontWeight: '800',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    <Film size={18} /> 🎬 Video Advertisement
+                  </button>
+                </div>
+              </div>
+
+              {/* Title */}
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                  Campaign / Ad Title *
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={adTitle}
+                  onChange={(e) => setAdTitle(e.target.value)}
+                  placeholder="e.g., 50% Off on NEET Super Batch 2026 / Sponsor Admission Offer"
+                  style={{ padding: '9px 12px', fontSize: '0.85rem' }}
+                  required
+                />
+              </div>
+
+              {/* Media URL */}
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                  Media Direct URL ({adType === 'IMAGE' ? 'JPG, PNG, WebP image URL' : 'MP4, WebM, or HLS video streaming URL'}) *
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  value={adMediaUrl}
+                  onChange={(e) => setAdMediaUrl(e.target.value)}
+                  placeholder={adType === 'IMAGE' ? 'https://images.unsplash.com/... or https://yourcdn.com/banner.jpg' : 'https://commondatastorage.googleapis.com/.../ad.mp4'}
+                  style={{ padding: '9px 12px', fontSize: '0.85rem' }}
+                  required
+                />
+              </div>
+
+              {/* Instant Live Media Preview */}
+              {adMediaUrl && (
+                <div style={{ borderRadius: '10px', overflow: 'hidden', maxHeight: '160px', border: '1px solid var(--border-color)', background: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {adType === 'IMAGE' ? (
+                    <img
+                      src={adMediaUrl}
+                      alt="Preview"
+                      style={{ maxHeight: '160px', width: '100%', objectFit: 'contain' }}
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <video
+                      src={adMediaUrl}
+                      controls
+                      style={{ maxHeight: '160px', maxWidth: '100%' }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Target Destination Link */}
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                  Target Destination / Redirect Link (Optional)
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  value={adTargetUrl}
+                  onChange={(e) => setAdTargetUrl(e.target.value)}
+                  placeholder="https://example.com/promo or https://eduprep.org/courses"
+                  style={{ padding: '9px 12px', fontSize: '0.85rem' }}
+                />
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                  When a student clicks the ad on web or mobile app, they will be redirected to this link.
+                </span>
+              </div>
+
+              {/* Placement & Priority */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                    Placement Location
+                  </label>
+                  <select
+                    className="form-input"
+                    value={adPlacement}
+                    onChange={(e) => setAdPlacement(e.target.value as any)}
+                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                  >
+                    <option value="HOME_HERO">Home Screen Top Hero</option>
+                    <option value="BANNER">Content / Courses Banner</option>
+                    <option value="POPUP">Interactive Popup / Spotlight</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                    Priority Order (Higher = First)
+                  </label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={adPriority}
+                    onChange={(e) => setAdPriority(parseInt(e.target.value) || 0)}
+                    placeholder="0"
+                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                  Ad Description / Caption (Optional)
+                </label>
+                <textarea
+                  className="form-input"
+                  rows={2}
+                  value={adDescription}
+                  onChange={(e) => setAdDescription(e.target.value)}
+                  placeholder="Brief pitch or explanation about the campaign offer..."
+                  style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              {/* Active Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)' }}>
+                <input
+                  type="checkbox"
+                  id="adIsActiveCheckbox"
+                  checked={adIsActive}
+                  onChange={(e) => setAdIsActive(e.target.checked)}
+                  style={{ width: '18px', height: '18px', accentColor: '#10B981', cursor: 'pointer' }}
+                />
+                <label htmlFor="adIsActiveCheckbox" style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                  Make this advertisement active & visible immediately to students
+                </label>
+              </div>
+
+              {/* Submit Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowCreateAdModal(false)}
+                  style={{ padding: '9px 18px', fontSize: '0.85rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={isSubmittingAd}
+                  style={{
+                    padding: '9px 24px',
+                    fontSize: '0.85rem',
+                    fontWeight: '800',
+                    background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                    border: 'none',
+                    color: '#FFF'
+                  }}
+                >
+                  {isSubmittingAd ? 'Saving Advertisement...' : (editingAd ? 'Update Advertisement' : 'Publish Advertisement')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MEDIA PREVIEW MODAL */}
+      {previewMediaAd && (
+        <div className="modal-overlay" onClick={() => setPreviewMediaAd(null)} style={{ zIndex: 10070 }}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '720px', padding: '20px', borderRadius: '18px', background: '#0B1120' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div>
+                <span className={`badge ${previewMediaAd.type === 'IMAGE' ? 'badge-primary' : 'badge-rose'}`} style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
+                  {previewMediaAd.type} PREVIEW
+                </span>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginTop: '2px', color: '#FFF' }}>
+                  {previewMediaAd.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setPreviewMediaAd(null)}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#020617', textAlign: 'center', maxHeight: '420px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {previewMediaAd.type === 'IMAGE' ? (
+                <img
+                  src={previewMediaAd.mediaUrl}
+                  alt={previewMediaAd.title}
+                  style={{ maxWidth: '100%', maxHeight: '420px', objectFit: 'contain' }}
+                />
+              ) : (
+                <video
+                  src={previewMediaAd.mediaUrl}
+                  controls
+                  autoPlay
+                  style={{ width: '100%', maxHeight: '420px' }}
+                />
+              )}
+            </div>
+
+            {previewMediaAd.description && (
+              <p style={{ marginTop: '12px', fontSize: '0.85rem', color: '#CBD5E1', lineHeight: 1.5 }}>
+                {previewMediaAd.description}
+              </p>
+            )}
+
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid #1E293B' }}>
+              <div>
+                {previewMediaAd.targetUrl && (
+                  <a
+                    href={previewMediaAd.targetUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: '#38BDF8', fontSize: '0.85rem', fontWeight: '700', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}
+                  >
+                    Test Target Link <ExternalLink size={14} />
+                  </a>
+                )}
+              </div>
+              <button
+                className="btn-secondary"
+                onClick={() => setPreviewMediaAd(null)}
+                style={{ padding: '7px 18px', fontSize: '0.82rem' }}
+              >
+                Close Preview
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, BookOpen, ShoppingBag, HelpCircle, FileCheck, RefreshCw, Eye, X, AlertCircle, Video, Radio, PlusCircle, Target, Share2, Megaphone, Lock, CheckCircle } from 'lucide-react';
+import { GraduationCap, BookOpen, ShoppingBag, HelpCircle, FileCheck, RefreshCw, Eye, X, AlertCircle, Video, Radio, PlusCircle, Target, Share2, Megaphone, Lock, CheckCircle, ExternalLink, Play, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { StudentPreferenceModal } from '../StudentPreferenceModal';
 import { AffiliateMlmPortal } from './AffiliateMlmPortal';
@@ -18,6 +18,7 @@ import {
 } from '../../services/studentService';
 import { McqRecord } from '../../services/teacherService';
 import { CourseRecord } from '../../services/adminService';
+import { fetchActiveAds, AdRecord } from '../../services/adService';
 
 export const StudentPortal: React.FC = () => {
   const { user } = useAuth();
@@ -36,6 +37,22 @@ export const StudentPortal: React.FC = () => {
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
+
+  // Dynamic Advertisements State
+  const [activeAds, setActiveAds] = useState<AdRecord[]>([]);
+  const [currentAdIdx, setCurrentAdIdx] = useState<number>(0);
+  const [activeVideoAdModal, setActiveVideoAdModal] = useState<AdRecord | null>(null);
+
+  const loadActiveAds = async () => {
+    try {
+      const res = await fetchActiveAds();
+      if (res.success && res.data) {
+        setActiveAds(res.data.ads || []);
+      }
+    } catch (err) {
+      console.error('Failed to load active ads', err);
+    }
+  };
 
   // Stats & Course Lists State
   const [stats, setStats] = useState<StudentStats | null>(null);
@@ -177,6 +194,7 @@ export const StudentPortal: React.FC = () => {
     loadEnrolled();
     loadBrowse();
     loadMcqs();
+    loadActiveAds();
 
     // Auto-launch Preference Selection Modal if student has not set preferences yet!
     if (user?.role === 'STUDENT' && !user?.learningPreference?.isPreferenceSet) {
@@ -375,7 +393,7 @@ export const StudentPortal: React.FC = () => {
             <button className="btn-emerald" onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }} style={{ padding: '6px 12px', fontSize: '0.78rem' }}>
               <PlusCircle size={14} /> Top-Up Wallet
             </button>
-            <button className="btn-secondary" onClick={() => { loadStats(); loadEnrolled(); loadBrowse(); loadMcqs(); }} style={{ padding: '6px 12px', fontSize: '0.78rem' }}>
+            <button className="btn-secondary" onClick={() => { loadStats(); loadEnrolled(); loadBrowse(); loadMcqs(); loadActiveAds(); }} style={{ padding: '6px 12px', fontSize: '0.78rem' }}>
               <RefreshCw size={14} className={isLoadingStats ? 'animate-spin' : ''} /> Refresh Data
             </button>
           </div>
@@ -402,6 +420,202 @@ export const StudentPortal: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* DYNAMIC SPONSOR / PROMOTIONAL AD BANNER & CAROUSEL */}
+      {activeAds.length > 0 && (() => {
+        const ad = activeAds[currentAdIdx % activeAds.length];
+        if (!ad) return null;
+
+        return (
+          <div
+            className="glass-card"
+            style={{
+              padding: '16px 20px',
+              marginBottom: '20px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.7rem',
+                    fontWeight: '800',
+                    background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                    color: '#FFF'
+                  }}
+                >
+                  <Sparkles size={11} /> SPONSORED SPOTLIGHT
+                </span>
+                <span
+                  className="badge badge-secondary"
+                  style={{ fontSize: '0.68rem', padding: '2px 6px' }}
+                >
+                  {ad.type === 'IMAGE' ? '🖼️ IMAGE AD' : '🎬 VIDEO AD'}
+                </span>
+              </div>
+
+              {activeAds.length > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    onClick={() => setCurrentAdIdx((prev) => (prev - 1 + activeAds.length) % activeAds.length)}
+                    style={{
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      color: 'var(--text-secondary)',
+                      padding: '3px 6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    title="Previous Ad"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>
+                    {((currentAdIdx % activeAds.length) + 1)} / {activeAds.length}
+                  </span>
+                  <button
+                    onClick={() => setCurrentAdIdx((prev) => (prev + 1) % activeAds.length)}
+                    style={{
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      color: 'var(--text-secondary)',
+                      padding: '3px 6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    title="Next Ad"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', alignItems: 'center' }}>
+              {/* Media Container */}
+              <div
+                style={{
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  height: '180px',
+                  position: 'relative',
+                  backgroundColor: '#0F172A',
+                  cursor: 'pointer',
+                  border: '1px solid rgba(255,255,255,0.1)'
+                }}
+                onClick={() => {
+                  if (ad.type === 'VIDEO') {
+                    setActiveVideoAdModal(ad);
+                  } else if (ad.targetUrl) {
+                    window.open(ad.targetUrl, '_blank');
+                  }
+                }}
+              >
+                {ad.type === 'IMAGE' ? (
+                  <img
+                    src={ad.mediaUrl}
+                    alt={ad.title}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800';
+                    }}
+                  />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)' }}>
+                    <video
+                      src={ad.mediaUrl}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.65 }}
+                      muted
+                      playsInline
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '50%',
+                        background: 'rgba(236, 72, 153, 0.9)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 0 16px rgba(236, 72, 153, 0.6)'
+                      }}
+                    >
+                      <Play size={22} color="#FFFFFF" style={{ marginLeft: '3px' }} />
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ position: 'absolute', bottom: '8px', right: '10px', background: 'rgba(0,0,0,0.65)', padding: '2px 8px', borderRadius: '4px', color: '#FFFFFF', fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {ad.type === 'VIDEO' ? '▶ Play Video Ad' : (ad.targetUrl ? '↗ Open Link' : '🖼️ View')}
+                </div>
+              </div>
+
+              {/* Text & Action CTA */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>
+                  {ad.title}
+                </h3>
+                {ad.description && (
+                  <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                    {ad.description}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  {ad.type === 'VIDEO' && (
+                    <button
+                      onClick={() => setActiveVideoAdModal(ad)}
+                      className="btn-rose"
+                      style={{ padding: '8px 16px', fontSize: '0.82rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}
+                    >
+                      <Play size={15} /> Watch Video Ad
+                    </button>
+                  )}
+
+                  {ad.targetUrl && (
+                    <a
+                      href={ad.targetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary"
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '0.82rem',
+                        fontWeight: '800',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        borderRadius: '10px',
+                        textDecoration: 'none',
+                        background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                        border: 'none',
+                        color: '#FFF'
+                      }}
+                    >
+                      Learn More / Visit <ExternalLink size={14} />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Student Personalization Goal Banner */}
       <div className="glass-card" style={{ padding: '12px 18px', marginBottom: '20px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(99,102,241,0.1) 100%)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -1313,6 +1527,84 @@ export const StudentPortal: React.FC = () => {
         initialCategoryCode={currentUserObj?.learningPreference?.categoryCode || 'SCHOOL_K12'}
         initialSubCategory={currentUserObj?.learningPreference?.subCategory || ''}
       />
+
+      {/* ACTIVE VIDEO AD POPUP MODAL */}
+      {activeVideoAdModal && (
+        <div className="modal-overlay" onClick={() => setActiveVideoAdModal(null)} style={{ zIndex: 10080 }}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '680px', padding: '20px', borderRadius: '18px', background: '#0B1120' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="badge badge-rose" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
+                  SPONSORED VIDEO
+                </span>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, color: '#FFF' }}>
+                  {activeVideoAdModal.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setActiveVideoAdModal(null)}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#020617', textAlign: 'center', maxHeight: '380px' }}>
+              <video
+                src={activeVideoAdModal.mediaUrl}
+                controls
+                autoPlay
+                style={{ width: '100%', maxHeight: '380px' }}
+              />
+            </div>
+
+            {activeVideoAdModal.description && (
+              <p style={{ marginTop: '12px', fontSize: '0.84rem', color: '#CBD5E1', lineHeight: 1.5 }}>
+                {activeVideoAdModal.description}
+              </p>
+            )}
+
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid #1E293B' }}>
+              <div>
+                {activeVideoAdModal.targetUrl && (
+                  <a
+                    href={activeVideoAdModal.targetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary"
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '0.82rem',
+                      fontWeight: '800',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      borderRadius: '8px',
+                      textDecoration: 'none',
+                      background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                      border: 'none',
+                      color: '#FFF'
+                    }}
+                  >
+                    Visit Offer Page <ExternalLink size={14} />
+                  </a>
+                )}
+              </div>
+              <button
+                className="btn-secondary"
+                onClick={() => setActiveVideoAdModal(null)}
+                style={{ padding: '7px 16px', fontSize: '0.82rem' }}
+              >
+                Close Video
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

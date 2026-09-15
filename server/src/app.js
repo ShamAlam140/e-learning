@@ -21,6 +21,7 @@ const mlmRoutes = require('./routes/mlmRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const studentRoutes = require('./routes/studentRoutes');
+const adRoutes = require('./routes/adRoutes');
 const { globalRateLimiter } = require('./middlewares/rateLimiter');
 const globalErrorHandler = require('./middlewares/errorMiddleware');
 const AppError = require('./utils/appError');
@@ -96,6 +97,7 @@ app.use('/api/mlm', mlmRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/student', studentRoutes);
+app.use('/api/ads', adRoutes);
 
 // Unhandled Route Handler (404)
 app.use((req, res, next) => {

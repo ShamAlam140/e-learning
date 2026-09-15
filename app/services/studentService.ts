@@ -13,6 +13,8 @@ export interface CourseRecord {
   title: string;
   description: string;
   category: any;
+  categoryCode?: string;
+  subjectName?: string;
   stateCode: string;
   price: number;
   originalPrice?: number;
@@ -60,6 +62,20 @@ export interface EbookRecord {
   samplePdfUrl?: string;
   fullPdfUrl?: string;
   description?: string;
+}
+
+export interface AdRecord {
+  _id: string;
+  title: string;
+  type: 'IMAGE' | 'VIDEO';
+  mediaUrl: string;
+  targetUrl?: string;
+  description?: string;
+  placement: 'HOME_HERO' | 'BANNER' | 'POPUP';
+  isActive: boolean;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -243,4 +259,12 @@ export const updateLegPreference = async (placementPreference: 'AUTO' | 'LEFT' |
     method: 'PUT',
     body: JSON.stringify({ placementPreference }),
   });
+};
+
+/**
+ * Fetch public active ads for students on mobile app
+ */
+export const fetchActiveAds = async (type?: 'IMAGE' | 'VIDEO') => {
+  const query = type ? `?type=${type}` : '';
+  return apiFetch<{ count: number; ads: AdRecord[] }>(`/ads${query}`);
 };
