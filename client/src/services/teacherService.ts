@@ -1,5 +1,12 @@
 import { apiFetch } from './apiClient';
-import { CourseRecord, EnrolledStudentRecord } from './adminService';
+import { 
+  CourseRecord, 
+  EnrolledStudentRecord, 
+  CourseInclusions, 
+  CourseCurriculumItem, 
+  CourseStudyMaterialItem, 
+  CourseMockTestItem 
+} from './adminService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://e-learning-63yb.onrender.com/api';
 
@@ -25,6 +32,15 @@ export interface CreateTeacherCoursePayload {
   courseMode?: 'LIVE_ONLINE' | 'RECORDED_VIDEO' | 'HYBRID';
   liveMeetingUrl?: string;
   lectureVideoUrl?: string;
+  demoVideoUrl?: string;
+  liveSchedule?: string;
+  ebookTitle?: string;
+  ebookPdfUrl?: string;
+  syllabusTopics?: string[];
+  inclusions?: CourseInclusions;
+  curriculum?: CourseCurriculumItem[];
+  studyMaterials?: CourseStudyMaterialItem[];
+  mockTests?: CourseMockTestItem[];
   thumbnail?: string;
 }
 
@@ -119,6 +135,7 @@ export const createTeacherCourse = async (payload: CreateTeacherCoursePayload, t
     if (payload.subCategory) formData.append('subCategory', payload.subCategory);
     if (payload.subCategoryTitle) formData.append('subCategoryTitle', payload.subCategoryTitle);
     if (payload.stream) formData.append('stream', payload.stream);
+    if (payload.subjectName) formData.append('subjectName', payload.subjectName);
     if (payload.description) formData.append('description', payload.description);
     formData.append('price', payload.price.toString());
     if (payload.originalPrice) formData.append('originalPrice', payload.originalPrice.toString());
@@ -127,6 +144,13 @@ export const createTeacherCourse = async (payload: CreateTeacherCoursePayload, t
     if (payload.courseMode) formData.append('courseMode', payload.courseMode);
     if (payload.liveMeetingUrl) formData.append('liveMeetingUrl', payload.liveMeetingUrl);
     if (payload.lectureVideoUrl) formData.append('lectureVideoUrl', payload.lectureVideoUrl);
+    if (payload.demoVideoUrl) formData.append('demoVideoUrl', payload.demoVideoUrl);
+    if (payload.liveSchedule) formData.append('liveSchedule', payload.liveSchedule);
+    if (payload.ebookTitle) formData.append('ebookTitle', payload.ebookTitle);
+    if (payload.ebookPdfUrl) formData.append('ebookPdfUrl', payload.ebookPdfUrl);
+    if (payload.syllabusTopics) formData.append('syllabusTopics', JSON.stringify(payload.syllabusTopics));
+    if (payload.inclusions) formData.append('inclusions', JSON.stringify(payload.inclusions));
+    if (payload.curriculum) formData.append('curriculum', JSON.stringify(payload.curriculum));
     formData.append('thumbnailFile', thumbnailFile);
 
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');

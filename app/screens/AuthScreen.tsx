@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { loginWithCredentials, verifyEmailOtp, registerStudent } from '../services/authService';
@@ -206,8 +207,32 @@ export const AuthScreen: React.FC = () => {
         </View>
 
         <View style={{ alignItems: 'center', marginBottom: 20 }}>
-          <Text style={{ fontSize: 24, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' }}>
-            EduVerse Mobile App
+          <View
+            style={{
+              width: 84,
+              height: 84,
+              borderRadius: 42,
+              backgroundColor: '#FFFFFF',
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
+              elevation: 4,
+              marginBottom: 12,
+              borderWidth: 2,
+              borderColor: '#F59E0B',
+            }}
+          >
+            <Image
+              source={require('../assets/images/logo.png')}
+              style={{ width: 72, height: 72 }}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={{ fontSize: 24, fontWeight: '800', color: colors.textPrimary, textAlign: 'center', letterSpacing: 0.3 }}>
+            Sri Surya Academy
           </Text>
           <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 4 }}>
             {step === 1

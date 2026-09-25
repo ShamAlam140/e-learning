@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { Sparkles, LogOut, User, ShieldAlert, GraduationCap, Sun, Moon, Loader2 } from 'lucide-react';
+import { LogOut, User, ShieldAlert, GraduationCap, Sun, Moon, Loader2 } from 'lucide-react';
 
 // React.lazy Dynamic Imports (Code Splitting for Optimal Performance)
 const RoleLoginGateway = lazy(() => import('./components/portals/RoleLoginGateway').then(m => ({ default: m.RoleLoginGateway })));
@@ -165,23 +165,24 @@ function AppContent(): React.JSX.Element {
               width: '40px',
               height: '40px',
               borderRadius: '12px',
-              background: 'var(--primary-gradient)',
+              background: '#FFFFFF',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#FFF',
-              boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.1)',
+              padding: '3px',
+              border: '1.5px solid #F59E0B'
             }}>
-              <Sparkles size={22} />
+              <img src="/logo.png" alt="Sri Surya Academy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
 
             <div>
               <div style={{ fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>EduVerse</span>
-                <span style={{ color: '#818CF8' }}>India</span>
+                <span>Sri Surya</span>
+                <span style={{ color: '#F59E0B' }}>Academy</span>
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                Enterprise Multi-Portal Architecture
+                Official E-Learning Platform
               </div>
             </div>
           </div>
@@ -272,7 +273,7 @@ function AppContent(): React.JSX.Element {
         fontSize: '0.88rem'
       }}>
         <div>
-          EduVerse India • Multi-Role Portal Architecture (Super Admin | Teacher | Student)
+          Sri Surya Academy • Enterprise E-Learning Platform (Super Admin | Teacher | Student)
         </div>
       </footer>
     </div>

@@ -136,6 +136,13 @@ const createCourse = catchAsync(async (req, res, next) => {
     courseMode,
     liveMeetingUrl,
     lectureVideoUrl,
+    demoVideoUrl,
+    liveSchedule,
+    ebookTitle,
+    ebookPdfUrl,
+    syllabusTopics,
+    inclusions,
+    curriculum,
     isFeatured
   } = req.body;
 
@@ -190,6 +197,13 @@ const createCourse = catchAsync(async (req, res, next) => {
     courseMode: courseMode || 'RECORDED_VIDEO',
     liveMeetingUrl,
     lectureVideoUrl,
+    demoVideoUrl,
+    liveSchedule,
+    ebookTitle,
+    ebookPdfUrl,
+    syllabusTopics: Array.isArray(syllabusTopics) ? syllabusTopics : [],
+    inclusions: inclusions || undefined,
+    curriculum: Array.isArray(curriculum) ? curriculum : [],
     isFeatured: isFeatured || false
   });
 

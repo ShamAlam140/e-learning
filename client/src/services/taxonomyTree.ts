@@ -406,3 +406,315 @@ export const getSubjectsForStateAndModule = (stateCode: string = 'GLOBAL'): stri
 export const getSubCategoriesForModule = (moduleCode: string): SubCategoryItem[] => {
   return getSubCategoriesForModuleAndState(moduleCode, 'GLOBAL');
 };
+
+/**
+ * Curated, syllabus-aligned granular topics mapped by subject focus.
+ * When teacher/admin selects a subject, these detailed topics populate dynamically.
+ */
+export const SUBJECT_TOPICS_MAP: Record<string, string[]> = {
+  'Mathematics': [
+    'Arithmetic & Number Systems',
+    'Algebra, Polynomials & Linear Equations',
+    'Quadratic Equations & Complex Numbers',
+    'Trigonometry, Identities & Heights-Distances',
+    'Coordinate Geometry & Straight Lines',
+    'Differential Calculus & Derivatives',
+    'Integral Calculus & Area Under Curves',
+    'Differential Equations',
+    'Matrices & Determinants',
+    'Vector Algebra & 3D Geometry',
+    'Probability & Baye\'s Theorem',
+    'Statistics, Mean, Median & Standard Deviation',
+    'Mensuration, Surface Areas & Volumes',
+    'Sequences, Series & Arithmetic-Geometric Progressions',
+    'Permutations, Combinations & Binomial Theorem',
+    'Mathematical Reasoning & Sets-Relations'
+  ],
+  'Physics': [
+    'Units, Dimensions & Error Analysis',
+    'Kinematics (1D & 2D Motion)',
+    'Newton\'s Laws of Motion & Friction',
+    'Work, Energy, Power & Collisions',
+    'Rotational Dynamics & Moment of Inertia',
+    'Gravitation & Satellite Motion',
+    'Mechanical Properties of Solids & Fluids',
+    'Thermodynamics, Heat Transfer & Kinetic Theory',
+    'Oscillations, Simple Harmonic Motion (SHM) & Waves',
+    'Electrostatics & Electric Fields',
+    'Capacitance & Dielectrics',
+    'Current Electricity & Kirchhoff\'s Laws',
+    'Magnetic Effects of Current & Magnetism',
+    'Electromagnetic Induction (EMI) & AC Circuits',
+    'Electromagnetic Waves & Ray Optics',
+    'Wave Optics, Interference & Diffraction',
+    'Dual Nature of Matter & Radiation',
+    'Atomic Structure & Nuclear Physics',
+    'Semiconductors & Digital Electronics'
+  ],
+  'Chemistry': [
+    'Basic Concepts of Chemistry & Mole Concept',
+    'Structure of Atom & Quantum Numbers',
+    'Classification of Elements & Periodic Trends',
+    'Chemical Bonding & Molecular Orbital Theory',
+    'Chemical Thermodynamics & Thermochemistry',
+    'Chemical Equilibrium & Le Chatelier\'s Principle',
+    'Ionic Equilibrium, pH & Buffer Solutions',
+    'Redox Reactions & Electrochemistry',
+    'Chemical Kinetics & Rate Laws',
+    'Surface Chemistry & Catalysis',
+    'General Principles of Metallurgy',
+    'p-Block, d-Block & f-Block Elements',
+    'Coordination Compounds & IUPAC Nomenclature',
+    'Organic Chemistry: Hydrocarbons (Alkanes, Alkenes, Alkynes)',
+    'Haloalkanes & Haloarenes',
+    'Alcohols, Phenols & Ethers',
+    'Aldehydes, Ketones & Carboxylic Acids',
+    'Amines & Nitrogen-containing Compounds',
+    'Biomolecules, Carbohydrates & Proteins',
+    'Polymers & Chemistry in Everyday Life'
+  ],
+  'Biology': [
+    'The Living World & Biological Classification',
+    'Plant Kingdom & Morphology of Flowering Plants',
+    'Anatomy of Flowering Plants & Plant Tissues',
+    'Animal Kingdom & Structural Organisation in Animals',
+    'Cell: Structure, Function & Cell Cycle/Division',
+    'Biomolecules & Enzymes',
+    'Photosynthesis in Higher Plants',
+    'Respiration in Plants & Plant Growth Hormones',
+    'Digestion, Absorption & Breathing/Gas Exchange',
+    'Body Fluids, Circulation & Excretory Products',
+    'Locomotion, Movement & Neural Control/Coordination',
+    'Chemical Coordination & Endocrine Glands',
+    'Reproduction in Organisms & Human Reproduction',
+    'Reproductive Health & Contraception',
+    'Principles of Inheritance, Variation & Mendelism',
+    'Molecular Basis of Inheritance (DNA/RNA & Genetic Code)',
+    'Evolution, Darwinism & Speciation',
+    'Human Health, Immunity, Diseases & Microbes',
+    'Biotechnology: Principles, Processes & Applications',
+    'Ecology, Ecosystems, Biodiversity & Conservation'
+  ],
+  'General Science': [
+    'Everyday Physics, Mechanics & Gravity',
+    'Heat, Light, Sound & Optical Instruments',
+    'Electricity, Magnetism & Domestic Circuits',
+    'Acids, Bases, Salts & Everyday Chemical Reactions',
+    'Metals, Non-Metals, Carbon & Its Compounds',
+    'Human Anatomy, Nutrition, Vitamins & Balanced Diet',
+    'Infectious Diseases, Vaccines & Public Health',
+    'Plant Structure, Photosynthesis & Agriculture',
+    'Ecology, Environment, Global Warming & Pollution Control',
+    'Indian Space Research (ISRO), Nuclear Energy & Defence Technology'
+  ],
+  'Quantitative Aptitude & Reasoning': [
+    'Number Series & Missing Number Patterns',
+    'Simplification, Fractions & Decimals',
+    'Percentages, Ratio, Proportion & Variations',
+    'Profit, Loss, Discount & Marked Price',
+    'Simple Interest & Compound Interest',
+    'Time, Work, Efficiency & Pipes and Cisterns',
+    'Speed, Distance, Time, Problems on Trains & Boats',
+    'Mixtures, Alligations & Average',
+    'Data Interpretation (Bar Graphs, Pie Charts, Tables & Radar)',
+    'Coding-Decoding & Analogy',
+    'Blood Relations & Family Tree Problems',
+    'Direction Sense & Distance Tests',
+    'Syllogisms & Logical Venn Diagrams',
+    'Seating Arrangements (Linear & Circular)',
+    'Puzzles, Order & Ranking',
+    'Statement & Assumptions, Arguments & Conclusions',
+    'Non-Verbal Reasoning (Paper Folding, Mirror Images, Series)'
+  ],
+  'Quantitative Aptitude & Mathematics': [
+    'Number Systems, HCF & LCM',
+    'Algebraic Identities & Linear Equations',
+    'Percentages, Profit, Loss & Partnership',
+    'Simple & Compound Interest',
+    'Time, Work, Speed & Distance',
+    'Mensuration 2D & 3D (Area & Volume)',
+    'Basic Trigonometry & Height-Distance',
+    'Data Interpretation & Probability'
+  ],
+  'Reasoning & Logical Ability': [
+    'Analogies & Classification',
+    'Coding & Decoding',
+    'Series Completion (Number & Alphabet)',
+    'Blood Relations & Direction Sense',
+    'Syllogisms & Deductive Logic',
+    'Seating Arrangements & Complex Puzzles',
+    'Input-Output & Machine Logic',
+    'Critical Reasoning & Course of Action'
+  ],
+  'General Knowledge & Current Affairs': [
+    'Indian Constitution, Preamble & Fundamental Rights',
+    'Parliament, President, Prime Minister & Judiciary',
+    'Ancient, Medieval & Modern Indian History',
+    'Indian National Movement & Freedom Struggle (1857-1947)',
+    'Physical Geography of India (Rivers, Mountains, Climate, Soils)',
+    'World Geography & Major Natural Regions',
+    'Indian Economy, Inflation, Banking & Union Budget',
+    'Government Welfare Schemes & Digital India Initiatives',
+    'National & International Awards, Sports & Summits',
+    'Latest National & International Current Affairs (Monthly Wrap)'
+  ],
+  'General Knowledge & Indian History': [
+    'Indus Valley Civilization & Vedic Age',
+    'Buddhism, Jainism, Mauryas & Guptas',
+    'Delhi Sultanate & Mughal Empire',
+    'British Rule & Socio-Religious Reform Movements',
+    'Freedom Struggle, Gandhian Era & Independence 1947',
+    'Indian Constitution & Democratic System',
+    'Geography of India & Natural Resources',
+    'Economic Development & Five-Year Plans'
+  ],
+  'Child Development & Pedagogy': [
+    'Concept of Child Growth, Maturation & Development',
+    'Principles of Child Development & Heredity vs Environment',
+    'Piaget, Kohlberg & Vygotsky Cognitive Theories',
+    'Concepts of Child-Centered & Progressive Education',
+    'Construct of Intelligence & Multi-Dimensional Intelligence',
+    'Language & Thought, Gender as a Social Construct',
+    'Addressing Learners from Diverse Backgrounds & Disadvantaged Groups',
+    'Addressing the Needs of Gifted, Talented & Specially Abled Children',
+    'Learning Processes, Motivation & Emotion',
+    'Formative & Summative Assessment, CCE & Rubrics',
+    'Pedagogy of Subject Teaching & Remedial Teaching Strategies'
+  ],
+  'Child Development & Pedagogy (बाल विकास व शिक्षाशास्त्र)': [
+    'बाल विकास की अवधारणा एवं अधिगम से संबंध',
+    'पियाजे, कोहलबर्ग एवं वायगोत्स्की के सिद्धांत',
+    'समावेशी शिक्षा की अवधारणा एवं विशेष आवश्यकता वाले बच्चे',
+    'अधिगम और अध्यापन (बालक कैसे सोचते और सीखते हैं)',
+    'सतत एवं व्यापक मूल्यांकन (CCE) एवं उपचारात्मक शिक्षण'
+  ],
+  'English Language & Literature': [
+    'Unseen Passage Reading Comprehension',
+    'English Grammar: Tenses, Subject-Verb Agreement',
+    'Active & Passive Voice Transformation',
+    'Direct & Indirect Speech (Narration)',
+    'Prepositions, Conjunctions & Articles',
+    'Vocabulary: Synonyms, Antonyms & Homonyms',
+    'Idioms, Phrases & Phrasal Verbs',
+    'One-Word Substitution & Spelling Correction',
+    'Error Spotting & Sentence Improvement',
+    'Para Jumbles & Sentence Rearrangement',
+    'Cloze Test & Fill in the Blanks',
+    'Formal Letter, Notice & Essay Writing Skills'
+  ],
+  'General Hindi (सामान्य हिंदी)': [
+    'हिंदी वर्णमाला, विराम चिन्ह एवं वर्तनी शुद्धि',
+    'संधि, समास, उपसर्ग एवं प्रत्यय',
+    'संज्ञा, सर्वनाम, क्रिया, विशेषण एवं अव्यय',
+    'पर्यायवाची, विलोम, अनेकार्थी एवं समरूपी शब्द',
+    'मुहावरे, लोकोक्तियाँ एवं कहावतें',
+    'रस, छंद, अलंकार एवं काव्य सौंदर्य',
+    'वाक्यांश के लिए एक शब्द',
+    'अपठित गद्यांश एवं हिंदी साहित्य का संक्षिप्त इतिहास'
+  ],
+  'General Kannada (ಸಾಮಾನ್ಯ ಕನ್ನಡ)': [
+    'ಕನ್ನಡ ವರ್ಣಮಾಲೆ, ಸಂಧಿಗಳು ಮತ್ತು ಸಮಾಸಗಳು',
+    'ತತ್ಸಮ-ತದ್ಭವ, ನಾನಾರ್ಥಗಳು ಮತ್ತು ಸಮಾನಾರ್ಥಕ ಪದಗಳು',
+    'ವಿಭಕ್ತಿ ಪ್ರತ್ಯಯಗಳು ಮತ್ತು ಕ್ರಿಯಾಪದಗಳು',
+    'ಗಾದೆ ಮಾತುಗಳು, ನುಡಿಗಟ್ಟುಗಳು ಮತ್ತು ಒಗಟುಗಳು',
+    'ವಾಕ್ಯ ರಚನೆ, ಅನ್ವಯಿಕ ವ್ಯಾಕರಣ ಮತ್ತು ವಾಕ್ಯ ದೋಷ ಶೋಧನೆ',
+    'ಕನ್ನಡ ಸಾಹಿತ್ಯ ಚರಿತ್ರೆ, ಕವಿಗಳು ಮತ್ತು ಪ್ರಸಿದ್ಧ ಕೃತಿಗಳು',
+    'ಅಪಠಿತ ಗದ್ಯ ಗ್ರಹಣ ಮತ್ತು ಸಾರಾಂಶ ಲೇಖನ'
+  ],
+  'Computer Science & Programming': [
+    'Computer Fundamentals, CPU Architecture & Memory Hierarchy',
+    'Operating Systems (Processes, Threads, Memory & Linux Shell)',
+    'Programming in Python / C++: Syntax, Loops & Functions',
+    'Object-Oriented Programming (OOP): Inheritance, Polymorphism',
+    'Data Structures: Arrays, Linked Lists, Stacks & Queues',
+    'Trees, Binary Search Trees & Graphs Algorithms',
+    'Sorting, Searching & Asymptotic Time Complexity',
+    'Database Management Systems (DBMS), ER Diagrams & Normalization',
+    'SQL Queries: Joins, Subqueries & Transactions (ACID)',
+    'Computer Networks: OSI Model, TCP/IP, DNS, HTTP & Routing',
+    'Cybersecurity Essentials: Encryption, Firewalls & Ethical Hacking',
+    'Web Development Essentials: HTML5, CSS3, JavaScript & REST APIs'
+  ],
+  'Financial Management & Business Analytics': [
+    'Financial Accounting Principles & Double Entry System',
+    'Corporate Finance, Capital Budgeting & Cost of Capital',
+    'Working Capital Management & Cash Flow Analysis',
+    'Financial Statements Analysis & Ratio Analysis',
+    'Marketing Management, Segmentation & 4 Ps',
+    'Human Resource Management & Organizational Behaviour',
+    'Business Statistics & Hypothesis Testing',
+    'Business Analytics & Data-Driven Decision Making'
+  ]
+};
+
+/**
+ * Returns topics for a given subject. If no exact match, performs case-insensitive
+ * substring matching or returns a rich universal foundational syllabus list.
+ */
+export const getTopicsForSubject = (subjectName: string = ''): string[] => {
+  const trimmed = (subjectName || '').trim();
+  if (!trimmed) {
+    return SUBJECT_TOPICS_MAP['Mathematics'];
+  }
+
+  if (SUBJECT_TOPICS_MAP[trimmed]) {
+    return SUBJECT_TOPICS_MAP[trimmed];
+  }
+
+  // Case-insensitive / substring match
+  const lower = trimmed.toLowerCase();
+  for (const [key, topics] of Object.entries(SUBJECT_TOPICS_MAP)) {
+    if (key.toLowerCase().includes(lower) || lower.includes(key.toLowerCase())) {
+      return topics;
+    }
+  }
+
+  if (lower.includes('math') || lower.includes('quant') || lower.includes('arithmetic')) {
+    return SUBJECT_TOPICS_MAP['Mathematics'];
+  }
+  if (lower.includes('physic')) {
+    return SUBJECT_TOPICS_MAP['Physics'];
+  }
+  if (lower.includes('chem')) {
+    return SUBJECT_TOPICS_MAP['Chemistry'];
+  }
+  if (lower.includes('bio') || lower.includes('zoology') || lower.includes('botany')) {
+    return SUBJECT_TOPICS_MAP['Biology'];
+  }
+  if (lower.includes('science')) {
+    return SUBJECT_TOPICS_MAP['General Science'];
+  }
+  if (lower.includes('reason') || lower.includes('aptitude') || lower.includes('mental')) {
+    return SUBJECT_TOPICS_MAP['Quantitative Aptitude & Reasoning'];
+  }
+  if (lower.includes('history') || lower.includes('gk') || lower.includes('polity') || lower.includes('geography')) {
+    return SUBJECT_TOPICS_MAP['General Knowledge & Current Affairs'];
+  }
+  if (lower.includes('pedagogy') || lower.includes('child') || lower.includes('tet') || lower.includes('b.ed')) {
+    return SUBJECT_TOPICS_MAP['Child Development & Pedagogy'];
+  }
+  if (lower.includes('english')) {
+    return SUBJECT_TOPICS_MAP['English Language & Literature'];
+  }
+  if (lower.includes('hindi')) {
+    return SUBJECT_TOPICS_MAP['General Hindi (सामान्य हिंदी)'];
+  }
+  if (lower.includes('kannada')) {
+    return SUBJECT_TOPICS_MAP['General Kannada (ಸಾಮಾನ್ಯ ಕನ್ನಡ)'];
+  }
+  if (lower.includes('computer') || lower.includes('program') || lower.includes('code') || lower.includes('it')) {
+    return SUBJECT_TOPICS_MAP['Computer Science & Programming'];
+  }
+
+  // Fallback comprehensive modular topics
+  return [
+    'Module 1: Fundamental Concepts & Core Principles',
+    'Module 2: In-Depth Subject Mechanics & Key Theories',
+    'Module 3: Advanced Problem Solving & Numerical Practice',
+    'Module 4: Case Studies, Real-World Applications & Examples',
+    'Module 5: Previous Years Question Papers (PYQs) Analysis',
+    'Module 6: Quick Revision Notes, Formulas & Mind Maps',
+    'Module 7: Full-Length Practice Test Papers & Mock Quizzes'
+  ];
+};
+

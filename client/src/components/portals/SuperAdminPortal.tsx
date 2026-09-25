@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Users, BookOpen, FileCheck, DollarSign, Megaphone, Plus, RefreshCw, CheckCircle2, XCircle, Eye, AlertCircle, Search, X, Trash2, Edit3, Phone, Mail, MapPin, GraduationCap, Share2, UploadCloud, Download, FileSpreadsheet, HelpCircle, Tv, Play, ExternalLink, Image as ImageIcon, Film } from 'lucide-react';
-import { INDIAN_STATES_LIST, CORE_MODULES_LIST, getSubCategoriesForModuleAndState, getSubjectsForStateAndModule } from '../../services/taxonomyTree';
+import { INDIAN_STATES_LIST, CORE_MODULES_LIST, getSubCategoriesForModuleAndState } from '../../services/taxonomyTree';
 import {
   fetchAdminStats,
   fetchAdminUsers,
@@ -22,6 +22,10 @@ import {
   AdminStats,
   UserRecord,
   CourseRecord,
+  CourseInclusions,
+  CourseCurriculumItem,
+  CourseStudyMaterialItem,
+  CourseMockTestItem,
   KYCRecord,
   PayoutRecord
 } from '../../services/adminService';
@@ -35,6 +39,7 @@ import {
   AdRecord,
   AdStats
 } from '../../services/adService';
+import { CourseCreationWizardModal } from '../CourseCreationWizardModal';
 
 interface SuperAdminPortalProps {
   onCheckBackendHealth?: () => void;
@@ -495,6 +500,25 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
   const [editLiveMeetingUrl, setEditLiveMeetingUrl] = useState('');
   const [editLectureVideoUrl, setEditLectureVideoUrl] = useState('');
   const [editThumbnail, setEditThumbnail] = useState('');
+  const [editSyllabusTopics, setEditSyllabusTopics] = useState<string[]>([]);
+  const [editInclusions, setEditInclusions] = useState<CourseInclusions>({
+    totalLectures: 0,
+    totalHours: 0,
+    totalEbooks: 0,
+    totalLiveSessions: 0,
+    totalMockTests: 0,
+    hasCertificate: true,
+    hasDoubtSupport: true,
+    hasDownloadableNotes: true,
+    hasLifetimeAccess: false
+  });
+  const [editCurriculum, setEditCurriculum] = useState<CourseCurriculumItem[]>([]);
+  const [editDemoVideoUrl, setEditDemoVideoUrl] = useState('');
+  const [editLiveSchedule, setEditLiveSchedule] = useState('');
+  const [editEbookTitle, setEditEbookTitle] = useState('');
+  const [editEbookPdfUrl, setEditEbookPdfUrl] = useState('');
+  const [editStudyMaterials, setEditStudyMaterials] = useState<CourseStudyMaterialItem[]>([]);
+  const [editMockTests, setEditMockTests] = useState<CourseMockTestItem[]>([]);
 
   // Create Course Form State
   const [newTitle, setNewTitle] = useState('');
@@ -510,6 +534,25 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
   const [newCourseMode, setNewCourseMode] = useState<'LIVE_ONLINE' | 'RECORDED_VIDEO' | 'HYBRID'>('LIVE_ONLINE');
   const [newLiveMeetingUrl, setNewLiveMeetingUrl] = useState('https://zoom.us/j/9900000000');
   const [newLectureVideoUrl, setNewLectureVideoUrl] = useState('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+  const [newDemoVideoUrl, setNewDemoVideoUrl] = useState('');
+  const [newLiveSchedule, setNewLiveSchedule] = useState('Monday, Wednesday & Friday @ 7:00 PM IST');
+  const [newEbookTitle, setNewEbookTitle] = useState('');
+  const [newEbookPdfUrl, setNewEbookPdfUrl] = useState('');
+  const [newSyllabusTopics, setNewSyllabusTopics] = useState<string[]>([]);
+  const [newInclusions, setNewInclusions] = useState<CourseInclusions>({
+    totalLectures: 40,
+    totalHours: 50,
+    totalEbooks: 5,
+    totalLiveSessions: 15,
+    totalMockTests: 5,
+    hasCertificate: true,
+    hasDoubtSupport: true,
+    hasDownloadableNotes: true,
+    hasLifetimeAccess: false
+  });
+  const [newCurriculum, setNewCurriculum] = useState<CourseCurriculumItem[]>([]);
+  const [newStudyMaterials, setNewStudyMaterials] = useState<CourseStudyMaterialItem[]>([]);
+  const [newMockTests, setNewMockTests] = useState<CourseMockTestItem[]>([]);
   const [newThumbnailUrl, setNewThumbnailUrl] = useState('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800');
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
@@ -912,6 +955,25 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
     setEditCourseMode(crs.courseMode || 'LIVE_ONLINE');
     setEditLiveMeetingUrl(crs.liveMeetingUrl || '');
     setEditLectureVideoUrl(crs.lectureVideoUrl || '');
+    setEditDemoVideoUrl(crs.demoVideoUrl || '');
+    setEditLiveSchedule(crs.liveSchedule || '');
+    setEditEbookTitle(crs.ebookTitle || '');
+    setEditEbookPdfUrl(crs.ebookPdfUrl || '');
+    setEditSyllabusTopics(crs.syllabusTopics || []);
+    setEditInclusions(crs.inclusions || {
+      totalLectures: 0,
+      totalHours: 0,
+      totalEbooks: 0,
+      totalLiveSessions: 0,
+      totalMockTests: 0,
+      hasCertificate: true,
+      hasDoubtSupport: true,
+      hasDownloadableNotes: true,
+      hasLifetimeAccess: false
+    });
+    setEditCurriculum(crs.curriculum || []);
+    setEditStudyMaterials(crs.studyMaterials || []);
+    setEditMockTests(crs.mockTests || []);
     setEditThumbnail(crs.thumbnail || '');
     setEditErrorMsg('');
   };
@@ -938,6 +1000,15 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
         courseMode: editCourseMode,
         liveMeetingUrl: editLiveMeetingUrl,
         lectureVideoUrl: editLectureVideoUrl,
+        demoVideoUrl: editDemoVideoUrl,
+        liveSchedule: editLiveSchedule,
+        ebookTitle: editEbookTitle,
+        ebookPdfUrl: editEbookPdfUrl,
+        syllabusTopics: editSyllabusTopics,
+        inclusions: editInclusions,
+        curriculum: editCurriculum,
+        studyMaterials: editStudyMaterials,
+        mockTests: editMockTests,
         thumbnail: editThumbnail
       };
 
@@ -1029,6 +1100,15 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
       courseMode: newCourseMode,
       liveMeetingUrl: newLiveMeetingUrl.trim(),
       lectureVideoUrl: newLectureVideoUrl.trim(),
+      demoVideoUrl: newDemoVideoUrl.trim(),
+      liveSchedule: newLiveSchedule.trim(),
+      ebookTitle: newEbookTitle.trim(),
+      ebookPdfUrl: newEbookPdfUrl.trim(),
+      syllabusTopics: newSyllabusTopics,
+      inclusions: newInclusions,
+      curriculum: newCurriculum,
+      studyMaterials: newStudyMaterials,
+      mockTests: newMockTests,
       thumbnail: uploadedThumbnailUrl
     });
     setIsCreatingCourse(false);
@@ -1037,6 +1117,8 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
       setShowCreateCourseModal(false);
       setNewTitle('');
       setNewDescription('');
+      setNewStudyMaterials([]);
+      setNewMockTests([]);
       setThumbnailFile(null);
       setThumbnailPreview('');
       loadCourses();
@@ -3499,317 +3581,71 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
       )}
 
       {/* CREATE COURSE MODAL */}
-      {showCreateCourseModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateCourseModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '620px', padding: '20px 24px', borderRadius: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div>
-                <span className="badge badge-rose" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>SUPER ADMIN AUTHORING STUDIO</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginTop: '2px' }}>
-                  Publish New Course Batch
-                </h3>
-              </div>
-              <button onClick={() => setShowCreateCourseModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <X size={18} />
-              </button>
-            </div>
-
-            {createCourseError && (
-              <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#FB7185', fontSize: '0.8rem', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <AlertCircle size={15} />
-                <span>{createCourseError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleCreateCourseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                  Course Batch Title *
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. CBSE Class 10th Physics Master Series"
-                  style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Offer Price (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={newPrice}
-                    onChange={(e) => setNewPrice(e.target.value)}
-                    placeholder="1499"
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Original MRP (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={newOriginalPrice}
-                    onChange={(e) => setNewOriginalPrice(e.target.value)}
-                    placeholder="3999"
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  />
-                </div>
-              </div>
-
-              {/* 6-Level Hierarchy Cascading Selects */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Target State (Level 1) *
-                  </label>
-                  <select
-                    className="form-input"
-                    value={newStateCode}
-                    onChange={(e) => {
-                      const stCode = e.target.value;
-                      setNewStateCode(stCode);
-                      const validSubs = getSubCategoriesForModuleAndState(newCategoryCode, stCode);
-                      if (validSubs.length > 0) {
-                        setNewSubCategory(validSubs[0].code);
-                        setNewBoardGrade(validSubs[0].title);
-                      }
-                      const validSbjs = getSubjectsForStateAndModule(stCode);
-                      if (validSbjs.length > 0) {
-                        setNewSubjectName(validSbjs[0]);
-                      }
-                    }}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  >
-                    {INDIAN_STATES_LIST.map((st) => (
-                      <option key={st.code} value={st.code}>
-                        {st.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Main Core Module Category (Level 2) *
-                  </label>
-                  <select
-                    className="form-input"
-                    value={newCategoryCode}
-                    onChange={(e) => {
-                      const modCode = e.target.value;
-                      setNewCategoryCode(modCode);
-                      const validSubs = getSubCategoriesForModuleAndState(modCode, newStateCode);
-                      if (validSubs.length > 0) {
-                        setNewSubCategory(validSubs[0].code);
-                        setNewBoardGrade(validSubs[0].title);
-                      } else {
-                        setNewSubCategory('');
-                        setNewBoardGrade('');
-                      }
-                      setNewStream('');
-                    }}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem', fontWeight: '600' }}
-                  >
-                    {CORE_MODULES_LIST.map((mod) => (
-                      <option key={mod.code} value={mod.code}>
-                        {mod.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Course / Board / Exam Target (Level 3) *
-                  </label>
-                  <select
-                    className="form-input"
-                    value={newSubCategory}
-                    onChange={(e) => {
-                      const subCode = e.target.value;
-                      setNewSubCategory(subCode);
-                      const validSubs = getSubCategoriesForModuleAndState(newCategoryCode, newStateCode);
-                      const targetSub = validSubs.find((s) => s.code === subCode);
-                      if (targetSub) {
-                        setNewBoardGrade(targetSub.title);
-                      }
-                      setNewStream('');
-                    }}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  >
-                    {getSubCategoriesForModuleAndState(newCategoryCode, newStateCode).map((sub) => (
-                      <option key={sub.code} value={sub.code}>
-                        {sub.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Grade / Display Batch Subtitle
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={newBoardGrade}
-                    onChange={(e) => setNewBoardGrade(e.target.value)}
-                    placeholder="e.g. UP Board Intermediate / UPSSSC Lekhpal"
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  />
-                </div>
-              </div>
-
-              {/* Stream Selector if subCategory has streams */}
-              {getSubCategoriesForModuleAndState(newCategoryCode, newStateCode).find((s) => s.code === newSubCategory)?.hasStreams && (
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: '#A5B4FC', marginBottom: '4px', display: 'block' }}>
-                    Senior Secondary Stream (+1 & +2) *
-                  </label>
-                  <select
-                    className="form-input"
-                    value={newStream}
-                    onChange={(e) => setNewStream(e.target.value)}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem', fontWeight: '700', color: '#A5B4FC' }}
-                  >
-                    <option value="">-- Select Stream --</option>
-                    <option value="Arts Stream (Subjects 1–6)">Arts Stream (Subjects 1–6)</option>
-                    <option value="Commerce Stream (Subjects 1–6)">Commerce Stream (Subjects 1–6)</option>
-                    <option value="Science Stream (Subjects 1–6)">Science Stream (Subjects 1–6)</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Target Subject Name (Level 5) */}
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                  Target Subject Focus (Level 5) *
-                </label>
-                <select
-                  className="form-input"
-                  value={newSubjectName}
-                  onChange={(e) => setNewSubjectName(e.target.value)}
-                  style={{ padding: '8px 10px', fontSize: '0.85rem', fontWeight: '600', color: '#FBBF24' }}
-                >
-                  {getSubjectsForStateAndModule(newStateCode).map((sbj) => (
-                    <option key={sbj} value={sbj}>
-                      {sbj}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                  Course Delivery Mode *
-                </label>
-                <select
-                  className="form-input"
-                  value={newCourseMode}
-                  onChange={(e) => setNewCourseMode(e.target.value as any)}
-                  style={{ padding: '8px 10px', fontSize: '0.85rem', fontWeight: '700', color: '#34D399' }}
-                >
-                  <option value="LIVE_ONLINE">🔴 LIVE ONLINE CLASS (Zoom / Google Meet / YouTube Live)</option>
-                  <option value="RECORDED_VIDEO">📹 RECORDED VIDEO COURSE (YouTube / DRM Video Link)</option>
-                  <option value="HYBRID">⚡ HYBRID (Live Interactive Class + Recorded Access)</option>
-                </select>
-              </div>
-
-              {(newCourseMode === 'LIVE_ONLINE' || newCourseMode === 'HYBRID') && (
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: '#34D399', marginBottom: '4px', display: 'block' }}>
-                    🔴 Live Stream / Meeting URL (Zoom / Google Meet / YouTube Live) *
-                  </label>
-                  <input
-                    type="url"
-                    className="form-input"
-                    value={newLiveMeetingUrl}
-                    onChange={(e) => setNewLiveMeetingUrl(e.target.value)}
-                    placeholder="e.g. https://zoom.us/j/9900000000"
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  />
-                </div>
-              )}
-
-              {(newCourseMode === 'RECORDED_VIDEO' || newCourseMode === 'HYBRID') && (
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: '#818CF8', marginBottom: '4px', display: 'block' }}>
-                    📹 Video Lecture URL (YouTube Video Link / Cloudinary DRM Link) *
-                  </label>
-                  <input
-                    type="url"
-                    className="form-input"
-                    value={newLectureVideoUrl}
-                    onChange={(e) => setNewLectureVideoUrl(e.target.value)}
-                    placeholder="e.g. https://www.youtube.com/watch?v=video_id"
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  />
-                </div>
-              )}
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', display: 'block' }}>
-                    📸 Select Banner Image File (Cloudinary Auto-Upload) *
-                  </label>
-                  <span className="badge badge-amber" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                    MAX FILE SIZE: 2MB
-                  </span>
-                </div>
-
-                <input
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png,image/webp"
-                  onChange={handleThumbnailFileChange}
-                  className="form-input"
-                  style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                />
-
-                {(thumbnailPreview || newThumbnailUrl) && (
-                  <div style={{ marginTop: '8px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', height: '100px', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src={thumbnailPreview || newThumbnailUrl} alt="Banner Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                  Course Description & Syllabus Highlights *
-                </label>
-                <textarea
-                  className="form-input"
-                  rows={3}
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Detailed course description, chapter breakdown, and lecture highlights..."
-                  style={{ padding: '8px 10px', fontSize: '0.85rem', resize: 'vertical' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
-                <button type="button" className="btn-secondary" onClick={() => setShowCreateCourseModal(false)} style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-rose" disabled={isCreatingCourse} style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
-                  {isCreatingCourse ? 'Publishing Course...' : 'Publish Course Live'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* CREATE COURSE WIZARD MODAL */}
+      <CourseCreationWizardModal
+        isOpen={showCreateCourseModal}
+        onClose={() => setShowCreateCourseModal(false)}
+        isEditMode={false}
+        portalType="ADMIN"
+        title={newTitle}
+        onTitleChange={setNewTitle}
+        price={newPrice}
+        onPriceChange={setNewPrice}
+        originalPrice={newOriginalPrice}
+        onOriginalPriceChange={setNewOriginalPrice}
+        stateCode={newStateCode}
+        onStateCodeChange={setNewStateCode}
+        categoryCode={newCategoryCode}
+        onCategoryCodeChange={setNewCategoryCode}
+        subCategory={newSubCategory}
+        onSubCategoryChange={(val) => {
+          setNewSubCategory(val);
+          const validSubs = getSubCategoriesForModuleAndState(newCategoryCode, newStateCode);
+          const targetSub = validSubs.find((s) => s.code === val);
+          if (targetSub) {
+            setNewBoardGrade(targetSub.title);
+          }
+          setNewStream('');
+        }}
+        boardGrade={newBoardGrade}
+        onBoardGradeChange={setNewBoardGrade}
+        stream={newStream}
+        onStreamChange={setNewStream}
+        subjectName={newSubjectName}
+        onSubjectNameChange={setNewSubjectName}
+        courseMode={newCourseMode}
+        onCourseModeChange={setNewCourseMode}
+        syllabusTopics={newSyllabusTopics}
+        onSyllabusTopicsChange={setNewSyllabusTopics}
+        lectureVideoUrl={newLectureVideoUrl}
+        onLectureVideoUrlChange={setNewLectureVideoUrl}
+        demoVideoUrl={newDemoVideoUrl}
+        onDemoVideoUrlChange={setNewDemoVideoUrl}
+        liveMeetingUrl={newLiveMeetingUrl}
+        onLiveMeetingUrlChange={setNewLiveMeetingUrl}
+        liveSchedule={newLiveSchedule}
+        onLiveScheduleChange={setNewLiveSchedule}
+        ebookTitle={newEbookTitle}
+        onEbookTitleChange={setNewEbookTitle}
+        ebookPdfUrl={newEbookPdfUrl}
+        onEbookPdfUrlChange={setNewEbookPdfUrl}
+        studyMaterials={newStudyMaterials}
+        onStudyMaterialsChange={setNewStudyMaterials}
+        mockTests={newMockTests}
+        onMockTestsChange={setNewMockTests}
+        inclusions={newInclusions}
+        onInclusionsChange={setNewInclusions}
+        curriculum={newCurriculum}
+        onCurriculumChange={setNewCurriculum}
+        description={newDescription}
+        onDescriptionChange={setNewDescription}
+        thumbnailPreview={thumbnailPreview}
+        thumbnailUrl={newThumbnailUrl}
+        onThumbnailFileChange={handleThumbnailFileChange}
+        onSubmit={handleCreateCourseSubmit}
+        isSubmitting={isCreatingCourse}
+        errorMessage={createCourseError}
+      />
 
       {/* DOCUMENT PREVIEW MODAL */}
       {previewKycDoc && (
@@ -3990,244 +3826,71 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
         </div>
       )}
 
-      {/* EDIT COURSE MODAL */}
+      {/* EDIT COURSE WIZARD MODAL */}
       {editingCourse && (
-        <div className="modal-overlay" onClick={() => setEditingCourse(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', padding: '24px', borderRadius: '16px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <span className="badge badge-amber" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>EDIT COURSE BATCH</span>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginTop: '2px' }}>
-                  Edit {editingCourse.title}
-                </h3>
-              </div>
-              <button onClick={() => setEditingCourse(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
-
-            {editErrorMsg && (
-              <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#FB7185', fontSize: '0.8rem', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <AlertCircle size={15} />
-                <span>{editErrorMsg}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveCourseEdit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                  Course Batch Title *
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Offer Price (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={editPrice}
-                    onChange={(e) => setEditPrice(e.target.value)}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Original MRP (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={editOriginalPrice}
-                    onChange={(e) => setEditOriginalPrice(e.target.value)}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Target State (Level 1) *
-                  </label>
-                  <select
-                    className="form-input"
-                    value={editStateCode}
-                    onChange={(e) => {
-                      const stCode = e.target.value;
-                      setEditStateCode(stCode);
-                      const validSubs = getSubCategoriesForModuleAndState(editCategoryCode, stCode);
-                      if (validSubs.length > 0) {
-                        setEditSubCategory(validSubs[0].code);
-                        setEditSubCategoryTitle(validSubs[0].title);
-                      }
-                      const validSbjs = getSubjectsForStateAndModule(stCode);
-                      if (validSbjs.length > 0) {
-                        setEditSubjectName(validSbjs[0]);
-                      }
-                    }}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  >
-                    {INDIAN_STATES_LIST.map((st) => (
-                      <option key={st.code} value={st.code}>
-                        {st.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Main Category (Level 2) *
-                  </label>
-                  <select
-                    className="form-input"
-                    value={editCategoryCode}
-                    onChange={(e) => {
-                      const modCode = e.target.value;
-                      setEditCategoryCode(modCode);
-                      const validSubs = getSubCategoriesForModuleAndState(modCode, editStateCode);
-                      if (validSubs.length > 0) {
-                        setEditSubCategory(validSubs[0].code);
-                        setEditSubCategoryTitle(validSubs[0].title);
-                      }
-                    }}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  >
-                    {CORE_MODULES_LIST.map((mod) => (
-                      <option key={mod.code} value={mod.code}>
-                        {mod.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Exam / Board Target (Level 3) *
-                  </label>
-                  <select
-                    className="form-input"
-                    value={editSubCategory}
-                    onChange={(e) => {
-                      const subCode = e.target.value;
-                      setEditSubCategory(subCode);
-                      const validSubs = getSubCategoriesForModuleAndState(editCategoryCode, editStateCode);
-                      const targetSub = validSubs.find((s) => s.code === subCode);
-                      if (targetSub) {
-                        setEditSubCategoryTitle(targetSub.title);
-                      }
-                    }}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  >
-                    {getSubCategoriesForModuleAndState(editCategoryCode, editStateCode).map((sub) => (
-                      <option key={sub.code} value={sub.code}>
-                        {sub.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                    Target Subject Focus (Level 5) *
-                  </label>
-                  <select
-                    className="form-input"
-                    value={editSubjectName}
-                    onChange={(e) => setEditSubjectName(e.target.value)}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem', color: '#FBBF24', fontWeight: '600' }}
-                  >
-                    {getSubjectsForStateAndModule(editStateCode).map((sbj) => (
-                      <option key={sbj} value={sbj}>
-                        {sbj}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                  Course Mode *
-                </label>
-                <select
-                  className="form-input"
-                  value={editCourseMode}
-                  onChange={(e) => setEditCourseMode(e.target.value as any)}
-                  style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                >
-                  <option value="LIVE_ONLINE">LIVE ONLINE (Zoom / Meet)</option>
-                  <option value="RECORDED_VIDEO">RECORDED VIDEO</option>
-                  <option value="HYBRID">HYBRID (Live + Recorded)</option>
-                </select>
-              </div>
-
-              {editCourseMode !== 'RECORDED_VIDEO' && (
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: '#34D399', marginBottom: '4px', display: 'block' }}>
-                    Live Stream Meeting URL
-                  </label>
-                  <input
-                    type="url"
-                    className="form-input"
-                    value={editLiveMeetingUrl}
-                    onChange={(e) => setEditLiveMeetingUrl(e.target.value)}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  />
-                </div>
-              )}
-
-              {editCourseMode !== 'LIVE_ONLINE' && (
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', color: '#818CF8', marginBottom: '4px', display: 'block' }}>
-                    Lecture Video URL
-                  </label>
-                  <input
-                    type="url"
-                    className="form-input"
-                    value={editLectureVideoUrl}
-                    onChange={(e) => setEditLectureVideoUrl(e.target.value)}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                  />
-                </div>
-              )}
-
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                  Description & Syllabus
-                </label>
-                <textarea
-                  className="form-input"
-                  rows={3}
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
-                <button type="button" className="btn-secondary" onClick={() => setEditingCourse(null)} style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-emerald" disabled={isSavingEdit} style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
-                  {isSavingEdit ? 'Saving...' : 'Save Edits'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CourseCreationWizardModal
+          isOpen={!!editingCourse}
+          onClose={() => setEditingCourse(null)}
+          isEditMode={true}
+          portalType="ADMIN"
+          title={editTitle}
+          onTitleChange={setEditTitle}
+          price={editPrice}
+          onPriceChange={setEditPrice}
+          originalPrice={editOriginalPrice}
+          onOriginalPriceChange={setEditOriginalPrice}
+          stateCode={editStateCode}
+          onStateCodeChange={setEditStateCode}
+          categoryCode={editCategoryCode}
+          onCategoryCodeChange={setEditCategoryCode}
+          subCategory={editSubCategory}
+          onSubCategoryChange={(val) => {
+            setEditSubCategory(val);
+            const validSubs = getSubCategoriesForModuleAndState(editCategoryCode, editStateCode);
+            const targetSub = validSubs.find((s) => s.code === val);
+            if (targetSub) {
+              setEditSubCategoryTitle(targetSub.title);
+              setEditBoardGrade(targetSub.title);
+            }
+            setEditStream('');
+          }}
+          boardGrade={editBoardGrade}
+          onBoardGradeChange={setEditBoardGrade}
+          stream={editStream}
+          onStreamChange={setEditStream}
+          subjectName={editSubjectName}
+          onSubjectNameChange={setEditSubjectName}
+          courseMode={editCourseMode}
+          onCourseModeChange={setEditCourseMode}
+          syllabusTopics={editSyllabusTopics}
+          onSyllabusTopicsChange={setEditSyllabusTopics}
+          lectureVideoUrl={editLectureVideoUrl}
+          onLectureVideoUrlChange={setEditLectureVideoUrl}
+          demoVideoUrl={editDemoVideoUrl}
+          onDemoVideoUrlChange={setEditDemoVideoUrl}
+          liveMeetingUrl={editLiveMeetingUrl}
+          onLiveMeetingUrlChange={setEditLiveMeetingUrl}
+          liveSchedule={editLiveSchedule}
+          onLiveScheduleChange={setEditLiveSchedule}
+          ebookTitle={editEbookTitle}
+          onEbookTitleChange={setEditEbookTitle}
+          ebookPdfUrl={editEbookPdfUrl}
+          onEbookPdfUrlChange={setEditEbookPdfUrl}
+          studyMaterials={editStudyMaterials}
+          onStudyMaterialsChange={setEditStudyMaterials}
+          mockTests={editMockTests}
+          onMockTestsChange={setEditMockTests}
+          inclusions={editInclusions}
+          onInclusionsChange={setEditInclusions}
+          curriculum={editCurriculum}
+          onCurriculumChange={setEditCurriculum}
+          description={editDescription}
+          onDescriptionChange={setEditDescription}
+          thumbnailUrl={editThumbnail}
+          onSubmit={handleSaveCourseEdit}
+          isSubmitting={isSavingEdit}
+          errorMessage={editErrorMsg}
+        />
       )}
 
       {/* MODAL: GROUPED STUDENT PREFERENCES DRILLDOWN MODAL */}

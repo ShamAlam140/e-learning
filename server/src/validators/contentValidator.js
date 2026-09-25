@@ -17,7 +17,7 @@ const createCourseSchema = z.object({
   liveMeetingUrl: z.string().optional(),
   lectureVideoUrl: z.string().optional(),
   isFeatured: z.boolean().optional()
-});
+}).passthrough();
 
 const createSubjectSchema = z.object({
   title: z.string().min(2, 'Subject title must be at least 2 characters'),

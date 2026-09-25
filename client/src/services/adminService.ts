@@ -60,6 +60,48 @@ export interface UserRecord {
   walletBalance?: number;
 }
 
+export interface CourseInclusions {
+  totalLectures?: number;
+  totalHours?: number;
+  totalEbooks?: number;
+  totalLiveSessions?: number;
+  totalMockTests?: number;
+  hasCertificate?: boolean;
+  hasDoubtSupport?: boolean;
+  hasDownloadableNotes?: boolean;
+  hasLifetimeAccess?: boolean;
+}
+
+export interface CourseCurriculumItem {
+  title: string;
+  description?: string;
+  lectureCount?: number;
+  durationMinutes?: number;
+}
+
+export interface CourseStudyMaterialItem {
+  title: string;
+  docType?: 'PDF' | 'DOC' | 'NOTES' | 'EBOOK';
+  fileUrl: string;
+  topic?: string;
+}
+
+export interface CourseMockTestQuestion {
+  questionText: string;
+  options: string[];
+  correctOption?: number; // 0, 1, 2, 3
+  explanation?: string;
+}
+
+export interface CourseMockTestItem {
+  title: string;
+  topic?: string;
+  durationMinutes?: number;
+  totalQuestions?: number;
+  testUrl?: string;
+  questions?: CourseMockTestQuestion[];
+}
+
 export interface CourseRecord {
   _id: string;
   title: string;
@@ -77,6 +119,15 @@ export interface CourseRecord {
   courseMode?: 'LIVE_ONLINE' | 'RECORDED_VIDEO' | 'HYBRID';
   liveMeetingUrl?: string;
   lectureVideoUrl?: string;
+  demoVideoUrl?: string;
+  liveSchedule?: string;
+  ebookTitle?: string;
+  ebookPdfUrl?: string;
+  syllabusTopics?: string[];
+  inclusions?: CourseInclusions;
+  curriculum?: CourseCurriculumItem[];
+  studyMaterials?: CourseStudyMaterialItem[];
+  mockTests?: CourseMockTestItem[];
   thumbnail?: string;
   active: boolean;
   isFeatured?: boolean;
@@ -102,6 +153,15 @@ export interface CreateCoursePayload {
   courseMode?: 'LIVE_ONLINE' | 'RECORDED_VIDEO' | 'HYBRID';
   liveMeetingUrl?: string;
   lectureVideoUrl?: string;
+  demoVideoUrl?: string;
+  liveSchedule?: string;
+  ebookTitle?: string;
+  ebookPdfUrl?: string;
+  syllabusTopics?: string[];
+  inclusions?: CourseInclusions;
+  curriculum?: CourseCurriculumItem[];
+  studyMaterials?: CourseStudyMaterialItem[];
+  mockTests?: CourseMockTestItem[];
   thumbnail?: string;
 }
 

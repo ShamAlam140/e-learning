@@ -326,6 +326,7 @@ export const StudentHomeScreen: React.FC = () => {
 
   // Selected Course Details Inspection Modal State
   const [selectedCourseDetail, setSelectedCourseDetail] = useState<CourseRecord | null>(null);
+  const [expandedMobileTestIdx, setExpandedMobileTestIdx] = useState<number | null>(null);
 
   // System Broadcast Announcement State
   const [systemAnnouncement, setSystemAnnouncement] = useState('🎉 Special Cashback offer on NEET & K12 Master Pass! Enroll today!');
@@ -426,12 +427,12 @@ export const StudentHomeScreen: React.FC = () => {
 
   const handleShareMobileLink = async () => {
     const link = getMobileShareUrl();
-    const message = `Hey! Join EduVerse E-Learning Platform for state-wise study courses & competitive exams! Register using my referral link:\n${link}`;
+    const message = `Hey! Join Sri Surya Academy for state-wise study courses & competitive exams! Register using my referral link:\n${link}`;
     try {
       await Share.share({
         message,
         url: link,
-        title: 'EduVerse Referral Link',
+        title: 'Sri Surya Academy Referral Link',
       });
     } catch {
       // Fallback
@@ -722,6 +723,23 @@ export const StudentHomeScreen: React.FC = () => {
           elevation: 2,
         }}
       >
+        {/* SRI SURYA ACADEMY TOP BRAND HEADER */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.cardBorder }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#F59E0B' }}>
+              <Image source={require('../assets/images/logo.png')} style={{ width: 30, height: 30 }} resizeMode="contain" />
+            </View>
+            <View>
+              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 }}>
+                Sri Surya Academy
+              </Text>
+              <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '700' }}>
+                Official E-Learning Platform
+              </Text>
+            </View>
+          </View>
+        </View>
+
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           {/* User Avatar Circle with QR Indicator (PhonePe Style) */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
@@ -1244,60 +1262,99 @@ export const StudentHomeScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
           ) : (
-            enrolledCourses.map((crs) => (
-              <View
-                key={crs._id}
-                style={{
-                  backgroundColor: colors.itemSubCard,
-                  borderRadius: 12,
-                  padding: 14,
-                  borderLeftWidth: 4,
-                  borderLeftColor: '#6366F1',
-                  marginBottom: 14,
-                  borderWidth: 1,
-                  borderColor: colors.cardBorder,
-                }}
-              >
-                {/* COURSE THUMBNAIL BANNER */}
-                <Image
-                  source={{ uri: crs.thumbnail || DEFAULT_COURSE_BANNER }}
-                  style={{ width: '100%', height: 130, borderRadius: 10, marginBottom: 10 }}
-                  resizeMode="cover"
-                />
+            enrolledCourses.map((crs) => {
+              const matCount = crs.studyMaterials?.length || (crs.ebookPdfUrl ? 1 : 0) || crs.inclusions?.totalEbooks || 0;
+              const testCount = crs.mockTests?.length || crs.inclusions?.totalMockTests || 0;
+              const lectCount = crs.curriculum?.length || crs.inclusions?.totalLectures || 40;
 
-                <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '800' }}>{crs.title}</Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
-                  Educator: {crs.instructor?.name || 'Prof. Educator'} • State: {crs.stateCode}
-                </Text>
+              return (
+                <View
+                  key={crs._id}
+                  style={{
+                    backgroundColor: colors.itemSubCard,
+                    borderRadius: 14,
+                    padding: 14,
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#10B981',
+                    marginBottom: 14,
+                    borderWidth: 1,
+                    borderColor: colors.cardBorder,
+                  }}
+                >
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => setSelectedCourseDetail(crs)}>
+                    {/* COURSE THUMBNAIL BANNER */}
+                    <Image
+                      source={{ uri: crs.thumbnail || DEFAULT_COURSE_BANNER }}
+                      style={{ width: '100%', height: 130, borderRadius: 10, marginBottom: 10 }}
+                      resizeMode="cover"
+                    />
 
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                  {(crs.courseMode === 'LIVE_ONLINE' || crs.courseMode === 'HYBRID' || crs.liveMeetingUrl || !crs.lectureVideoUrl) && (
-                    <TouchableOpacity
-                      onPress={() => Linking.openURL(crs.liveMeetingUrl || 'https://meet.google.com/eduverse-live-class')}
-                      style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
-                    >
-                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>🔴 Join Live Class</Text>
-                    </TouchableOpacity>
-                  )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                      <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '800' }}>✅ ACTIVE ACCESS</Text>
+                      </View>
+                      <View style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ color: '#6366F1', fontSize: 10, fontWeight: '800' }}>{crs.boardOrGrade || 'General Batch'}</Text>
+                      </View>
+                    </View>
 
-                  {(crs.courseMode === 'RECORDED_VIDEO' || crs.lectureVideoUrl || crs.courseMode === 'HYBRID') && (
-                    <TouchableOpacity
-                      onPress={() => Linking.openURL(crs.lectureVideoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')}
-                      style={{ backgroundColor: '#6366F1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
-                    >
-                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>📹 Watch Video</Text>
-                    </TouchableOpacity>
-                  )}
+                    <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '800' }}>{crs.title}</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>
+                      Educator: {crs.instructor?.name || 'Prof. Educator'} • State: {crs.stateCode || 'GLOBAL'}
+                    </Text>
 
-                  <TouchableOpacity
-                    onPress={() => setSelectedCourseDetail(crs)}
-                    style={{ backgroundColor: isDarkMode ? '#334155' : '#E2E8F0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
-                  >
-                    <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>👁️ Details</Text>
+                    {/* Deliverables summary pills */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                      <View style={{ backgroundColor: colors.inputBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: colors.cardBorder }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600' }}>📹 {lectCount} Lectures</Text>
+                      </View>
+                      {matCount > 0 && (
+                        <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.12)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+                          <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '700' }}>📄 {matCount} Study Docs & PDFs</Text>
+                        </View>
+                      )}
+                      {testCount > 0 && (
+                        <View style={{ backgroundColor: 'rgba(236, 72, 153, 0.12)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(236, 72, 153, 0.3)' }}>
+                          <Text style={{ color: '#EC4899', fontSize: 10, fontWeight: '700' }}>📝 {testCount} Topic Tests</Text>
+                        </View>
+                      )}
+                      {crs.liveSchedule && (
+                        <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.12)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                          <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '700' }}>⏰ {crs.liveSchedule}</Text>
+                        </View>
+                      )}
+                    </View>
                   </TouchableOpacity>
+
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    {(crs.courseMode === 'LIVE_ONLINE' || crs.courseMode === 'HYBRID' || crs.liveMeetingUrl || !crs.lectureVideoUrl) && (
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL(crs.liveMeetingUrl || 'https://meet.google.com/eduverse-live-class')}
+                        style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8 }}
+                      >
+                        <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>🔴 Join Live Class</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {(crs.courseMode === 'RECORDED_VIDEO' || crs.lectureVideoUrl || crs.courseMode === 'HYBRID') && (
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL(crs.lectureVideoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')}
+                        style={{ backgroundColor: '#6366F1', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8 }}
+                      >
+                        <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>📹 Watch Video</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      onPress={() => setSelectedCourseDetail(crs)}
+                      style={{ backgroundColor: colors.inputBg, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder }}
+                    >
+                      <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>👁️ View Batch Materials</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
       )}
@@ -2035,6 +2092,10 @@ export const StudentHomeScreen: React.FC = () => {
 
               return filteredList.map((crs) => {
                 const isEnrolled = enrolledCourses.some((e) => e._id === crs._id);
+                const matCount = crs.studyMaterials?.length || (crs.ebookPdfUrl ? 1 : 0) || crs.inclusions?.totalEbooks || 0;
+                const testCount = crs.mockTests?.length || crs.inclusions?.totalMockTests || 0;
+                const lectCount = crs.curriculum?.length || crs.inclusions?.totalLectures || 40;
+
                 return (
                   <View
                     key={crs._id}
@@ -2047,48 +2108,90 @@ export const StudentHomeScreen: React.FC = () => {
                       borderColor: colors.cardBorder,
                     }}
                   >
-                    {/* COURSE THUMBNAIL BANNER */}
-                    <Image
-                      source={{ uri: crs.thumbnail || DEFAULT_COURSE_BANNER }}
-                      style={{ width: '100%', height: 130, borderRadius: 10, marginBottom: 10 }}
-                      resizeMode="cover"
-                    />
+                    {/* Clickable banner & title */}
+                    <TouchableOpacity activeOpacity={0.85} onPress={() => setSelectedCourseDetail(crs)}>
+                      <Image
+                        source={{ uri: crs.thumbnail || DEFAULT_COURSE_BANNER }}
+                        style={{ width: '100%', height: 130, borderRadius: 10, marginBottom: 10 }}
+                        resizeMode="cover"
+                      />
 
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
-                      <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
-                        <Text style={{ color: '#06B6D4', fontSize: 11, fontWeight: '700' }}>State: {crs.stateCode}</Text>
-                        <Text style={{ color: '#F43F5E', fontSize: 10, fontWeight: '700', backgroundColor: 'rgba(244, 63, 94, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                          🎯 {(crs as any).subjectName || 'All Subjects'}
-                        </Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                        <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <View style={{ backgroundColor: 'rgba(6, 182, 212, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ color: '#06B6D4', fontSize: 10, fontWeight: '700' }}>State: {crs.stateCode || 'GLOBAL'}</Text>
+                          </View>
+                          <View style={{ backgroundColor: 'rgba(244, 63, 94, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ color: '#F43F5E', fontSize: 10, fontWeight: '700' }}>
+                              🎯 {(crs as any).subjectName || 'All Subjects'}
+                            </Text>
+                          </View>
+                          <View style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ color: '#6366F1', fontSize: 10, fontWeight: '700' }}>
+                              {crs.boardOrGrade || 'Comprehensive'}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                          <Text style={{ color: '#10B981', fontSize: 17, fontWeight: '800' }}>₹{crs.price}</Text>
+                          {crs.originalPrice && crs.originalPrice > crs.price && (
+                            <Text style={{ color: colors.textMuted, fontSize: 11, textDecorationLine: 'line-through' }}>
+                              ₹{crs.originalPrice}
+                            </Text>
+                          )}
+                        </View>
                       </View>
-                      <Text style={{ color: '#10B981', fontSize: 16, fontWeight: '800' }}>₹{crs.price}</Text>
-                    </View>
 
-                    <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 4 }}>{crs.title}</Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>{crs.description}</Text>
+                      <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 6 }}>{crs.title}</Text>
+                      <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }} numberOfLines={2}>
+                        {crs.description}
+                      </Text>
 
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                      {/* Deliverable Micro-Pills */}
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                        <View style={{ backgroundColor: colors.inputBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: colors.cardBorder }}>
+                          <Text style={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600' }}>📹 {lectCount} Lectures</Text>
+                        </View>
+                        {matCount > 0 && (
+                          <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.12)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+                            <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '700' }}>📄 {matCount} PDFs/Notes</Text>
+                          </View>
+                        )}
+                        {testCount > 0 && (
+                          <View style={{ backgroundColor: 'rgba(236, 72, 153, 0.12)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(236, 72, 153, 0.3)' }}>
+                            <Text style={{ color: '#EC4899', fontSize: 10, fontWeight: '700' }}>📝 {testCount} Mock Tests</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 6 }}>
+                        Educator: <Text style={{ fontWeight: '700', color: colors.textSecondary }}>{crs.instructor?.name || 'Prof. Educator'}</Text>
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* Action Footer */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingTop: 10 }}>
                       <TouchableOpacity
                         onPress={() => setSelectedCourseDetail(crs)}
-                        style={{ backgroundColor: colors.inputBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
+                        style={{ backgroundColor: colors.inputBg, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 7, borderWidth: 1, borderColor: colors.cardBorder }}
                       >
                         <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>👁️ Details</Text>
                       </TouchableOpacity>
 
                       {isEnrolled ? (
-                        <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+                        <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 7, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
                           <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '800' }}>✅ ALREADY ENROLLED</Text>
                         </View>
                       ) : (
                         <TouchableOpacity
                           onPress={() => handleEnrollCourse(crs)}
                           disabled={enrollingCourseId === crs._id}
-                          style={{ backgroundColor: '#6366F1', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
+                          style={{ backgroundColor: '#6366F1', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
                         >
                           {enrollingCourseId === crs._id ? (
                             <ActivityIndicator color="#FFFFFF" size="small" />
                           ) : (
-                            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>1-Click Enroll</Text>
+                            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>1-Click Enroll</Text>
                           )}
                         </TouchableOpacity>
                       )}
@@ -2502,84 +2605,475 @@ export const StudentHomeScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* COURSE INSPECTION DETAILS MODAL */}
+      {/* COURSE INSPECTION DETAILS MODAL (FULL RICH MOBILE SPECIFICATION) */}
       <Modal visible={!!selectedCourseDetail} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.82)', justifyContent: 'center', padding: 20 }}>
-          {selectedCourseDetail && (
-            <View style={{ backgroundColor: colors.cardBg, borderRadius: 18, padding: 20, borderWidth: 1, borderColor: colors.cardBorder, maxHeight: '90%' }}>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <View style={{ backgroundColor: 'rgba(16,185,129,0.15)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-                    <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '800' }}>COURSE BATCH SPECS</Text>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 14 }}>
+          {selectedCourseDetail && (() => {
+            const isDetailEnrolled = enrolledCourses.some((e) => e._id === selectedCourseDetail._id);
+            const totalMaterialsCount = selectedCourseDetail.studyMaterials?.length || (selectedCourseDetail.ebookPdfUrl ? 1 : 0) || selectedCourseDetail.inclusions?.totalEbooks || 0;
+            const totalTestsCount = selectedCourseDetail.mockTests?.length || selectedCourseDetail.inclusions?.totalMockTests || 0;
+            const totalLecturesCount = selectedCourseDetail.curriculum?.length || selectedCourseDetail.inclusions?.totalLectures || 40;
+
+            return (
+              <View style={{ backgroundColor: colors.cardBg, borderRadius: 20, padding: 18, borderWidth: 1, borderColor: colors.cardBorder, maxHeight: '92%' }}>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {/* Top Bar with Badges and Close button */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      <View style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                        <Text style={{ color: '#818CF8', fontSize: 10, fontWeight: '800' }}>
+                          🎯 {selectedCourseDetail.subjectName || 'All Subjects'}
+                        </Text>
+                      </View>
+                      <View style={{ backgroundColor: selectedCourseDetail.courseMode === 'LIVE_ONLINE' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                        <Text style={{ color: selectedCourseDetail.courseMode === 'LIVE_ONLINE' ? '#EF4444' : '#10B981', fontSize: 10, fontWeight: '800' }}>
+                          {selectedCourseDetail.courseMode === 'LIVE_ONLINE' ? '🔴 LIVE ONLINE' : selectedCourseDetail.courseMode === 'RECORDED_VIDEO' ? '📹 RECORDED' : '⚡ HYBRID'}
+                        </Text>
+                      </View>
+                      <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                        <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '800' }}>
+                          State: {selectedCourseDetail.stateCode || 'GLOBAL'}
+                        </Text>
+                      </View>
+                      {isDetailEnrolled && (
+                        <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                          <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '800' }}>
+                            ✅ ENROLLED
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setSelectedCourseDetail(null)}
+                      style={{ padding: 6, backgroundColor: colors.inputBg, borderRadius: 8, marginLeft: 8 }}
+                    >
+                      <Text style={{ color: colors.textMuted, fontSize: 16, fontWeight: '800' }}>✕</Text>
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity onPress={() => setSelectedCourseDetail(null)}>
-                    <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '800' }}>✕</Text>
+
+                  {/* Thumbnail */}
+                  {selectedCourseDetail.thumbnail && (
+                    <Image
+                      source={{ uri: selectedCourseDetail.thumbnail }}
+                      style={{ width: '100%', height: 140, borderRadius: 12, marginBottom: 12 }}
+                      resizeMode="cover"
+                    />
+                  )}
+
+                  {/* Course Title & Instructor */}
+                  <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 4 }}>
+                    {selectedCourseDetail.title}
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
+                    By <Text style={{ color: '#F59E0B', fontWeight: '700' }}>{selectedCourseDetail.instructor?.name || 'Sri Surya Academy Faculty'}</Text> • {selectedCourseDetail.boardOrGrade || 'Comprehensive Batch'}
+                  </Text>
+
+                  {/* Description */}
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginBottom: 14 }}>
+                    {selectedCourseDetail.description || 'Interactive live sessions with top faculty, doubt resolution & lecture recordings.'}
+                  </Text>
+
+                  {/* 1. DELIVERABLES / PACKAGE INCLUSIONS GRID */}
+                  <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.06)', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)', marginBottom: 14 }}>
+                    <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '800', marginBottom: 10 }}>
+                      ✨ COURSE DELIVERABLES & INCLUSIONS
+                    </Text>
+
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                      <View style={{ backgroundColor: colors.itemSubCard, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder, minWidth: '30%', flex: 1, alignItems: 'center' }}>
+                        <Text style={{ color: '#818CF8', fontSize: 15, fontWeight: '800' }}>{totalLecturesCount}+</Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 9, marginTop: 2 }}>Video Lectures</Text>
+                      </View>
+
+                      <View style={{ backgroundColor: colors.itemSubCard, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder, minWidth: '30%', flex: 1, alignItems: 'center' }}>
+                        <Text style={{ color: '#F59E0B', fontSize: 15, fontWeight: '800' }}>{totalMaterialsCount}+</Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 9, marginTop: 2 }}>PDFs & Notes</Text>
+                      </View>
+
+                      <View style={{ backgroundColor: colors.itemSubCard, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder, minWidth: '30%', flex: 1, alignItems: 'center' }}>
+                        <Text style={{ color: '#EC4899', fontSize: 15, fontWeight: '800' }}>{totalTestsCount}+</Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 9, marginTop: 2 }}>Mock Tests</Text>
+                      </View>
+
+                      <View style={{ backgroundColor: colors.itemSubCard, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder, minWidth: '45%', flex: 1, alignItems: 'center' }}>
+                        <Text style={{ color: '#10B981', fontSize: 15, fontWeight: '800' }}>{selectedCourseDetail.inclusions?.totalHours || 45}+ hrs</Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 9, marginTop: 2 }}>Total Hours</Text>
+                      </View>
+
+                      <View style={{ backgroundColor: colors.itemSubCard, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder, minWidth: '45%', flex: 1, alignItems: 'center' }}>
+                        <Text style={{ color: '#06B6D4', fontSize: 15, fontWeight: '800' }}>
+                          {selectedCourseDetail.inclusions?.hasLifetimeAccess ? 'Lifetime' : '365 Days'}
+                        </Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 9, marginTop: 2 }}>Access Validity</Text>
+                      </View>
+                    </View>
+
+                    {/* Perks Checklist Chips */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      {selectedCourseDetail.inclusions?.hasCertificate !== false && (
+                        <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                          <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '700' }}>🎓 Certificate of Completion</Text>
+                        </View>
+                      )}
+                      {selectedCourseDetail.inclusions?.hasDoubtSupport !== false && (
+                        <View style={{ backgroundColor: 'rgba(99, 102, 241, 0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                          <Text style={{ color: '#818CF8', fontSize: 10, fontWeight: '700' }}>💬 1-on-1 Faculty Doubt Support</Text>
+                        </View>
+                      )}
+                      {selectedCourseDetail.inclusions?.hasDownloadableNotes !== false && (
+                        <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                          <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '700' }}>📥 Downloadable Summary Sheets</Text>
+                        </View>
+                      )}
+                      <View style={{ backgroundColor: 'rgba(244, 63, 94, 0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                        <Text style={{ color: '#F43F5E', fontSize: 10, fontWeight: '700' }}>🗺️ High-Yield Revision Maps</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* 2. MULTI-DOCUMENT STUDY MATERIALS & E-BOOKS SECTION */}
+                  <View style={{ backgroundColor: colors.itemSubCard, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: colors.cardBorder, marginBottom: 14 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '800' }}>
+                        📖 Attached Study Materials & E-Books ({totalMaterialsCount})
+                      </Text>
+                      <Text style={{ color: colors.textMuted, fontSize: 10 }}>
+                        {isDetailEnrolled ? '✅ Instant Access' : '🔒 Unlocks on Enrollment'}
+                      </Text>
+                    </View>
+
+                    {selectedCourseDetail.studyMaterials && selectedCourseDetail.studyMaterials.length > 0 ? (
+                      <View style={{ gap: 8 }}>
+                        {selectedCourseDetail.studyMaterials.map((doc, docIdx) => {
+                          const typeBadgeBg =
+                            doc.docType === 'PDF' ? '#EF4444' :
+                            doc.docType === 'DOC' ? '#3B82F6' :
+                            doc.docType === 'NOTES' ? '#F59E0B' : '#8B5CF6';
+
+                          return (
+                            <View
+                              key={docIdx}
+                              style={{
+                                backgroundColor: colors.inputBg,
+                                borderRadius: 10,
+                                padding: 10,
+                                borderWidth: 1,
+                                borderColor: colors.cardBorder,
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: 8
+                              }}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                  <View style={{ backgroundColor: typeBadgeBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                    <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '800' }}>{doc.docType || 'PDF'}</Text>
+                                  </View>
+                                  <Text style={{ color: '#818CF8', fontSize: 10, fontWeight: '700' }}>#{doc.topic || 'General'}</Text>
+                                </View>
+                                <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '700' }}>{doc.title}</Text>
+                              </View>
+
+                              {isDetailEnrolled ? (
+                                <TouchableOpacity
+                                  onPress={() => Linking.openURL(doc.fileUrl)}
+                                  style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', borderWidth: 1, borderColor: '#F59E0B', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
+                                >
+                                  <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700' }}>📥 Open</Text>
+                                </TouchableOpacity>
+                              ) : (
+                                <TouchableOpacity
+                                  onPress={() => handleEnrollCourse(selectedCourseDetail)}
+                                  style={{ backgroundColor: colors.itemSubCard, borderWidth: 1, borderColor: colors.cardBorder, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
+                                >
+                                  <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '700' }}>🔒 Unlock</Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : (selectedCourseDetail.ebookTitle || selectedCourseDetail.ebookPdfUrl) ? (
+                      <View style={{ backgroundColor: colors.inputBg, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: colors.cardBorder, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '700' }}>
+                            {selectedCourseDetail.ebookTitle || 'Comprehensive Study Notes & Summary Guide'}
+                          </Text>
+                          <Text style={{ color: '#F59E0B', fontSize: 10, marginTop: 2 }}>PDF E-Book</Text>
+                        </View>
+                        {isDetailEnrolled && selectedCourseDetail.ebookPdfUrl ? (
+                          <TouchableOpacity
+                            onPress={() => Linking.openURL(selectedCourseDetail.ebookPdfUrl!)}
+                            style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', borderWidth: 1, borderColor: '#F59E0B', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
+                          >
+                            <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700' }}>📥 Open PDF</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <Text style={{ color: colors.textMuted, fontSize: 10 }}>🔒 Enrolled only</Text>
+                        )}
+                      </View>
+                    ) : (
+                      <Text style={{ color: colors.textMuted, fontSize: 11, textAlign: 'center', paddingVertical: 8 }}>
+                        Curated class notes and lecture handouts are provided during sessions.
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* 3. TOPIC-WISE MOCK TESTS & QUIZZES SECTION */}
+                  {selectedCourseDetail.mockTests && selectedCourseDetail.mockTests.length > 0 && (
+                    <View style={{ backgroundColor: colors.itemSubCard, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: colors.cardBorder, marginBottom: 14 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <Text style={{ color: '#EC4899', fontSize: 12, fontWeight: '800' }}>
+                          📝 Topic-Wise Mock Tests ({selectedCourseDetail.mockTests.length})
+                        </Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 10 }}>
+                          Chapter practice papers
+                        </Text>
+                      </View>
+
+                      <View style={{ gap: 8 }}>
+                        {selectedCourseDetail.mockTests.map((test, tIdx) => {
+                          const isExpanded = expandedMobileTestIdx === tIdx;
+                          const hasQuestions = test.questions && test.questions.length > 0;
+
+                          return (
+                            <View
+                              key={tIdx}
+                              style={{
+                                backgroundColor: colors.inputBg,
+                                borderRadius: 10,
+                                borderWidth: 1,
+                                borderColor: colors.cardBorder,
+                                overflow: 'hidden'
+                              }}
+                            >
+                              <View style={{ padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '700' }}>{test.title}</Text>
+                                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                                    <Text style={{ color: '#EC4899', fontSize: 10, fontWeight: '700' }}>#{test.topic || 'General'}</Text>
+                                    <Text style={{ color: colors.textMuted, fontSize: 10 }}>⏱️ {test.durationMinutes || 30}m</Text>
+                                    <Text style={{ color: colors.textMuted, fontSize: 10 }}>
+                                      ❓ {test.questions && test.questions.length > 0 ? test.questions.length : test.totalQuestions || 10} Qs
+                                    </Text>
+                                  </View>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                                  {test.testUrl && (
+                                    <TouchableOpacity
+                                      onPress={() => Linking.openURL(test.testUrl!)}
+                                      style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', borderWidth: 1, borderColor: '#3B82F6', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6 }}
+                                    >
+                                      <Text style={{ color: '#3B82F6', fontSize: 10, fontWeight: '700' }}>🌐 Test</Text>
+                                    </TouchableOpacity>
+                                  )}
+
+                                  {hasQuestions && (
+                                    <TouchableOpacity
+                                      onPress={() => setExpandedMobileTestIdx(isExpanded ? null : tIdx)}
+                                      style={{ backgroundColor: colors.itemSubCard, borderWidth: 1, borderColor: colors.cardBorder, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6 }}
+                                    >
+                                      <Text style={{ color: colors.textPrimary, fontSize: 10, fontWeight: '700' }}>
+                                        {isExpanded ? '▲ Hide' : `▼ Qs (${test.questions?.length})`}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  )}
+                                </View>
+                              </View>
+
+                              {/* Expandable Questions Preview */}
+                              {isExpanded && hasQuestions && (
+                                <View style={{ borderTopWidth: 1, borderTopColor: colors.cardBorder, padding: 10, backgroundColor: colors.itemSubCard, gap: 8 }}>
+                                  {test.questions!.map((q, qIdx) => {
+                                    const letters = ['A', 'B', 'C', 'D'];
+                                    return (
+                                      <View
+                                        key={qIdx}
+                                        style={{
+                                          backgroundColor: colors.inputBg,
+                                          borderRadius: 8,
+                                          padding: 8,
+                                          borderWidth: 1,
+                                          borderColor: colors.cardBorder
+                                        }}
+                                      >
+                                        <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700', marginBottom: 4 }}>
+                                          Q{qIdx + 1}. {q.questionText}
+                                        </Text>
+                                        <View style={{ gap: 4 }}>
+                                          {q.options.map((opt, optIdx) => {
+                                            const isCorrect = isDetailEnrolled && (q.correctOption === optIdx || Number(q.correctOption) === optIdx);
+                                            return (
+                                              <View
+                                                key={optIdx}
+                                                style={{
+                                                  backgroundColor: isCorrect ? 'rgba(16, 185, 129, 0.15)' : colors.itemSubCard,
+                                                  borderWidth: 1,
+                                                  borderColor: isCorrect ? '#10B981' : colors.cardBorder,
+                                                  paddingHorizontal: 8,
+                                                  paddingVertical: 3,
+                                                  borderRadius: 4
+                                                }}
+                                              >
+                                                <Text style={{ color: isCorrect ? '#10B981' : colors.textSecondary, fontSize: 10, fontWeight: isCorrect ? '700' : '400' }}>
+                                                  {letters[optIdx]}. {opt} {isCorrect ? '✓' : ''}
+                                                </Text>
+                                              </View>
+                                            );
+                                          })}
+                                        </View>
+                                        {isDetailEnrolled && q.explanation && (
+                                          <Text style={{ color: colors.textMuted, fontSize: 9, marginTop: 4, fontStyle: 'italic' }}>
+                                            💡 {q.explanation}
+                                          </Text>
+                                        )}
+                                        {!isDetailEnrolled && (
+                                          <Text style={{ color: colors.textMuted, fontSize: 9, marginTop: 4 }}>
+                                            🔒 Enroll to view answer keys & solutions
+                                          </Text>
+                                        )}
+                                      </View>
+                                    );
+                                  })}
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* 4. SYLLABUS TOPICS COVERED */}
+                  {selectedCourseDetail.syllabusTopics && selectedCourseDetail.syllabusTopics.length > 0 && (
+                    <View style={{ backgroundColor: colors.itemSubCard, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: colors.cardBorder, marginBottom: 14 }}>
+                      <Text style={{ color: '#818CF8', fontSize: 11, fontWeight: '800', marginBottom: 8 }}>
+                        📚 Syllabus Topics Covered ({selectedCourseDetail.syllabusTopics.length})
+                      </Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                        {selectedCourseDetail.syllabusTopics.map((topic, idx) => (
+                          <View key={idx} style={{ backgroundColor: 'rgba(99, 102, 241, 0.12)', borderWidth: 1, borderColor: 'rgba(99, 102, 241, 0.25)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
+                            <Text style={{ color: '#A5B4FC', fontSize: 10, fontWeight: '600' }}>#{topic}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* 5. LIVE SCHEDULE & CLASSROOM ACCESS */}
+                  <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)', marginBottom: 14 }}>
+                    <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '800', marginBottom: 6 }}>
+                      🔴 LIVE CLASSROOM & VIDEO VAULT
+                    </Text>
+                    {selectedCourseDetail.liveSchedule && (
+                      <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '700', marginBottom: 8 }}>
+                        ⏰ Class Timing: {selectedCourseDetail.liveSchedule}
+                      </Text>
+                    )}
+
+                    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                      {isDetailEnrolled ? (
+                        <>
+                          <TouchableOpacity
+                            onPress={() => Linking.openURL(selectedCourseDetail.liveMeetingUrl || 'https://meet.google.com/eduverse-live-class')}
+                            style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flex: 1, alignItems: 'center' }}
+                          >
+                            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>🔴 Join Live Class</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            onPress={() => Linking.openURL(selectedCourseDetail.lectureVideoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')}
+                            style={{ backgroundColor: '#6366F1', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flex: 1, alignItems: 'center' }}
+                          >
+                            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>📹 Recorded Videos</Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                          🔒 Live meeting link & lecture recordings unlock upon course enrollment.
+                        </Text>
+                      )}
+
+                      {selectedCourseDetail.demoVideoUrl && (
+                        <TouchableOpacity
+                          onPress={() => Linking.openURL(selectedCourseDetail.demoVideoUrl!)}
+                          style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.cardBorder, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, width: '100%', alignItems: 'center', marginTop: 4 }}
+                        >
+                          <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>🎬 Watch Demo Video</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* 6. CURRICULUM BREAKDOWN */}
+                  {selectedCourseDetail.curriculum && selectedCourseDetail.curriculum.length > 0 && (
+                    <View style={{ backgroundColor: colors.itemSubCard, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: colors.cardBorder, marginBottom: 14 }}>
+                      <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '800', marginBottom: 8 }}>
+                        📑 Course Curriculum Breakdown ({selectedCourseDetail.curriculum.length} Chapters)
+                      </Text>
+                      <View style={{ gap: 6 }}>
+                        {selectedCourseDetail.curriculum.map((mod, idx) => (
+                          <View key={idx} style={{ backgroundColor: colors.inputBg, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>
+                                Chapter {idx + 1}: {mod.title}
+                              </Text>
+                              {mod.description && (
+                                <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{mod.description}</Text>
+                              )}
+                            </View>
+                            <Text style={{ color: '#818CF8', fontSize: 10, fontWeight: '700', marginLeft: 6 }}>
+                              {mod.lectureCount || 1} Lecs • {mod.durationMinutes || 45}m
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* 7. BOTTOM PRICING & ACTION BAR */}
+                  <View style={{ backgroundColor: colors.inputBg, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.cardBorder, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View>
+                      <Text style={{ color: colors.textMuted, fontSize: 10 }}>Total Batch Fee</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                        <Text style={{ color: '#10B981', fontSize: 20, fontWeight: '800' }}>₹{selectedCourseDetail.price}</Text>
+                        {selectedCourseDetail.originalPrice && selectedCourseDetail.originalPrice > selectedCourseDetail.price && (
+                          <Text style={{ color: colors.textMuted, fontSize: 12, textDecorationLine: 'line-through' }}>
+                            ₹{selectedCourseDetail.originalPrice}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {isDetailEnrolled ? (
+                      <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                        <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '800' }}>✅ ALREADY ENROLLED</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          handleEnrollCourse(selectedCourseDetail);
+                          setSelectedCourseDetail(null);
+                        }}
+                        style={{ backgroundColor: '#6366F1', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10 }}
+                      >
+                        <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>1-Click Enroll</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => setSelectedCourseDetail(null)}
+                    style={{ backgroundColor: colors.itemSubCard, paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.cardBorder }}
+                  >
+                    <Text style={{ color: colors.textPrimary, fontWeight: '800', fontSize: 13 }}>Close Details</Text>
                   </TouchableOpacity>
-                </View>
-
-                {selectedCourseDetail.thumbnail && (
-                  <Image
-                    source={{ uri: selectedCourseDetail.thumbnail }}
-                    style={{ width: '100%', height: 140, borderRadius: 12, marginBottom: 12 }}
-                    resizeMode="cover"
-                  />
-                )}
-
-                <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '800', marginBottom: 6 }}>
-                  {selectedCourseDetail.title}
-                </Text>
-
-                {/* Live Class & Video Access Banner */}
-                <View style={{ backgroundColor: 'rgba(16,185,129,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(16,185,129,0.2)', marginBottom: 14 }}>
-                  <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '800', marginBottom: 6 }}>
-                    🔴 LIVE CLASSROOM & VIDEO VAULT
-                  </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 10, lineHeight: 16 }}>
-                    {selectedCourseDetail.description || 'Interactive live sessions with top faculty & recorded lecture vault.'}
-                  </Text>
-
-                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                    <TouchableOpacity
-                      onPress={() => Linking.openURL(selectedCourseDetail.liveMeetingUrl || 'https://meet.google.com/eduverse-live-class')}
-                      style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flex: 1, alignItems: 'center' }}
-                    >
-                      <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>🔴 Join Live Class</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => Linking.openURL(selectedCourseDetail.lectureVideoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')}
-                      style={{ backgroundColor: '#6366F1', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flex: 1, alignItems: 'center' }}
-                    >
-                      <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>📹 Recorded Videos</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Specs Grid */}
-                <View style={{ backgroundColor: colors.itemSubCard, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.cardBorder, marginBottom: 16 }}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4 }}>
-                    <Text style={{ fontWeight: '700' }}>Price:</Text> ₹{selectedCourseDetail.price}
-                  </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4 }}>
-                    <Text style={{ fontWeight: '700' }}>State Target:</Text> {selectedCourseDetail.stateCode || 'GLOBAL'}
-                  </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4 }}>
-                    <Text style={{ fontWeight: '700' }}>Board / Grade:</Text> {selectedCourseDetail.boardOrGrade || 'General Batch'}
-                  </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
-                    <Text style={{ fontWeight: '700' }}>Educator Faculty:</Text> {selectedCourseDetail.instructor?.name || 'Prof. Educator'}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => setSelectedCourseDetail(null)}
-                  style={{ backgroundColor: colors.inputBg, paddingVertical: 10, borderRadius: 10, alignItems: 'center' }}
-                >
-                  <Text style={{ color: colors.textPrimary, fontWeight: '800', fontSize: 13 }}>Close Details</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          )}
+                </ScrollView>
+              </View>
+            );
+          })()}
         </View>
       </Modal>
     </ScrollView>

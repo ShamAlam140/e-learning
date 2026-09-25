@@ -19,7 +19,14 @@ import {
   ChevronRight,
   Sparkles,
   ArrowRight,
-  QrCode
+  QrCode,
+  BookOpen,
+  Calendar,
+  Layers,
+  FileText,
+  Download,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { StudentPreferenceModal } from '../StudentPreferenceModal';
@@ -223,6 +230,7 @@ export const StudentPortal: React.FC = () => {
   const [isLoadingBrowse, setIsLoadingBrowse] = useState(false);
   const [isLoadingMcqs, setIsLoadingMcqs] = useState(false);
   const [selectedCourseDetail, setSelectedCourseDetail] = useState<CourseRecord | null>(null);
+  const [expandedStudentTestIdx, setExpandedStudentTestIdx] = useState<number | null>(null);
 
   // Enrollment State
   const [enrollingCourseId, setEnrollingCourseId] = useState<string | null>(null);
@@ -1118,69 +1126,113 @@ export const StudentPortal: React.FC = () => {
                 </button>
               </div>
             ) : (
-              enrolledCourses.map((crs) => (
-                <div
-                  key={crs._id}
-                  style={{
-                    padding: '14px 16px',
-                    borderRadius: '12px',
-                    background: 'rgba(99,102,241,0.04)',
-                    border: '1px solid var(--border-color)',
-                    borderLeft: '4px solid #6366F1',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '12px'
-                  }}
-                >
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    {crs.thumbnail && (
-                      <img src={crs.thumbnail} alt="Banner" style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover' }} />
-                    )}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <span style={{ fontWeight: '800', fontSize: '0.95rem' }}>{crs.title}</span>
-                        <span className="badge badge-emerald" style={{ padding: '2px 6px', fontSize: '0.7rem' }}>ENROLLED</span>
-                        <span className="badge badge-primary" style={{ padding: '2px 6px', fontSize: '0.7rem' }}>{crs.boardOrGrade || 'General Batch'}</span>
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        Educator: <strong>{crs.instructor?.name || 'Prof. Educator'}</strong> • State: {crs.stateCode}
+              enrolledCourses.map((crs) => {
+                const matCount = crs.studyMaterials?.length || (crs.ebookPdfUrl ? 1 : 0) || crs.inclusions?.totalEbooks || 0;
+                const testCount = crs.mockTests?.length || crs.inclusions?.totalMockTests || 0;
+                const lectCount = crs.curriculum?.length || crs.inclusions?.totalLectures || 40;
+
+                return (
+                  <div
+                    key={crs._id}
+                    style={{
+                      padding: '16px 18px',
+                      borderRadius: '14px',
+                      background: 'rgba(99,102,241,0.04)',
+                      border: '1px solid var(--border-color)',
+                      borderLeft: '4px solid #10B981',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '14px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                      {crs.thumbnail && (
+                        <img
+                          src={crs.thumbnail}
+                          alt="Banner"
+                          onClick={() => setSelectedCourseDetail(crs)}
+                          style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', cursor: 'pointer', border: '1px solid var(--border-color)' }}
+                        />
+                      )}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                          <span
+                            onClick={() => setSelectedCourseDetail(crs)}
+                            style={{ fontWeight: '800', fontSize: '1rem', cursor: 'pointer', color: 'var(--text-primary)' }}
+                          >
+                            {crs.title}
+                          </span>
+                          <span className="badge badge-emerald" style={{ padding: '2px 8px', fontSize: '0.7rem', fontWeight: '800' }}>✅ ACTIVE ACCESS</span>
+                          <span className="badge badge-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>{crs.boardOrGrade || 'General Batch'}</span>
+                          <span className="badge badge-rose" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>🎯 {crs.subjectName || 'All Subjects'}</span>
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          Educator: <strong>{crs.instructor?.name || 'Prof. Educator'}</strong> • State: {crs.stateCode || 'GLOBAL'}
+                        </div>
+
+                        {/* Deliverables summary pills for enrolled student */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px', fontSize: '0.7rem' }}>
+                          <span style={{ background: 'var(--bg-surface)', padding: '2px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                            📹 {lectCount} Lectures
+                          </span>
+                          {matCount > 0 && (
+                            <span style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.25)', fontWeight: '600' }}>
+                              📄 {matCount} Study Docs & Notes
+                            </span>
+                          )}
+                          {testCount > 0 && (
+                            <span style={{ background: 'rgba(236, 72, 153, 0.1)', color: '#EC4899', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(236, 72, 153, 0.25)', fontWeight: '600' }}>
+                              📝 {testCount} Topic Tests
+                            </span>
+                          )}
+                          {crs.liveSchedule && (
+                            <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10B981', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.25)', fontWeight: '600' }}>
+                              ⏰ {crs.liveSchedule}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {(crs.courseMode === 'LIVE_ONLINE' || crs.courseMode === 'HYBRID' || crs.liveMeetingUrl || !crs.lectureVideoUrl) && (
-                      <a
-                        href={crs.liveMeetingUrl || 'https://meet.google.com/eduverse-live-class'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-emerald"
-                        style={{ fontSize: '0.78rem', padding: '6px 12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '800' }}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {(crs.courseMode === 'LIVE_ONLINE' || crs.courseMode === 'HYBRID' || crs.liveMeetingUrl || !crs.lectureVideoUrl) && (
+                        <a
+                          href={crs.liveMeetingUrl || 'https://meet.google.com/eduverse-live-class'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-emerald"
+                          style={{ fontSize: '0.78rem', padding: '7px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '800', borderRadius: '8px' }}
+                        >
+                          <Radio size={14} className="animate-pulse" /> Join Live Class
+                        </a>
+                      )}
+
+                      {(crs.courseMode === 'RECORDED_VIDEO' || crs.lectureVideoUrl || crs.courseMode === 'HYBRID') && (
+                        <a
+                          href={crs.lectureVideoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-primary"
+                          style={{ fontSize: '0.78rem', padding: '7px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '8px' }}
+                        >
+                          <Video size={14} /> Watch Lectures
+                        </a>
+                      )}
+
+                      <button
+                        className="btn-secondary"
+                        onClick={() => setSelectedCourseDetail(crs)}
+                        style={{ fontSize: '0.75rem', padding: '7px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px', borderRadius: '8px' }}
+                        title="View Course Materials, Mock Tests & Curriculum"
                       >
-                        <Radio size={14} className="animate-pulse" /> Join Live Class
-                      </a>
-                    )}
-
-                    {(crs.courseMode === 'RECORDED_VIDEO' || crs.lectureVideoUrl || crs.courseMode === 'HYBRID') && (
-                      <a
-                        href={crs.lectureVideoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-primary"
-                        style={{ fontSize: '0.78rem', padding: '6px 12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                      >
-                        <Video size={14} /> Watch Recorded Lectures
-                      </a>
-                    )}
-
-                    <button className="btn-secondary" onClick={() => setSelectedCourseDetail(crs)} style={{ fontSize: '0.75rem', padding: '6px 10px' }}>
-                      <Eye size={13} style={{ marginRight: '4px' }} /> View Details
-                    </button>
+                        <Eye size={13} /> View Batch Materials
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -1588,34 +1640,72 @@ export const StudentPortal: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
                   {filteredList.map((crs) => {
                     const isEnrolled = enrolledCourses.some((e) => e._id === crs._id);
+                    const matCount = crs.studyMaterials?.length || (crs.ebookPdfUrl ? 1 : 0) || crs.inclusions?.totalEbooks || 0;
+                    const testCount = crs.mockTests?.length || crs.inclusions?.totalMockTests || 0;
+                    const lectCount = crs.curriculum?.length || crs.inclusions?.totalLectures || 40;
 
                     return (
                       <div
                         key={crs._id}
                         style={{
                           padding: '16px',
-                          borderRadius: '12px',
+                          borderRadius: '14px',
                           background: 'rgba(255,255,255,0.02)',
                           border: '1px solid var(--border-color)',
                           display: 'flex',
                           flexDirection: 'column',
                           justifyContent: 'space-between',
-                          gap: '12px'
+                          gap: '12px',
+                          transition: 'all 0.2s ease'
                         }}
                       >
                         <div>
                           {crs.thumbnail && (
-                            <img src={crs.thumbnail} alt="Banner" style={{ width: '100%', height: '120px', borderRadius: '8px', objectFit: 'cover', marginBottom: '10px' }} />
+                            <div
+                              onClick={() => setSelectedCourseDetail(crs)}
+                              style={{ cursor: 'pointer', overflow: 'hidden', borderRadius: '8px', marginBottom: '10px' }}
+                            >
+                              <img
+                                src={crs.thumbnail}
+                                alt="Banner"
+                                style={{ width: '100%', height: '130px', objectFit: 'cover', transition: 'transform 0.2s ease' }}
+                              />
+                            </div>
                           )}
                           <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', flexWrap: 'wrap' }}>
                             <span className="badge badge-primary" style={{ padding: '2px 6px', fontSize: '0.7rem' }}>{crs.boardOrGrade || 'General Batch'}</span>
                             <span className="badge badge-rose" style={{ padding: '2px 6px', fontSize: '0.7rem' }}>🎯 {crs.subjectName || 'All Subjects'}</span>
                             <span className="badge badge-amber" style={{ padding: '2px 6px', fontSize: '0.7rem' }}>State: {crs.stateCode}</span>
                           </div>
-                          <h4 style={{ fontSize: '1rem', fontWeight: '800', margin: '4px 0' }}>{crs.title}</h4>
-                          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 10px 0', lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+
+                          <h4
+                            onClick={() => setSelectedCourseDetail(crs)}
+                            style={{ fontSize: '1rem', fontWeight: '800', margin: '4px 0', cursor: 'pointer', color: 'var(--text-primary)' }}
+                          >
+                            {crs.title}
+                          </h4>
+
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 8px 0', lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {crs.description}
                           </p>
+
+                          {/* Deliverable Pills */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '6px 0 10px 0', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                            <span style={{ background: 'var(--bg-surface)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                              📹 {lectCount} Lectures
+                            </span>
+                            {matCount > 0 && (
+                              <span style={{ background: 'rgba(245, 158, 11, 0.08)', color: '#F59E0B', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                                📄 {matCount} PDFs / Notes
+                              </span>
+                            )}
+                            {testCount > 0 && (
+                              <span style={{ background: 'rgba(236, 72, 153, 0.08)', color: '#EC4899', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(236, 72, 153, 0.2)' }}>
+                                📝 {testCount} Mock Tests
+                              </span>
+                            )}
+                          </div>
+
                           <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
                             Educator: <strong>{crs.instructor?.name || 'Prof. Educator'}</strong>
                           </div>
@@ -1627,18 +1717,30 @@ export const StudentPortal: React.FC = () => {
                             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textDecoration: 'line-through', marginLeft: '6px' }}>₹{crs.originalPrice}</span>
                           </div>
 
-                          {isEnrolled ? (
-                            <span className="badge badge-emerald" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>✅ ALREADY ENROLLED</span>
-                          ) : (
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                             <button
-                              className="btn-primary"
-                              onClick={() => handleEnrollSubmit(crs)}
-                              disabled={enrollingCourseId === crs._id}
-                              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+                              type="button"
+                              className="btn-secondary"
+                              onClick={() => setSelectedCourseDetail(crs)}
+                              style={{ fontSize: '0.74rem', padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              title="View Full Course Batch Details"
                             >
-                              {enrollingCourseId === crs._id ? 'Enrolling...' : '1-Click Enroll'}
+                              <Eye size={13} /> Details
                             </button>
-                          )}
+
+                            {isEnrolled ? (
+                              <span className="badge badge-emerald" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>✅ ENROLLED</span>
+                            ) : (
+                              <button
+                                className="btn-primary"
+                                onClick={() => handleEnrollSubmit(crs)}
+                                disabled={enrollingCourseId === crs._id}
+                                style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+                              >
+                                {enrollingCourseId === crs._id ? 'Enrolling...' : '1-Click Enroll'}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -2153,76 +2255,606 @@ export const StudentPortal: React.FC = () => {
       )}
 
       {/* COURSE DETAILS INSPECTION MODAL */}
-      {selectedCourseDetail && (
-        <div className="modal-overlay" onClick={() => setSelectedCourseDetail(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', padding: '20px 24px', borderRadius: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div>
-                <span className="badge badge-primary" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>CLASSROOM BATCH INSPECTOR</span>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginTop: '2px' }}>
-                  {selectedCourseDetail.title}
-                </h3>
-              </div>
-              <button onClick={() => setSelectedCourseDetail(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <X size={18} />
-              </button>
-            </div>
+      {selectedCourseDetail && (() => {
+        const isDetailEnrolled = enrolledCourses.some((e) => e._id === selectedCourseDetail._id);
+        const totalMaterialsCount = selectedCourseDetail.studyMaterials?.length || (selectedCourseDetail.ebookPdfUrl ? 1 : 0) || selectedCourseDetail.inclusions?.totalEbooks || 0;
+        const totalTestsCount = selectedCourseDetail.mockTests?.length || selectedCourseDetail.inclusions?.totalMockTests || 0;
+        const totalLecturesCount = selectedCourseDetail.curriculum?.length || selectedCourseDetail.inclusions?.totalLectures || 40;
 
-            {selectedCourseDetail.thumbnail && (
-              <div style={{ marginBottom: '12px', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                <img src={selectedCourseDetail.thumbnail} alt="Course Banner" style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
+        return (
+          <div className="modal-overlay" onClick={() => setSelectedCourseDetail(null)}>
+            <div
+              className="modal-content"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth: '720px',
+                padding: '24px 28px',
+                borderRadius: '20px',
+                maxHeight: '90vh',
+                overflowY: 'auto'
+              }}
+            >
+              {/* Modal Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px', gap: '12px' }}>
+                <div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                    <span className="badge badge-primary" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
+                      {selectedCourseDetail.subjectName || 'All Subjects'}
+                    </span>
+                    <span
+                      className={selectedCourseDetail.courseMode === 'LIVE_ONLINE' ? 'badge badge-rose' : 'badge badge-emerald'}
+                      style={{ fontSize: '0.68rem', padding: '2px 8px', fontWeight: '800' }}
+                    >
+                      {selectedCourseDetail.courseMode === 'LIVE_ONLINE' ? '🔴 LIVE ONLINE' : selectedCourseDetail.courseMode === 'RECORDED_VIDEO' ? '📹 RECORDED' : '⚡ HYBRID'}
+                    </span>
+                    <span className="badge badge-amber" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
+                      State: {selectedCourseDetail.stateCode || 'GLOBAL'}
+                    </span>
+                    {isDetailEnrolled && (
+                      <span className="badge badge-emerald" style={{ fontSize: '0.68rem', padding: '2px 8px', fontWeight: '800' }}>
+                        ✅ YOU ARE ENROLLED
+                      </span>
+                    )}
+                  </div>
+                  <h3 style={{ fontSize: '1.3rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+                    {selectedCourseDetail.title}
+                  </h3>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    By <strong style={{ color: '#F59E0B' }}>{selectedCourseDetail.instructor?.name || 'Sri Surya Academy Faculty'}</strong> • {selectedCourseDetail.boardOrGrade || 'Comprehensive Batch'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCourseDetail(null)}
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
+                >
+                  <X size={18} />
+                </button>
               </div>
-            )}
 
-            {/* Live Interactive Classroom & Video Vault Banner */}
-            <div style={{ background: 'rgba(16,185,129,0.06)', borderRadius: '12px', padding: '16px', border: '1px solid rgba(16,185,129,0.2)', marginBottom: '16px' }}>
-              <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#34D399', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Radio size={16} className="animate-pulse" /> Live Classroom & Lecture Access
-              </div>
+              {/* Banner Image */}
+              {selectedCourseDetail.thumbnail && (
+                <div style={{ marginBottom: '14px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', maxHeight: '180px' }}>
+                  <img src={selectedCourseDetail.thumbnail} alt="Course Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              )}
 
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.4' }}>
+              {/* Description */}
+              <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
                 {selectedCourseDetail.description || 'Interactive live sessions with top faculty, doubt resolution & lecture recordings.'}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.78rem', marginBottom: '14px', background: 'var(--bg-surface)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div><strong>Delivery Mode:</strong> <span className="badge badge-emerald" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>{selectedCourseDetail.courseMode || 'LIVE_ONLINE'}</span></div>
-                <div><strong>State Target:</strong> {selectedCourseDetail.stateCode || 'GLOBAL'}</div>
-                <div><strong>Grade / Board:</strong> {selectedCourseDetail.boardOrGrade || 'General Batch'}</div>
-                <div><strong>Educator:</strong> <strong style={{ color: '#F59E0B' }}>{selectedCourseDetail.instructor?.name || 'Prof. Educator'}</strong></div>
+              {/* 1. DELIVERABLES / PACKAGE INCLUSIONS GRID */}
+              <div style={{ background: 'rgba(16,185,129,0.05)', borderRadius: '14px', padding: '14px 16px', border: '1px solid rgba(16,185,129,0.2)', marginBottom: '16px' }}>
+                <div style={{ fontSize: '0.76rem', fontWeight: '800', color: '#34D399', textTransform: 'uppercase', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={14} /> Course Deliverables & Inclusions
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+                  <div style={{ background: 'var(--bg-surface)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#818CF8' }}>
+                      {totalLecturesCount}+
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>Video Lectures</div>
+                  </div>
+
+                  <div style={{ background: 'var(--bg-surface)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#F59E0B' }}>
+                      {totalMaterialsCount}+
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>PDFs & Notes</div>
+                  </div>
+
+                  <div style={{ background: 'var(--bg-surface)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#EC4899' }}>
+                      {totalTestsCount}+
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>Mock Tests</div>
+                  </div>
+
+                  <div style={{ background: 'var(--bg-surface)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#34D399' }}>
+                      {selectedCourseDetail.inclusions?.totalHours || 45}+ hrs
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>Total Hours</div>
+                  </div>
+
+                  <div style={{ background: 'var(--bg-surface)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#06B6D4' }}>
+                      {selectedCourseDetail.inclusions?.hasLifetimeAccess ? 'Lifetime' : '365 Days'}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>Validity Access</div>
+                  </div>
+                </div>
+
+                {/* Perks Checklist */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '0.72rem' }}>
+                  {selectedCourseDetail.inclusions?.hasCertificate !== false && (
+                    <span className="badge badge-emerald" style={{ padding: '3px 8px' }}>
+                      <CheckCircle size={12} /> Certificate of Completion
+                    </span>
+                  )}
+                  {selectedCourseDetail.inclusions?.hasDoubtSupport !== false && (
+                    <span className="badge badge-primary" style={{ padding: '3px 8px' }}>
+                      <CheckCircle size={12} /> 1-on-1 Faculty Doubt Support
+                    </span>
+                  )}
+                  {selectedCourseDetail.inclusions?.hasDownloadableNotes !== false && (
+                    <span className="badge badge-amber" style={{ padding: '3px 8px' }}>
+                      <CheckCircle size={12} /> Downloadable Summary Sheets
+                    </span>
+                  )}
+                  <span className="badge badge-rose" style={{ padding: '3px 8px' }}>
+                    <CheckCircle size={12} /> High-Yield Revision Maps
+                  </span>
+                </div>
               </div>
 
-              {/* Action Buttons inside View Details */}
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <a
-                  href={selectedCourseDetail.liveMeetingUrl || 'https://meet.google.com/eduverse-live-class'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-emerald"
-                  style={{ padding: '8px 16px', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: '800', borderRadius: '10px' }}
-                >
-                  <Radio size={16} className="animate-pulse" /> 🔴 Join Live Class Now
-                </a>
+              {/* 2. MULTI-DOCUMENT STUDY MATERIALS & E-BOOKS SECTION */}
+              <div style={{ background: 'var(--bg-surface)', padding: '14px 16px', borderRadius: '14px', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#F59E0B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <BookOpen size={16} /> Attached Study Materials & E-Books ({selectedCourseDetail.studyMaterials?.length || (selectedCourseDetail.ebookPdfUrl ? 1 : 0)})
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {isDetailEnrolled ? '✅ Instant Download Access' : '🔒 Unlocks Upon Enrollment'}
+                  </span>
+                </div>
 
-                <a
-                  href={selectedCourseDetail.lectureVideoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-primary"
-                  style={{ padding: '8px 16px', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', borderRadius: '10px' }}
-                >
-                  <Video size={16} /> 📹 Watch Recorded Lectures
-                </a>
+                {selectedCourseDetail.studyMaterials && selectedCourseDetail.studyMaterials.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {selectedCourseDetail.studyMaterials.map((doc, docIdx) => {
+                      const typeBadgeBg =
+                        doc.docType === 'PDF' ? '#EF4444' :
+                        doc.docType === 'DOC' ? '#3B82F6' :
+                        doc.docType === 'NOTES' ? '#F59E0B' : '#8B5CF6';
+
+                      return (
+                        <div
+                          key={docIdx}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            background: 'var(--bg-card)',
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            border: '1px solid var(--border-color)',
+                            gap: '10px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                            <span
+                              style={{
+                                background: typeBadgeBg,
+                                color: '#FFF',
+                                fontSize: '0.66rem',
+                                fontWeight: '800',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                flexShrink: 0
+                              }}
+                            >
+                              {doc.docType || 'PDF'}
+                            </span>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {doc.title}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <span style={{ fontSize: '0.68rem', color: '#818CF8', background: 'rgba(129, 140, 248, 0.1)', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>
+                                  #{doc.topic || 'General'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            {isDetailEnrolled ? (
+                              <a
+                                href={doc.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-secondary"
+                                style={{
+                                  fontSize: '0.74rem',
+                                  padding: '5px 12px',
+                                  color: '#FBBF24',
+                                  textDecoration: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  fontWeight: '700'
+                                }}
+                              >
+                                <Download size={13} /> View / Download <ExternalLink size={11} />
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleEnrollSubmit(selectedCourseDetail)}
+                                style={{
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  color: '#F59E0B',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Lock size={12} /> Unlock
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (selectedCourseDetail.ebookTitle || selectedCourseDetail.ebookPdfUrl) ? (
+                  <div style={{ background: 'var(--bg-card)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                        {selectedCourseDetail.ebookTitle || 'Comprehensive Study Notes & Summary Guide'}
+                      </div>
+                      <span className="badge badge-amber" style={{ fontSize: '0.66rem', marginTop: '3px' }}>PDF Document</span>
+                    </div>
+                    {isDetailEnrolled && selectedCourseDetail.ebookPdfUrl ? (
+                      <a
+                        href={selectedCourseDetail.ebookPdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-secondary"
+                        style={{ fontSize: '0.74rem', padding: '5px 12px', color: '#FBBF24', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                      >
+                        <Download size={13} /> Download PDF <ExternalLink size={11} />
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Available upon Enrollment</span>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', padding: '12px' }}>
+                    Curated class notes and lecture handouts are provided during sessions.
+                  </div>
+                )}
               </div>
-            </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button className="btn-secondary" onClick={() => setSelectedCourseDetail(null)} style={{ padding: '7px 12px', fontSize: '0.8rem' }}>
-                Close Inspector
-              </button>
+              {/* 3. TOPIC-WISE MOCK TESTS & QUIZZES SECTION */}
+              {selectedCourseDetail.mockTests && selectedCourseDetail.mockTests.length > 0 && (
+                <div style={{ background: 'var(--bg-surface)', padding: '14px 16px', borderRadius: '14px', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#EC4899', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FileText size={16} /> Topic-Wise Mock Tests & Quizzes ({selectedCourseDetail.mockTests.length})
+                    </div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                      Chapter-wise practice & scorecards
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {selectedCourseDetail.mockTests.map((test, tIdx) => {
+                      const isExpanded = expandedStudentTestIdx === tIdx;
+                      const hasQuestions = test.questions && test.questions.length > 0;
+
+                      return (
+                        <div
+                          key={tIdx}
+                          style={{
+                            background: 'var(--bg-card)',
+                            borderRadius: '10px',
+                            border: '1px solid var(--border-color)',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '10px 14px',
+                              gap: '10px'
+                            }}
+                          >
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                                {test.title}
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                                <span style={{ fontSize: '0.68rem', color: '#EC4899', background: 'rgba(236, 72, 153, 0.1)', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>
+                                  #{test.topic || 'All Topics'}
+                                </span>
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', background: 'var(--bg-surface)', padding: '1px 6px', borderRadius: '4px' }}>
+                                  ⏱️ {test.durationMinutes || 30} Mins
+                                </span>
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', background: 'var(--bg-surface)', padding: '1px 6px', borderRadius: '4px' }}>
+                                  ❓ {test.questions && test.questions.length > 0 ? test.questions.length : test.totalQuestions || 10} Questions
+                                </span>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                              {test.testUrl && (
+                                <a
+                                  href={test.testUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn-secondary"
+                                  style={{
+                                    fontSize: '0.74rem',
+                                    color: '#3B82F6',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    textDecoration: 'none',
+                                    padding: '4px 10px'
+                                  }}
+                                >
+                                  <ExternalLink size={12} /> Open Test
+                                </a>
+                              )}
+
+                              {hasQuestions && (
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedStudentTestIdx(isExpanded ? null : tIdx)}
+                                  className="btn-secondary"
+                                  style={{ fontSize: '0.72rem', padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                  {isExpanded ? 'Hide' : `Preview Questions (${test.questions?.length})`}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Expanded Questions View for Students */}
+                          {isExpanded && hasQuestions && (
+                            <div
+                              style={{
+                                borderTop: '1px solid var(--border-color)',
+                                background: 'var(--bg-surface)',
+                                padding: '10px 14px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px'
+                              }}
+                            >
+                              {test.questions!.map((q, qIndex) => {
+                                const letters = ['A', 'B', 'C', 'D'];
+                                return (
+                                  <div
+                                    key={qIndex}
+                                    style={{
+                                      background: 'var(--bg-card)',
+                                      padding: '8px 10px',
+                                      borderRadius: '8px',
+                                      border: '1px solid var(--border-color)',
+                                      fontSize: '0.74rem'
+                                    }}
+                                  >
+                                    <div style={{ fontWeight: '700', marginBottom: '4px', color: 'var(--text-primary)' }}>
+                                      Q{qIndex + 1}. {q.questionText}
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '4px', margin: '4px 0' }}>
+                                      {q.options.map((opt, optIndex) => {
+                                        const isCorrect = isDetailEnrolled && (q.correctOption === optIndex || Number(q.correctOption) === optIndex);
+                                        return (
+                                          <span
+                                            key={optIndex}
+                                            style={{
+                                              padding: '2px 6px',
+                                              borderRadius: '4px',
+                                              background: isCorrect ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-surface)',
+                                              border: isCorrect ? '1px solid #10B981' : '1px solid var(--border-color)',
+                                              color: isCorrect ? '#10B981' : 'var(--text-secondary)',
+                                              fontWeight: isCorrect ? '700' : '400'
+                                            }}
+                                          >
+                                            {letters[optIndex]}. {opt} {isCorrect ? '✓' : ''}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                    {isDetailEnrolled && q.explanation && (
+                                      <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', marginTop: '2px', fontStyle: 'italic' }}>
+                                        💡 Explanation: {q.explanation}
+                                      </div>
+                                    )}
+                                    {!isDetailEnrolled && (
+                                      <div style={{ color: 'var(--text-muted)', fontSize: '0.66rem', marginTop: '2px' }}>
+                                        🔒 Enroll to view correct answer keys & full step-by-step solutions
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. SYLLABUS TOPICS COVERED */}
+              {selectedCourseDetail.syllabusTopics && selectedCourseDetail.syllabusTopics.length > 0 && (
+                <div style={{ background: 'var(--bg-surface)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '0.76rem', fontWeight: '800', color: '#818CF8', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Layers size={14} /> Syllabus Topics Covered ({selectedCourseDetail.syllabusTopics.length})
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {selectedCourseDetail.syllabusTopics.map((topic, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          padding: '4px 9px',
+                          borderRadius: '20px',
+                          background: 'rgba(99, 102, 241, 0.12)',
+                          border: '1px solid rgba(99, 102, 241, 0.25)',
+                          color: '#A5B4FC',
+                          fontSize: '0.73rem',
+                          fontWeight: '600'
+                        }}
+                      >
+                        #{topic}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 5. LIVE SCHEDULE & CLASSROOM ACCESS */}
+              <div style={{ background: 'var(--bg-surface)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
+                <div style={{ fontSize: '0.76rem', fontWeight: '800', color: '#34D399', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Radio size={14} className="animate-pulse" /> Live Classroom Schedule & Direct Access
+                </div>
+                {selectedCourseDetail.liveSchedule && (
+                  <div style={{ fontSize: '0.78rem', color: '#34D399', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={13} /> <strong>Class Timing:</strong> {selectedCourseDetail.liveSchedule}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {isDetailEnrolled ? (
+                    <>
+                      <a
+                        href={selectedCourseDetail.liveMeetingUrl || 'https://meet.google.com/eduverse-live-class'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-emerald"
+                        style={{ padding: '8px 16px', fontSize: '0.8rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '800', borderRadius: '10px' }}
+                      >
+                        <Radio size={14} className="animate-pulse" /> 🔴 Join Live Class Now
+                      </a>
+
+                      <a
+                        href={selectedCourseDetail.lectureVideoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-primary"
+                        style={{ padding: '8px 16px', fontSize: '0.8rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}
+                      >
+                        <Video size={14} /> 📹 Watch Video Lectures
+                      </a>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      🔒 Live meeting link & lecture videos unlock upon enrollment.
+                    </span>
+                  )}
+
+                  {selectedCourseDetail.demoVideoUrl && (
+                    <a
+                      href={selectedCourseDetail.demoVideoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary"
+                      style={{ padding: '8px 14px', fontSize: '0.8rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}
+                    >
+                      <Play size={14} /> Free Demo Preview
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* 6. CURRICULUM MODULES BREAKDOWN */}
+              {selectedCourseDetail.curriculum && selectedCourseDetail.curriculum.length > 0 && (
+                <div style={{ background: 'var(--bg-surface)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '0.76rem', fontWeight: '800', color: '#F59E0B', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Layers size={14} /> Course Curriculum Breakdown ({selectedCourseDetail.curriculum.length} Chapters)
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {selectedCourseDetail.curriculum.map((mod, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          background: 'rgba(255,255,255,0.02)',
+                          border: '1px solid var(--border-color)',
+                          fontSize: '0.78rem'
+                        }}
+                      >
+                        <span style={{ fontWeight: '600' }}>
+                          {idx + 1}. {mod.title}
+                        </span>
+                        <span className="badge badge-primary" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                          {mod.lectureCount || 1} Lectures
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Actions Footer */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Special Enrollment Fee:</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span style={{ fontSize: '1.35rem', fontWeight: '900', color: '#34D399' }}>
+                      ₹{selectedCourseDetail.price}
+                    </span>
+                    {selectedCourseDetail.originalPrice > selectedCourseDetail.price && (
+                      <>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                          ₹{selectedCourseDetail.originalPrice}
+                        </span>
+                        <span className="badge badge-emerald" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                          {Math.round(((selectedCourseDetail.originalPrice - selectedCourseDetail.price) / selectedCourseDetail.originalPrice) * 100)}% OFF
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setSelectedCourseDetail(null)}
+                    style={{ padding: '8px 16px', fontSize: '0.82rem' }}
+                  >
+                    Close
+                  </button>
+
+                  {isDetailEnrolled ? (
+                    <button
+                      type="button"
+                      className="btn-emerald"
+                      onClick={() => {
+                        setSelectedCourseDetail(null);
+                        setActiveTab('MY_CLASSES');
+                      }}
+                      style={{ padding: '8px 18px', fontSize: '0.82rem', fontWeight: '800' }}
+                    >
+                      Go to My Classroom →
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => handleEnrollSubmit(selectedCourseDetail)}
+                      disabled={enrollingCourseId === selectedCourseDetail._id}
+                      style={{ padding: '8px 18px', fontSize: '0.82rem', fontWeight: '800' }}
+                    >
+                      {enrollingCourseId === selectedCourseDetail._id ? 'Enrolling...' : `1-Click Enroll (₹${selectedCourseDetail.price})`}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 6-Level Student Goal Preference Modal */}
       <StudentPreferenceModal

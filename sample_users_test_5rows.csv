@@ -1,6 +1,0 @@
-name,mobile,role,email,password,stateCode,categoryCode,subCategory,boardOrGrade,stream,subjectName,referredBy
-"Aarav Sharma","9876543210","STUDENT","aarav.sharma@example.com","123456","GLOBAL","SCHOOL_K12","CLASS_10","CBSE Class 10th","","Science",""
-"Priya Verma","9876543211","STUDENT","priya.verma@example.com","123456","UP","SCHOOL_K12","CLASS_12","UP Board Intermediate","Science Stream (Subjects 1–6)","Mathematics",""
-"Vikram Singh","9876543212","STUDENT","vikram.singh@example.com","123456","UP","COMPETITIVE_EXAMS","UPSSSC_LEKHPAL","UPSSSC Lekhpal 2026","","General Knowledge",""
-"Dr. Rajesh Gupta","9876543213","TEACHER","dr.rajesh.gupta@example.com","123456","UP","SCHOOL_K12","CLASS_12","Senior Physics Faculty","Science Stream (Subjects 1–6)","Physics",""
-"Prof. Ananya Roy","9876543214","TEACHER","ananya.roy@example.com","123456","GLOBAL","UNDERGRADUATE_DEGREE","BTECH","CS & Engineering Specialist","","Computer Applications",""

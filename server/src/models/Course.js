@@ -93,6 +93,70 @@ const courseSchema = new mongoose.Schema(
       type: String,
       trim: true
     },
+    demoVideoUrl: {
+      type: String,
+      trim: true
+    },
+    liveSchedule: {
+      type: String,
+      trim: true
+    },
+    ebookTitle: {
+      type: String,
+      trim: true
+    },
+    ebookPdfUrl: {
+      type: String,
+      trim: true
+    },
+    syllabusTopics: {
+      type: [String],
+      default: []
+    },
+    inclusions: {
+      totalLectures: { type: Number, default: 0 },
+      totalHours: { type: Number, default: 0 },
+      totalEbooks: { type: Number, default: 0 },
+      totalLiveSessions: { type: Number, default: 0 },
+      totalMockTests: { type: Number, default: 0 },
+      hasCertificate: { type: Boolean, default: true },
+      hasDoubtSupport: { type: Boolean, default: true },
+      hasDownloadableNotes: { type: Boolean, default: true },
+      hasLifetimeAccess: { type: Boolean, default: false }
+    },
+    curriculum: [
+      {
+        title: { type: String, trim: true },
+        description: { type: String, trim: true },
+        lectureCount: { type: Number, default: 0 },
+        durationMinutes: { type: Number, default: 0 }
+      }
+    ],
+    studyMaterials: [
+      {
+        title: { type: String, trim: true },
+        docType: { type: String, default: 'PDF' },
+        fileUrl: { type: String, trim: true },
+        topic: { type: String, trim: true }
+      }
+    ],
+    mockTests: [
+      {
+        title: { type: String, trim: true },
+        topic: { type: String, trim: true },
+        durationMinutes: { type: Number, default: 30 },
+        totalQuestions: { type: Number, default: 10 },
+        testUrl: { type: String, trim: true },
+        questions: [
+          {
+            questionText: { type: String, trim: true },
+            options: [{ type: String, trim: true }],
+            correctOption: { type: String, trim: true },
+            explanation: { type: String, trim: true }
+          }
+        ]
+      }
+    ],
     isFeatured: {
       type: Boolean,
       default: false,

@@ -8,6 +8,29 @@ export interface StudentStats {
   kycDocumentType?: string | null;
 }
 
+export interface CourseStudyMaterialItem {
+  title: string;
+  docType?: 'PDF' | 'DOC' | 'NOTES' | 'EBOOK' | string;
+  fileUrl: string;
+  topic?: string;
+}
+
+export interface CourseMockTestQuestion {
+  questionText: string;
+  options: string[];
+  correctOption: string | number;
+  explanation?: string;
+}
+
+export interface CourseMockTestItem {
+  title: string;
+  topic?: string;
+  durationMinutes?: number;
+  totalQuestions?: number;
+  testUrl?: string;
+  questions?: CourseMockTestQuestion[];
+}
+
 export interface CourseRecord {
   _id: string;
   title: string;
@@ -18,15 +41,40 @@ export interface CourseRecord {
   stateCode: string;
   price: number;
   originalPrice?: number;
+  validityDays?: number;
   subCategory?: string;
   subCategoryTitle?: string;
   stream?: string;
   boardOrGrade?: string;
   thumbnail?: string;
   instructor?: { name: string };
+  courseMode?: string;
   liveMeetingUrl?: string;
   lectureVideoUrl?: string;
-  courseMode?: string;
+  demoVideoUrl?: string;
+  liveSchedule?: string;
+  ebookTitle?: string;
+  ebookPdfUrl?: string;
+  syllabusTopics?: string[];
+  inclusions?: {
+    totalLectures?: number;
+    totalHours?: number;
+    totalEbooks?: number;
+    totalLiveSessions?: number;
+    totalMockTests?: number;
+    hasCertificate?: boolean;
+    hasDoubtSupport?: boolean;
+    hasDownloadableNotes?: boolean;
+    hasLifetimeAccess?: boolean;
+  };
+  curriculum?: Array<{
+    title: string;
+    description?: string;
+    lectureCount?: number;
+    durationMinutes?: number;
+  }>;
+  studyMaterials?: CourseStudyMaterialItem[];
+  mockTests?: CourseMockTestItem[];
 }
 
 export interface McqRecord {

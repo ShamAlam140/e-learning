@@ -36,6 +36,7 @@ const connectDB = async () => {
       const uri = mongod.getUri();
       const memConn = await mongoose.connect(uri);
       console.log(`[MongoDB Core] Connected to In-Memory Daemon: ${memConn.connection.host}/${memConn.connection.name}`);
+      console.warn(`[MongoDB Core ⚠️ WARNING] RUNNING ON IN-MEMORY DATABASE! Data will NOT persist after server restart. Check your internet connection or MongoDB Atlas network access.`);
       return memConn;
     } catch (memError) {
       console.error(`[MongoDB Core Fatal] Failed to establish MongoDB connection: ${memError.message}`);

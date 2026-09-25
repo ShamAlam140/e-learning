@@ -179,8 +179,23 @@ export const RoleLoginGateway: React.FC<RoleLoginGatewayProps> = ({ onSelectRole
     <div style={{ maxWidth: '940px', margin: '16px auto', padding: '0 16px' }}>
       {/* Header Banner */}
       <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{
+          width: '64px',
+          height: '64px',
+          borderRadius: '32px',
+          background: '#FFFFFF',
+          margin: '0 auto 12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)',
+          padding: '6px',
+          border: '2px solid #F59E0B'
+        }}>
+          <img src="/logo.png" alt="Sri Surya Academy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        </div>
         <h1 style={{ fontSize: '1.6rem', fontWeight: '800', marginBottom: '4px', letterSpacing: '-0.3px' }}>
-          EduVerse India <span className="gradient-text">Management Portals</span>
+          Sri Surya Academy <span className="gradient-text">Management Portals</span>
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', maxWidth: '650px', margin: '0 auto' }}>
           Strict Role-Based Access Control (RBAC). Select your registered portal role below.

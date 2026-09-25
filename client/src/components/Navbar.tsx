@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Wallet, UserCheck, ShieldAlert, Sparkles, LogIn } from 'lucide-react';
+import { MapPin, Wallet, UserCheck, ShieldAlert, LogIn } from 'lucide-react';
 import { StateOption } from '../mockData';
 
 interface NavbarProps {
@@ -46,23 +46,25 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Brand Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setActiveTab('learn')}>
           <div style={{
-            width: '42px',
-            height: '42px',
+            width: '44px',
+            height: '44px',
             borderRadius: '12px',
-            background: 'var(--primary-gradient)',
+            background: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.4)'
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)',
+            padding: '4px',
+            border: '1.5px solid #F59E0B'
           }}>
-            <Sparkles color="#FFFFFF" size={24} />
+            <img src="/logo.png" alt="Sri Surya Academy Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <div>
             <div style={{ fontSize: '1.4rem', fontWeight: '800', lineHeight: 1.1 }}>
-              EduVerse <span className="gradient-text">India</span>
+              Sri Surya <span className="gradient-text">Academy</span>
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600', letterSpacing: '0.5px' }}>
-              MULTI-CATEGORY E-LEARNING PLATFORM
+              OFFICIAL E-LEARNING PLATFORM
             </div>
           </div>
         </div>

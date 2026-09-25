@@ -419,6 +419,15 @@ const createAdminCourse = catchAsync(async (req, res, next) => {
     courseMode,
     liveMeetingUrl,
     lectureVideoUrl,
+    demoVideoUrl,
+    liveSchedule,
+    ebookTitle,
+    ebookPdfUrl,
+    syllabusTopics,
+    inclusions,
+    curriculum,
+    studyMaterials,
+    mockTests,
     thumbnail
   } = req.body;
 
@@ -431,6 +440,63 @@ const createAdminCourse = catchAsync(async (req, res, next) => {
   if (req.file) {
     const cloudinaryResult = await uploadToCloudinary(req.file.buffer, 'course_thumbnails');
     finalThumbnail = cloudinaryResult.secure_url;
+  }
+
+  // Parse topics and inclusions if passed as JSON strings
+  let parsedTopics = [];
+  if (syllabusTopics) {
+    try {
+      parsedTopics = typeof syllabusTopics === 'string' ? JSON.parse(syllabusTopics) : syllabusTopics;
+    } catch {
+      parsedTopics = Array.isArray(syllabusTopics) ? syllabusTopics : [syllabusTopics];
+    }
+  }
+
+  let parsedMaterials = [];
+  if (studyMaterials) {
+    try {
+      parsedMaterials = typeof studyMaterials === 'string' ? JSON.parse(studyMaterials) : studyMaterials;
+    } catch {
+      parsedMaterials = Array.isArray(studyMaterials) ? studyMaterials : [];
+    }
+  }
+
+  let parsedMockTests = [];
+  if (mockTests) {
+    try {
+      parsedMockTests = typeof mockTests === 'string' ? JSON.parse(mockTests) : mockTests;
+    } catch {
+      parsedMockTests = Array.isArray(mockTests) ? mockTests : [];
+    }
+  }
+
+  let parsedInclusions = {
+    totalLectures: 0,
+    totalHours: 0,
+    totalEbooks: 0,
+    totalLiveSessions: 0,
+    totalMockTests: 0,
+    hasCertificate: true,
+    hasDoubtSupport: true,
+    hasDownloadableNotes: true,
+    hasLifetimeAccess: false
+  };
+  if (inclusions) {
+    try {
+      const incObj = typeof inclusions === 'string' ? JSON.parse(inclusions) : inclusions;
+      parsedInclusions = { ...parsedInclusions, ...incObj };
+    } catch {
+      // fallback
+    }
+  }
+
+  let parsedCurriculum = [];
+  if (curriculum) {
+    try {
+      parsedCurriculum = typeof curriculum === 'string' ? JSON.parse(curriculum) : curriculum;
+    } catch {
+      // fallback
+    }
   }
 
   // Bulletproof Category Resolution: Guarantee valid ObjectId for MongoDB Schema
@@ -483,6 +549,15 @@ const createAdminCourse = catchAsync(async (req, res, next) => {
     courseMode: courseMode || 'RECORDED_VIDEO',
     liveMeetingUrl: liveMeetingUrl ? liveMeetingUrl.trim() : '',
     lectureVideoUrl: lectureVideoUrl ? lectureVideoUrl.trim() : '',
+    demoVideoUrl: demoVideoUrl ? demoVideoUrl.trim() : '',
+    liveSchedule: liveSchedule ? liveSchedule.trim() : '',
+    ebookTitle: ebookTitle ? ebookTitle.trim() : '',
+    ebookPdfUrl: ebookPdfUrl ? ebookPdfUrl.trim() : '',
+    syllabusTopics: Array.isArray(parsedTopics) ? parsedTopics : [],
+    inclusions: parsedInclusions,
+    curriculum: Array.isArray(parsedCurriculum) ? parsedCurriculum : [],
+    studyMaterials: Array.isArray(parsedMaterials) ? parsedMaterials : [],
+    mockTests: Array.isArray(parsedMockTests) ? parsedMockTests : [],
     thumbnail: finalThumbnail,
     active: true,
     isFeatured: true
@@ -728,6 +803,15 @@ const updateAdminCourse = catchAsync(async (req, res, next) => {
     courseMode,
     liveMeetingUrl,
     lectureVideoUrl,
+    demoVideoUrl,
+    liveSchedule,
+    ebookTitle,
+    ebookPdfUrl,
+    syllabusTopics,
+    inclusions,
+    curriculum,
+    studyMaterials,
+    mockTests,
     thumbnail
   } = req.body;
 
@@ -745,7 +829,52 @@ const updateAdminCourse = catchAsync(async (req, res, next) => {
   if (courseMode) course.courseMode = courseMode;
   if (liveMeetingUrl !== undefined) course.liveMeetingUrl = liveMeetingUrl.trim();
   if (lectureVideoUrl !== undefined) course.lectureVideoUrl = lectureVideoUrl.trim();
+  if (demoVideoUrl !== undefined) course.demoVideoUrl = demoVideoUrl.trim();
+  if (liveSchedule !== undefined) course.liveSchedule = liveSchedule.trim();
+  if (ebookTitle !== undefined) course.ebookTitle = ebookTitle.trim();
+  if (ebookPdfUrl !== undefined) course.ebookPdfUrl = ebookPdfUrl.trim();
   if (thumbnail) course.thumbnail = thumbnail.trim();
+
+  if (syllabusTopics !== undefined) {
+    try {
+      course.syllabusTopics = typeof syllabusTopics === 'string' ? JSON.parse(syllabusTopics) : syllabusTopics;
+    } catch {
+      course.syllabusTopics = Array.isArray(syllabusTopics) ? syllabusTopics : [syllabusTopics];
+    }
+  }
+
+  if (inclusions !== undefined) {
+    try {
+      const incObj = typeof inclusions === 'string' ? JSON.parse(inclusions) : inclusions;
+      course.inclusions = { ...course.inclusions, ...incObj };
+    } catch {
+      // fallback
+    }
+  }
+
+  if (curriculum !== undefined) {
+    try {
+      course.curriculum = typeof curriculum === 'string' ? JSON.parse(curriculum) : curriculum;
+    } catch {
+      // fallback
+    }
+  }
+
+  if (studyMaterials !== undefined) {
+    try {
+      course.studyMaterials = typeof studyMaterials === 'string' ? JSON.parse(studyMaterials) : studyMaterials;
+    } catch {
+      course.studyMaterials = Array.isArray(studyMaterials) ? studyMaterials : [];
+    }
+  }
+
+  if (mockTests !== undefined) {
+    try {
+      course.mockTests = typeof mockTests === 'string' ? JSON.parse(mockTests) : mockTests;
+    } catch {
+      course.mockTests = Array.isArray(mockTests) ? mockTests : [];
+    }
+  }
 
   if (categoryId) {
     const mongoose = require('mongoose');
