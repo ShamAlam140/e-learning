@@ -1567,8 +1567,8 @@ export const TeacherPortal: React.FC = () => {
                 </div>
 
                 {selectedCourseDetail.thumbnail && (
-                  <div style={{ borderRadius: '12px', overflow: 'hidden', height: '160px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
-                    <img src={selectedCourseDetail.thumbnail} alt={selectedCourseDetail.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ borderRadius: '12px', overflow: 'hidden', width: '100%', aspectRatio: '16 / 9', maxHeight: '240px', marginBottom: '16px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={selectedCourseDetail.thumbnail} alt={selectedCourseDetail.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   </div>
                 )}
 

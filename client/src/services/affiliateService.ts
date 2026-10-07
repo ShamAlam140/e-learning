@@ -15,6 +15,16 @@ export interface MlmNodeRecord {
   rightLeg: MlmNodeRecord | null;
 }
 
+export interface MlmConfigRecord {
+  perReferralPV: number;
+  directReferralBonus: number;
+  matchingRatePercentage: number;
+  dailyCappingLimit: number;
+  adminFeePercentage: number;
+  tdsPercentage: number;
+  isActive?: boolean;
+}
+
 export interface AffiliateStats {
   userId: string;
   referralCode: string;
@@ -39,6 +49,7 @@ export interface AffiliateStats {
   lastPayoutDate?: string;
   directReferralsCount: number;
   estimatedMatchingBonus?: number;
+  config?: MlmConfigRecord;
 }
 
 export interface MlmPayoutRecord {
@@ -63,6 +74,23 @@ export interface MlmPayoutRecord {
  */
 export const fetchAffiliateStats = async () => {
   return apiFetch<{ stats: AffiliateStats }>('/mlm/stats');
+};
+
+/**
+ * Fetch dynamic MLM configuration rules
+ */
+export const fetchMlmConfig = async () => {
+  return apiFetch<{ config: MlmConfigRecord }>('/mlm/config');
+};
+
+/**
+ * Update dynamic MLM configuration rules (Admin only)
+ */
+export const updateMlmConfig = async (configData: Partial<MlmConfigRecord>) => {
+  return apiFetch<{ config: MlmConfigRecord }>('/mlm/config', {
+    method: 'PUT',
+    body: JSON.stringify(configData)
+  });
 };
 
 /**

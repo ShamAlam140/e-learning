@@ -48,6 +48,20 @@ import { McqRecord } from '../../services/teacherService';
 import { CourseRecord } from '../../services/adminService';
 import { fetchActiveAds, AdRecord } from '../../services/adService';
 
+export interface EnrolledStudyDoc {
+  id: string;
+  courseId: string;
+  courseTitle: string;
+  courseThumbnail?: string;
+  boardOrGrade?: string;
+  subjectName?: string;
+  title: string;
+  fileUrl: string;
+  docType: 'PDF' | 'DOC' | 'NOTES' | 'EBOOK';
+  topic?: string;
+  isPrimaryEbook: boolean;
+}
+
 // PROMOTIONAL CAROUSEL SLIDES (Muthoot Fincorp ONE Style)
 export const PROMO_BANNERS = [
   {
@@ -162,7 +176,7 @@ export const CATEGORY_SECTIONS = [
 
 export const StudentPortal: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'MY_CLASSES' | 'BROWSE' | 'QUIZ' | 'WALLET' | 'KYC' | 'MLM_NETWORK'>('BROWSE');
+  const [activeTab, setActiveTab] = useState<'MY_CLASSES' | 'BROWSE' | 'EBOOKS' | 'QUIZ' | 'WALLET' | 'KYC' | 'MLM_NETWORK'>('BROWSE');
   const [activeBannerIndex, setActiveBannerIndex] = useState<number>(0);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
   const [selectedCategoryTitle, setSelectedCategoryTitle] = useState<string>('All Platform Courses');
@@ -262,6 +276,99 @@ export const StudentPortal: React.FC = () => {
   const [kycSuccessMsg, setKycSuccessMsg] = useState('');
   const [kycErrorMsg, setKycErrorMsg] = useState('');
   const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
+
+  // Enrolled Courses Study Materials & E-Books Filter States
+  const [selectedCourseDocFilter, setSelectedCourseDocFilter] = useState<string>('ALL');
+  const [docSearchQuery, setDocSearchQuery] = useState('');
+
+  // Computed deduplicated list of all E-Books, PDFs, Notes from student's enrolled courses
+  const enrolledStudyDocs: EnrolledStudyDoc[] = React.useMemo(() => {
+    const list: EnrolledStudyDoc[] = [];
+    const seenKeys = new Set<string>();
+
+    enrolledCourses.forEach((crs) => {
+      // 1. Study Materials (PDFs, Notes, Docs)
+      if (Array.isArray(crs.studyMaterials)) {
+        crs.studyMaterials.forEach((mat, idx) => {
+          const url = (mat.fileUrl || '').trim();
+          const title = (mat.title || '').trim();
+          if (url && title) {
+            const key = `${crs._id}__${url.toLowerCase()}`;
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              list.push({
+                id: `mat_${crs._id}_${idx}`,
+                courseId: crs._id,
+                courseTitle: crs.title,
+                courseThumbnail: crs.thumbnail,
+                boardOrGrade: crs.boardOrGrade,
+                subjectName: crs.subjectName,
+                title: mat.title,
+                fileUrl: mat.fileUrl,
+                docType: (mat.docType as any) || 'PDF',
+                topic: mat.topic || 'Chapter Notes',
+                isPrimaryEbook: false
+              });
+            }
+          }
+        });
+      }
+
+      // 2. Primary Course E-Book (if configured and not already added)
+      const ebUrl = (crs.ebookPdfUrl || '').trim();
+      const ebTitle = (crs.ebookTitle || '').trim();
+      if (ebUrl && ebTitle) {
+        const key = `${crs._id}__${ebUrl.toLowerCase()}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            id: `eb_${crs._id}`,
+            courseId: crs._id,
+            courseTitle: crs.title,
+            courseThumbnail: crs.thumbnail,
+            boardOrGrade: crs.boardOrGrade,
+            subjectName: crs.subjectName,
+            title: ebTitle,
+            fileUrl: ebUrl,
+            docType: 'EBOOK',
+            topic: 'Course Master E-Book',
+            isPrimaryEbook: true
+          });
+        }
+      }
+    });
+
+    return list;
+  }, [enrolledCourses]);
+
+  // Distinct courses that have study materials or ebooks
+  const coursesWithDocs = React.useMemo(() => {
+    const map = new Map<string, { id: string; title: string; count: number }>();
+    enrolledStudyDocs.forEach((doc) => {
+      if (!map.has(doc.courseId)) {
+        map.set(doc.courseId, { id: doc.courseId, title: doc.courseTitle, count: 0 });
+      }
+      map.get(doc.courseId)!.count += 1;
+    });
+    return Array.from(map.values());
+  }, [enrolledStudyDocs]);
+
+  // Filtered study docs based on active course and search query
+  const filteredStudyDocs = React.useMemo(() => {
+    return enrolledStudyDocs.filter((doc) => {
+      if (selectedCourseDocFilter !== 'ALL' && doc.courseId !== selectedCourseDocFilter) {
+        return false;
+      }
+      if (docSearchQuery.trim()) {
+        const q = docSearchQuery.toLowerCase();
+        const matchesTitle = doc.title.toLowerCase().includes(q);
+        const matchesCourse = doc.courseTitle.toLowerCase().includes(q);
+        const matchesTopic = doc.topic?.toLowerCase().includes(q) || false;
+        return matchesTitle || matchesCourse || matchesTopic;
+      }
+      return true;
+    });
+  }, [enrolledStudyDocs, selectedCourseDocFilter, docSearchQuery]);
 
   // Load Student Dashboard Stats
   const loadStats = async () => {
@@ -531,125 +638,150 @@ export const StudentPortal: React.FC = () => {
   return (
     <div>
       {/* PhonePe-Style Profile & Header Suite */}
-      <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '16px', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-          {/* User Profile Avatar with QR Scanner Overlay (PhonePe Style) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: '900',
-                fontSize: '1.25rem',
-                color: '#0F172A',
-                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.4)',
-                border: '2px solid rgba(255, 255, 255, 0.3)'
-              }}>
-                {user?.name ? user.name.charAt(0).toUpperCase() : 'S'}
-              </div>
-              {/* Mini QR Badge */}
-              <div style={{
-                position: 'absolute',
-                bottom: -2,
-                right: -2,
-                background: '#0F172A',
-                borderRadius: '6px',
-                padding: '3px',
-                border: '1px solid #F59E0B',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <QrCode size={10} color="#F59E0B" />
-              </div>
+      <div className="clean-profile-card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          {/* User Profile Avatar with QR Badge */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: '800',
+              fontSize: '1.25rem',
+              color: '#FFFFFF',
+              boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+            }}>
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'S'}
             </div>
-
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                <h1 style={{ fontSize: '1.28rem', fontWeight: '800', margin: 0, letterSpacing: '-0.3px', color: 'var(--text-primary)' }}>
-                  {user?.name || 'Student Learner'}
-                </h1>
-                <span style={{
-                  background: 'rgba(99, 102, 241, 0.15)',
-                  color: '#818CF8',
-                  padding: '2px 8px',
-                  borderRadius: '20px',
-                  fontSize: '0.68rem',
-                  fontWeight: '800',
-                  letterSpacing: '0.5px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
-                  ONLINE
-                </span>
-              </div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
-                ID: <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{user?.userId || 'EDU-STUDENT'}</strong> • State: {user?.stateCode || 'ALL'}
-              </div>
+            {/* Mini QR Badge */}
+            <div style={{
+              position: 'absolute',
+              bottom: -3,
+              right: -3,
+              background: 'var(--bg-card)',
+              borderRadius: '6px',
+              padding: '2px',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
+            }}>
+              <QrCode size={11} color="#D97706" />
             </div>
           </div>
 
-          {/* Right Header Actions: PhonePe Refer Pill, Goal Setter, Top-Up, Refresh */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setActiveTab('MLM_NETWORK')}
-              style={{
-                background: 'linear-gradient(135deg, rgba(234, 88, 12, 0.15) 0%, rgba(249, 115, 22, 0.25) 100%)',
-                border: '1px solid #F97316',
-                color: '#EA580C',
-                padding: '6px 14px',
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+              <h1 style={{ fontSize: '1.22rem', fontWeight: '800', margin: 0, letterSpacing: '-0.3px', color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                {user?.name || 'Student Learner'}
+              </h1>
+              <span style={{
+                background: 'rgba(16, 185, 129, 0.1)',
+                color: '#059669',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                padding: '2px 8px',
                 borderRadius: '20px',
-                fontSize: '0.78rem',
+                fontSize: '0.68rem',
                 fontWeight: '800',
+                letterSpacing: '0.5px',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '5px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <span>🤝</span>
-              <span>Refer → ₹25k</span>
-            </button>
-
-            <button className="btn-emerald" onClick={() => setShowPreferenceModal(true)} style={{ padding: '6px 12px', fontSize: '0.78rem', fontWeight: '700' }}>
-              <Target size={14} /> 🎯 Set Goal
-            </button>
-
-            <button className="btn-emerald" onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }} style={{ padding: '6px 12px', fontSize: '0.78rem' }}>
-              <PlusCircle size={14} /> Top-Up Wallet
-            </button>
-
-            <button className="btn-secondary" onClick={() => { loadStats(); loadEnrolled(); loadBrowse(); loadMcqs(); loadActiveAds(); }} style={{ padding: '6px 12px', fontSize: '0.78rem' }}>
-              <RefreshCw size={14} className={isLoadingStats ? 'animate-spin' : ''} /> Refresh
-            </button>
+                gap: '4px'
+              }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
+                ONLINE
+              </span>
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+              ID: <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{user?.userId || 'EDU-STUDENT'}</strong> • State: {user?.stateCode || 'ALL'}
+            </div>
           </div>
+        </div>
+
+        {/* Right Header Actions: Refer Pill, Goal Setter, Top-Up, Refresh */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setActiveTab('MLM_NETWORK')}
+            style={{
+              background: 'rgba(245, 158, 11, 0.08)',
+              border: '1px solid rgba(245, 158, 11, 0.28)',
+              color: '#D97706',
+              padding: '7px 14px',
+              borderRadius: '10px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span>🤝</span>
+            <span>Refer & Earn</span>
+          </button>
+
+          <button
+            className="btn-secondary"
+            onClick={() => setShowPreferenceModal(true)}
+            style={{ padding: '7px 13px', fontSize: '0.8rem', fontWeight: '700', borderRadius: '10px' }}
+          >
+            <Target size={14} color="#10B981" /> Set Goal
+          </button>
+
+          <button
+            className="btn-emerald"
+            onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }}
+            style={{ padding: '7px 14px', fontSize: '0.8rem', fontWeight: '700', borderRadius: '10px' }}
+          >
+            <PlusCircle size={14} /> Top-Up Wallet
+          </button>
+
+          <button
+            className="btn-secondary"
+            onClick={() => { loadStats(); loadEnrolled(); loadBrowse(); loadMcqs(); loadActiveAds(); }}
+            style={{ padding: '7px 12px', fontSize: '0.8rem', fontWeight: '600', borderRadius: '10px' }}
+            title="Refresh data"
+          >
+            <RefreshCw size={14} className={isLoadingStats ? 'animate-spin' : ''} /> Refresh
+          </button>
         </div>
       </div>
 
       {/* GLOBAL SYSTEM ANNOUNCEMENT BROADCAST BANNER */}
       {systemAnnouncement && (
-        <div style={{
-          padding: '10px 16px',
-          borderRadius: '12px',
-          background: 'linear-gradient(90deg, rgba(244,63,94,0.12), rgba(245,158,11,0.12))',
-          border: '1px solid rgba(244,63,94,0.3)',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          fontSize: '0.85rem'
-        }}>
-          <Megaphone size={18} style={{ color: '#FB7185', flexShrink: 0 }} />
-          <div style={{ flex: 1, color: 'var(--text-primary)' }}>
-            <strong style={{ color: '#FB7185', textTransform: 'uppercase', marginRight: '6px' }}>📢 Official Admin Announcement:</strong>
+        <div className="clean-announcement-banner">
+          <div style={{
+            width: '28px',
+            height: '28px',
+            borderRadius: '8px',
+            background: 'rgba(244, 63, 94, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Megaphone size={15} color="#E11D48" />
+          </div>
+          <div style={{ flex: 1, color: 'var(--text-primary)', fontSize: '0.85rem' }}>
+            <span style={{
+              background: 'rgba(244, 63, 94, 0.1)',
+              color: '#E11D48',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              fontSize: '0.7rem',
+              fontWeight: '800',
+              textTransform: 'uppercase',
+              marginRight: '8px',
+              letterSpacing: '0.5px'
+            }}>
+              Announcement
+            </span>
             {systemAnnouncement}
           </div>
         </div>
@@ -664,37 +796,39 @@ export const StudentPortal: React.FC = () => {
           <div
             className="glass-card"
             style={{
-              padding: '16px 20px',
+              padding: '18px 22px',
               marginBottom: '20px',
               borderRadius: '16px',
-              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderTop: '3px solid #F59E0B',
+              boxShadow: 'var(--shadow-card)',
               position: 'relative',
               overflow: 'hidden'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px',
-                    padding: '2px 8px',
+                    padding: '3px 8px',
                     borderRadius: '6px',
                     fontSize: '0.7rem',
                     fontWeight: '800',
-                    background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-                    color: '#FFF'
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    color: '#D97706'
                   }}
                 >
                   <Sparkles size={11} /> SPONSORED SPOTLIGHT
                 </span>
                 <span
                   className="badge badge-secondary"
-                  style={{ fontSize: '0.68rem', padding: '2px 6px' }}
+                  style={{ fontSize: '0.68rem', padding: '2px 8px' }}
                 >
-                  {ad.type === 'IMAGE' ? '🖼️ IMAGE AD' : '🎬 VIDEO AD'}
+                  {ad.type === 'IMAGE' ? '🖼️ IMAGE' : '🎬 VIDEO'}
                 </span>
               </div>
 
@@ -852,37 +986,71 @@ export const StudentPortal: React.FC = () => {
       })()}
 
       {/* Student Personalization Goal Banner */}
-      <div className="glass-card" style={{ padding: '12px 18px', marginBottom: '20px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(99,102,241,0.1) 100%)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(16,185,129,0.2)', color: '#34D399' }}>
-            <Target size={20} />
+      <div className="clean-goal-banner">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '12px',
+            background: 'rgba(16, 185, 129, 0.12)',
+            color: '#059669',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Target size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#34D399', letterSpacing: '0.5px' }}>
-              CURRENT PERSONALIZED LEARNING GOAL
+            <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#059669', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              Current Personalized Learning Goal
             </div>
-            <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#FFF' }}>
+            <div style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '2px' }}>
               {currentUserObj?.learningPreference?.boardOrGrade || currentUserObj?.learningPreference?.subCategoryTitle || 'All Courses & Boards'}
               {currentUserObj?.learningPreference?.stream ? ` (${currentUserObj.learningPreference.stream})` : ''}
-              <span className="badge badge-amber" style={{ marginLeft: '8px', padding: '1px 6px', fontSize: '0.7rem' }}>
+              <span className="badge badge-amber" style={{ marginLeft: '8px', padding: '2px 8px', fontSize: '0.7rem' }}>
                 State: {currentUserObj?.learningPreference?.stateCode || 'GLOBAL'}
               </span>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-surface)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
           <button
-            className={filterMode === 'GOAL_MATCH' ? 'btn-emerald' : 'btn-secondary'}
             onClick={() => setFilterMode('GOAL_MATCH')}
-            style={{ padding: '5px 10px', fontSize: '0.75rem' }}
+            style={{
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              fontWeight: '700',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              background: filterMode === 'GOAL_MATCH' ? '#10B981' : 'transparent',
+              color: filterMode === 'GOAL_MATCH' ? '#FFFFFF' : 'var(--text-secondary)',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
           >
             🎯 Filtered for My Goal
           </button>
           <button
-            className={filterMode === 'EXPLORE_ALL' ? 'btn-primary' : 'btn-secondary'}
             onClick={() => setFilterMode('EXPLORE_ALL')}
-            style={{ padding: '5px 10px', fontSize: '0.75rem' }}
+            style={{
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              fontWeight: '700',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              background: filterMode === 'EXPLORE_ALL' ? 'var(--primary-accent)' : 'transparent',
+              color: filterMode === 'EXPLORE_ALL' ? '#FFFFFF' : 'var(--text-secondary)',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
           >
             🌐 Explore All Courses
           </button>
@@ -890,56 +1058,84 @@ export const StudentPortal: React.FC = () => {
       </div>
 
       {/* 100% Dynamic Student Metric Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-        <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(79,70,229,0.12) 100%)' }}>
-          <div style={{ fontSize: '0.72rem', color: '#818CF8', fontWeight: '700', marginBottom: '2px' }}>
-            MY ENROLLED BATCHES
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '22px' }}>
+        {/* Card 1: Enrolled Courses */}
+        <div className="clean-stat-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '800', letterSpacing: '0.5px' }}>
+              MY ENROLLED BATCHES
+            </div>
+            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.1)', color: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BookOpen size={16} />
+            </div>
           </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: '800' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-primary)', margin: '6px 0 2px 0' }}>
             {enrolledCourses.length > 0 ? enrolledCourses.length : (stats ? stats.enrolledCoursesCount : 0)} Courses
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Live Classes & Recorded Videos</div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+            Live Classes & Recorded Videos
+          </div>
         </div>
 
-        <div className="glass-card" style={{ padding: '14px 18px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.08) 100%)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: '0.74rem', color: '#34D399', fontWeight: '800', marginBottom: '2px', letterSpacing: '0.5px' }}>
+        {/* Card 2: Wallet Balance */}
+        <div className="clean-stat-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: '800', letterSpacing: '0.5px' }}>
               STUDENT WALLET BALANCE
             </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)' }}>
-              ₹ {stats ? (stats.walletBalance || 0).toLocaleString('en-IN') : '0'}
+            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span>💳</span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>Used for 1-Click Course Enrollments</div>
           </div>
-          <button
-            className="btn-emerald"
-            onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }}
-            style={{ marginTop: '10px', padding: '6px 14px', fontSize: '0.8rem', fontWeight: '800', width: 'fit-content', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-          >
-            💳 + Add Money (Top-Up)
-          </button>
+          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-primary)', margin: '6px 0 2px 0' }}>
+            ₹ {stats ? (stats.walletBalance || 0).toLocaleString('en-IN') : '0'}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>1-Click Enrollments</span>
+            <button
+              className="btn-emerald"
+              onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }}
+              style={{ padding: '3px 9px', fontSize: '0.72rem', fontWeight: '800', borderRadius: '6px', gap: '3px', cursor: 'pointer' }}
+            >
+              + Top-Up
+            </button>
+          </div>
         </div>
 
-        <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '12px' }}>
-          <div style={{ fontSize: '0.72rem', color: '#FBBF24', fontWeight: '700', marginBottom: '2px' }}>
-            QUIZZES COMPLETED
+        {/* Card 3: Quizzes */}
+        <div className="clean-stat-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '800', letterSpacing: '0.5px' }}>
+              QUIZZES COMPLETED
+            </div>
+            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.1)', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sparkles size={16} />
+            </div>
           </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: '800' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-primary)', margin: '6px 0 2px 0' }}>
             {stats ? stats.quizAttemptsCount : 0} Quizzes
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>MCQ Practice Tests</div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+            MCQ Practice Tests
+          </div>
         </div>
 
-        <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '12px' }}>
-          <div style={{ fontSize: '0.72rem', color: '#A855F7', fontWeight: '700', marginBottom: '2px' }}>
-            KYC VERIFICATION
+        {/* Card 4: KYC Verification */}
+        <div className="clean-stat-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '800', letterSpacing: '0.5px' }}>
+              KYC VERIFICATION
+            </div>
+            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.1)', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span>🆔</span>
+            </div>
           </div>
-          <div style={{ marginTop: '4px' }}>
-            <span className={`badge ${stats?.kycStatus === 'APPROVED' || stats?.kycStatus === 'VERIFIED' ? 'badge-emerald' : stats?.kycStatus === 'PENDING' ? 'badge-amber' : 'badge-rose'}`} style={{ fontSize: '0.78rem', padding: '3px 8px' }}>
+          <div style={{ margin: '6px 0 2px 0' }}>
+            <span className={`badge ${stats?.kycStatus === 'APPROVED' || stats?.kycStatus === 'VERIFIED' ? 'badge-emerald' : stats?.kycStatus === 'PENDING' ? 'badge-amber' : 'badge-rose'}`} style={{ fontSize: '0.76rem', padding: '3px 8px' }}>
               {stats?.kycStatus || 'NOT_SUBMITTED'}
             </span>
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
             {stats?.kycStatus === 'REJECTED' && stats?.kycRejectionReason ? (
               <span style={{ color: '#FB7185', fontWeight: '600' }} title={stats.kycRejectionReason}>
                 ❌ Reason: {stats.kycRejectionReason.length > 22 ? `${stats.kycRejectionReason.substring(0, 22)}...` : stats.kycRejectionReason}
@@ -952,26 +1148,10 @@ export const StudentPortal: React.FC = () => {
       </div>
 
       {/* Navigation Tabs (PhonePe & Muthoot Style) */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '22px', background: 'rgba(255,255,255,0.03)', padding: '6px', borderRadius: '14px', border: '1px solid var(--border-color)', overflowX: 'auto' }}>
+      <div className="nav-segmented-tabs">
         <button
           onClick={() => setActiveTab('BROWSE')}
-          style={{
-            flex: 1,
-            padding: '10px 14px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeTab === 'BROWSE' ? 'var(--primary-gradient)' : 'transparent',
-            color: activeTab === 'BROWSE' ? '#FFF' : 'var(--text-secondary)',
-            fontWeight: '800',
-            fontSize: '0.84rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s ease'
-          }}
+          className={`nav-segmented-tab ${activeTab === 'BROWSE' ? 'active' : ''}`}
         >
           <span>🏠</span>
           <span>Explore & Courses ({browseCoursesList.length})</span>
@@ -979,47 +1159,23 @@ export const StudentPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('MY_CLASSES')}
-          style={{
-            flex: 1,
-            padding: '10px 14px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeTab === 'MY_CLASSES' ? 'var(--primary-gradient)' : 'transparent',
-            color: activeTab === 'MY_CLASSES' ? '#FFF' : 'var(--text-secondary)',
-            fontWeight: '700',
-            fontSize: '0.84rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s ease'
-          }}
+          className={`nav-segmented-tab ${activeTab === 'MY_CLASSES' ? 'active' : ''}`}
         >
           <span>🎓</span>
           <span>My Classroom ({enrolledCourses.length})</span>
         </button>
 
         <button
+          onClick={() => setActiveTab('EBOOKS')}
+          className={`nav-segmented-tab ${activeTab === 'EBOOKS' ? 'active' : ''}`}
+        >
+          <span>📖</span>
+          <span>E-Books & PDFs ({enrolledStudyDocs.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('QUIZ')}
-          style={{
-            flex: 1,
-            padding: '10px 14px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeTab === 'QUIZ' ? 'var(--amber-gradient)' : 'transparent',
-            color: activeTab === 'QUIZ' ? '#FFF' : 'var(--text-secondary)',
-            fontWeight: '700',
-            fontSize: '0.84rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s ease'
-          }}
+          className={`nav-segmented-tab ${activeTab === 'QUIZ' ? 'active' : ''}`}
         >
           <span>⚡</span>
           <span>Practice Quiz {quizResult ? '(Completed)' : `(${mcqList.length})`}</span>
@@ -1027,23 +1183,7 @@ export const StudentPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('WALLET')}
-          style={{
-            flex: 1,
-            padding: '10px 14px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeTab === 'WALLET' ? 'var(--emerald-gradient)' : 'transparent',
-            color: activeTab === 'WALLET' ? '#FFF' : 'var(--text-secondary)',
-            fontWeight: '700',
-            fontSize: '0.84rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s ease'
-          }}
+          className={`nav-segmented-tab ${activeTab === 'WALLET' ? 'active' : ''}`}
         >
           <span>💳</span>
           <span>Wallet & Credits (₹{stats?.walletBalance || 0})</span>
@@ -1051,23 +1191,7 @@ export const StudentPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('KYC')}
-          style={{
-            flex: 1,
-            padding: '10px 14px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeTab === 'KYC' ? 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)' : 'transparent',
-            color: activeTab === 'KYC' ? '#FFF' : 'var(--text-secondary)',
-            fontWeight: '700',
-            fontSize: '0.84rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s ease'
-          }}
+          className={`nav-segmented-tab ${activeTab === 'KYC' ? 'active' : ''}`}
         >
           <span>🆔</span>
           <span>KYC Verification</span>
@@ -1075,26 +1199,11 @@ export const StudentPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('MLM_NETWORK')}
-          style={{
-            flex: 1,
-            padding: '10px 14px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeTab === 'MLM_NETWORK' ? 'linear-gradient(135deg, #EC4899 0%, #BE185D 100%)' : 'transparent',
-            color: activeTab === 'MLM_NETWORK' ? '#FFF' : '#F43F5E',
-            fontWeight: '800',
-            fontSize: '0.84rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s ease'
-          }}
+          className={`nav-segmented-tab ${activeTab === 'MLM_NETWORK' ? 'active' : ''}`}
+          style={activeTab !== 'MLM_NETWORK' ? { color: '#E11D48', fontWeight: '700' } : undefined}
         >
           <span>🤝</span>
-          <span>Refer & Earn (₹25k)</span>
+          <span>Refer & Earn</span>
         </button>
       </div>
 
@@ -1242,7 +1351,7 @@ export const StudentPortal: React.FC = () => {
       {activeTab === 'BROWSE' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
           {/* 1. PhonePe Quick Hub & Classroom Access (6 Circular elevated service buttons) */}
-          <div className="glass-card" style={{ padding: '20px 24px', borderRadius: '18px', border: '1px solid rgba(99,102,241,0.2)' }}>
+          <div className="glass-card" style={{ padding: '20px 24px', borderRadius: '18px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '1.25rem' }}>⚡</span>
@@ -1259,11 +1368,11 @@ export const StudentPortal: React.FC = () => {
               {/* Service 1: My Classes */}
               <div
                 onClick={() => setActiveTab('MY_CLASSES')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                className="clean-service-item"
               >
-                <div className="phonepe-service-circle" style={{ background: 'rgba(99, 102, 241, 0.15)', border: '1.5px solid #6366F1' }}>
+                <div className="clean-service-icon-wrap" style={{ background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
                   <span style={{ fontSize: '1.5rem' }}>🎓</span>
-                  <span style={{ position: 'absolute', top: -4, right: -4, background: '#6366F1', color: '#FFF', padding: '1px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: '900' }}>
+                  <span className="clean-service-badge" style={{ background: '#6366F1' }}>
                     {enrolledCourses.length}
                   </span>
                 </div>
@@ -1273,11 +1382,11 @@ export const StudentPortal: React.FC = () => {
               {/* Service 2: Mock Tests */}
               <div
                 onClick={() => setActiveTab('QUIZ')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                className="clean-service-item"
               >
-                <div className="phonepe-service-circle" style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1.5px solid #F59E0B' }}>
+                <div className="clean-service-icon-wrap" style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
                   <span style={{ fontSize: '1.5rem' }}>⚡</span>
-                  <span style={{ position: 'absolute', top: -4, right: -4, background: '#F59E0B', color: '#0F172A', padding: '1px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: '900' }}>
+                  <span className="clean-service-badge" style={{ background: '#D97706' }}>
                     FREE
                   </span>
                 </div>
@@ -1286,13 +1395,14 @@ export const StudentPortal: React.FC = () => {
 
               {/* Service 3: E-Books */}
               <div
-                onClick={() => setActiveTab('WALLET')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                onClick={() => { setActiveTab('EBOOKS'); setSelectedCourseDocFilter('ALL'); }}
+                className="clean-service-item"
+                style={{ cursor: 'pointer' }}
               >
-                <div className="phonepe-service-circle" style={{ background: 'rgba(6, 182, 212, 0.15)', border: '1.5px solid #06B6D4' }}>
+                <div className="clean-service-icon-wrap" style={{ background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
                   <span style={{ fontSize: '1.5rem' }}>📖</span>
-                  <span style={{ position: 'absolute', top: -4, right: -4, background: '#06B6D4', color: '#FFF', padding: '1px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: '900' }}>
-                    PDFs
+                  <span className="clean-service-badge" style={{ background: '#0891B2' }}>
+                    {enrolledStudyDocs.length > 0 ? `${enrolledStudyDocs.length} Docs` : 'PDFs'}
                   </span>
                 </div>
                 <span style={{ fontSize: '0.8rem', fontWeight: '700', marginTop: '8px', color: 'var(--text-primary)' }}>E-Books</span>
@@ -1301,11 +1411,11 @@ export const StudentPortal: React.FC = () => {
               {/* Service 4: Top-Up Wallet */}
               <div
                 onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                className="clean-service-item"
               >
-                <div className="phonepe-service-circle" style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1.5px solid #10B981' }}>
+                <div className="clean-service-icon-wrap" style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                   <span style={{ fontSize: '1.5rem' }}>💳</span>
-                  <span style={{ position: 'absolute', top: -4, right: -4, background: '#10B981', color: '#FFF', padding: '1px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: '900' }}>
+                  <span className="clean-service-badge" style={{ background: '#059669' }}>
                     ₹{stats?.walletBalance || 0}
                   </span>
                 </div>
@@ -1315,11 +1425,11 @@ export const StudentPortal: React.FC = () => {
               {/* Service 5: Refer & Earn */}
               <div
                 onClick={() => setActiveTab('MLM_NETWORK')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                className="clean-service-item"
               >
-                <div className="phonepe-service-circle" style={{ background: 'rgba(236, 72, 153, 0.15)', border: '1.5px solid #EC4899' }}>
+                <div className="clean-service-icon-wrap" style={{ background: 'rgba(236, 72, 153, 0.08)', border: '1px solid rgba(236, 72, 153, 0.2)' }}>
                   <span style={{ fontSize: '1.5rem' }}>🤝</span>
-                  <span style={{ position: 'absolute', top: -4, right: -4, background: '#EC4899', color: '#FFF', padding: '1px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: '900' }}>
+                  <span className="clean-service-badge" style={{ background: '#DB2777' }}>
                     ₹25K
                   </span>
                 </div>
@@ -1329,11 +1439,11 @@ export const StudentPortal: React.FC = () => {
               {/* Service 6: KYC Verify */}
               <div
                 onClick={() => setActiveTab('KYC')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                className="clean-service-item"
               >
-                <div className="phonepe-service-circle" style={{ background: 'rgba(139, 92, 246, 0.15)', border: '1.5px solid #8B5CF6' }}>
+                <div className="clean-service-icon-wrap" style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
                   <span style={{ fontSize: '1.5rem' }}>🆔</span>
-                  <span style={{ position: 'absolute', top: -4, right: -4, background: '#8B5CF6', color: '#FFF', padding: '1px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: '900' }}>
+                  <span className="clean-service-badge" style={{ background: '#7C3AED' }}>
                     {stats?.kycStatus === 'APPROVED' ? 'VERIFIED' : 'KYC'}
                   </span>
                 </div>
@@ -1342,29 +1452,31 @@ export const StudentPortal: React.FC = () => {
             </div>
           </div>
 
-          {/* 2. Muthoot Fincorp ONE Style Hero Promotional Carousel Banner */}
+          {/* 2. Hero Promotional Carousel Banner */}
           <div>
             <div
               onClick={() => handleBannerPress(PROMO_BANNERS[activeBannerIndex])}
               className="glass-card"
               style={{
-                padding: '22px 26px',
+                padding: '24px 28px',
                 borderRadius: '20px',
-                border: `1.5px solid ${PROMO_BANNERS[activeBannerIndex].accentColor}`,
-                boxShadow: `0 8px 30px -8px ${PROMO_BANNERS[activeBannerIndex].accentColor}40`,
+                background: `linear-gradient(135deg, ${PROMO_BANNERS[activeBannerIndex].accentColor}06 0%, var(--bg-card) 100%)`,
+                border: '1px solid var(--border-color)',
+                borderLeft: `5px solid ${PROMO_BANNERS[activeBannerIndex].accentColor}`,
+                boxShadow: `0 4px 20px -4px ${PROMO_BANNERS[activeBannerIndex].accentColor}25`,
                 cursor: 'pointer',
                 position: 'relative',
                 overflow: 'hidden',
                 transition: 'all 0.3s ease'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                 <span style={{
-                  background: `${PROMO_BANNERS[activeBannerIndex].accentColor}22`,
+                  background: `${PROMO_BANNERS[activeBannerIndex].accentColor}15`,
                   color: PROMO_BANNERS[activeBannerIndex].accentColor,
                   padding: '4px 10px',
                   borderRadius: '8px',
-                  fontSize: '0.75rem',
+                  fontSize: '0.74rem',
                   fontWeight: '800',
                   letterSpacing: '0.5px'
                 }}>
@@ -1386,7 +1498,7 @@ export const StudentPortal: React.FC = () => {
               <h2 style={{ fontSize: '1.45rem', fontWeight: '800', margin: '0 0 6px 0', color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
                 {PROMO_BANNERS[activeBannerIndex].title}
               </h2>
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: '0 0 18px 0', lineHeight: 1.5 }}>
                 {PROMO_BANNERS[activeBannerIndex].subTitle}
               </p>
 
@@ -1401,14 +1513,15 @@ export const StudentPortal: React.FC = () => {
                     color: '#FFF',
                     border: 'none',
                     borderRadius: '10px',
-                    padding: '8px 18px',
+                    padding: '9px 20px',
                     fontSize: '0.85rem',
                     fontWeight: '800',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
                     cursor: 'pointer',
-                    boxShadow: `0 4px 12px ${PROMO_BANNERS[activeBannerIndex].accentColor}50`
+                    boxShadow: `0 4px 12px ${PROMO_BANNERS[activeBannerIndex].accentColor}40`,
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   <span>{PROMO_BANNERS[activeBannerIndex].ctaText}</span>
@@ -1421,7 +1534,7 @@ export const StudentPortal: React.FC = () => {
                     setActiveBannerIndex((prev) => (prev + 1) % PROMO_BANNERS.length);
                   }}
                   className="btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: '0.78rem', fontWeight: '700', borderRadius: '8px' }}
+                  style={{ padding: '7px 14px', fontSize: '0.8rem', fontWeight: '700', borderRadius: '10px' }}
                 >
                   Next Promo ❯
                 </button>
@@ -1429,7 +1542,7 @@ export const StudentPortal: React.FC = () => {
             </div>
 
             {/* Pagination Dots */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '14px' }}>
               {PROMO_BANNERS.map((_, idx) => (
                 <button
                   key={idx}
@@ -1663,12 +1776,29 @@ export const StudentPortal: React.FC = () => {
                           {crs.thumbnail && (
                             <div
                               onClick={() => setSelectedCourseDetail(crs)}
-                              style={{ cursor: 'pointer', overflow: 'hidden', borderRadius: '8px', marginBottom: '10px' }}
+                              style={{
+                                cursor: 'pointer',
+                                overflow: 'hidden',
+                                borderRadius: '10px',
+                                marginBottom: '12px',
+                                width: '100%',
+                                aspectRatio: '16 / 9',
+                                background: 'rgba(0, 0, 0, 0.03)',
+                                border: '1px solid var(--border-color)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
                             >
                               <img
                                 src={crs.thumbnail}
-                                alt="Banner"
-                                style={{ width: '100%', height: '130px', objectFit: 'cover', transition: 'transform 0.2s ease' }}
+                                alt={crs.title || 'Course Banner'}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'contain',
+                                  transition: 'transform 0.2s ease'
+                                }}
                               />
                             </div>
                           )}
@@ -1752,6 +1882,281 @@ export const StudentPortal: React.FC = () => {
         </div>
       )}
 
+      {/* SUB-TAB: ENROLLED COURSE STUDY MATERIALS & E-BOOKS */}
+      {activeTab === 'EBOOKS' && (
+        <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px', marginTop: '12px' }}>
+          {/* Header Banner */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span className="badge badge-cyan" style={{ fontSize: '0.72rem', padding: '3px 8px', fontWeight: '800' }}>
+                  📚 ENROLLED COURSE STUDY MATERIALS
+                </span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  100% Unlocked • Direct Download & Instant Browser Access
+                </span>
+              </div>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                My Classroom E-Books & Study Material Vault
+              </h3>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
+                Official study documents, PDFs, and notes included with your enrolled courses. Click any document to open instantly in your browser.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ padding: '8px 16px', borderRadius: '10px', background: 'var(--badge-primary-bg)', border: '1px solid var(--badge-primary-border)', textAlign: 'right' }}>
+                <div style={{ fontSize: '0.68rem', color: 'var(--primary-accent)', fontWeight: '800', letterSpacing: '0.04em' }}>TOTAL UNLOCKED</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                  {enrolledStudyDocs.length} Documents
+                </div>
+              </div>
+              <button
+                className="btn-secondary"
+                onClick={loadEnrolled}
+                disabled={isLoadingEnrolled}
+                style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                title="Refresh Documents"
+              >
+                <RefreshCw size={14} className={isLoadingEnrolled ? 'animate-spin' : ''} />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Toolbar: Enrolled Course Selector Pills & Search */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px', flexWrap: 'wrap', gap: '14px', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '14px 0' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                onClick={() => setSelectedCourseDocFilter('ALL')}
+                className={`btn-${selectedCourseDocFilter === 'ALL' ? 'primary' : 'secondary'}`}
+                style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: '700', borderRadius: '8px' }}
+              >
+                All Courses ({enrolledStudyDocs.length})
+              </button>
+              {coursesWithDocs.map((crs) => (
+                <button
+                  key={crs.id}
+                  onClick={() => setSelectedCourseDocFilter(crs.id)}
+                  className={`btn-${selectedCourseDocFilter === crs.id ? 'primary' : 'secondary'}`}
+                  style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: '700', borderRadius: '8px' }}
+                >
+                  {crs.title} ({crs.count})
+                </button>
+              ))}
+            </div>
+
+            <div style={{ minWidth: '240px', flex: '1', maxWidth: '320px' }}>
+              <input
+                type="text"
+                placeholder="Search documents or topics..."
+                value={docSearchQuery}
+                onChange={(e) => setDocSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--form-input-border)',
+                  background: 'var(--form-input-bg)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.82rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Cards Grid */}
+          {isLoadingEnrolled ? (
+            <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '1.8rem', marginBottom: '10px' }}>📖</div>
+              <div style={{ fontSize: '0.95rem', fontWeight: '600' }}>Loading enrolled classroom study materials...</div>
+            </div>
+          ) : enrolledStudyDocs.length === 0 ? (
+            <div style={{ padding: '48px 20px', textAlign: 'center', background: 'var(--bg-surface)', borderRadius: '16px', border: '1px dashed var(--border-color)' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>📚</div>
+              <h4 style={{ fontSize: '1.15rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '6px' }}>
+                No Attached Study Materials Yet
+              </h4>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', maxWidth: '480px', margin: '0 auto 18px' }}>
+                Your instructors have not attached e-books or PDF documents to your enrolled courses yet. When notes are uploaded, they will automatically appear here.
+              </p>
+              <button className="btn-primary" onClick={() => setActiveTab('MY_CLASSES')} style={{ padding: '8px 18px', fontSize: '0.84rem' }}>
+                Go to My Classroom ({enrolledCourses.length})
+              </button>
+            </div>
+          ) : filteredStudyDocs.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center', background: 'var(--bg-surface)', borderRadius: '16px', border: '1px dashed var(--border-color)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔍</div>
+              <h4 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                No matching study materials found
+              </h4>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 auto 12px' }}>
+                Try adjusting your search query or reset the course filter.
+              </p>
+              <button
+                className="btn-secondary"
+                onClick={() => { setSelectedCourseDocFilter('ALL'); setDocSearchQuery(''); }}
+                style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+              >
+                Reset Filters
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '18px' }}>
+              {filteredStudyDocs.map((doc) => {
+                const isPdf = doc.docType === 'PDF';
+                const isDoc = doc.docType === 'DOC';
+
+                return (
+                  <div
+                    key={doc.id}
+                    className="glass-card"
+                    style={{
+                      borderRadius: '16px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      padding: '20px 22px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      boxShadow: 'var(--shadow-card)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div>
+                      {/* Top Tag Row */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: '800',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              background: isPdf
+                                ? 'rgba(239, 68, 68, 0.08)'
+                                : isDoc
+                                ? 'rgba(37, 99, 235, 0.08)'
+                                : 'rgba(124, 58, 237, 0.08)',
+                              color: isPdf ? '#DC2626' : isDoc ? '#2563EB' : '#7C3AED',
+                              border: `1px solid ${isPdf ? 'rgba(239, 68, 68, 0.2)' : isDoc ? 'rgba(37, 99, 235, 0.2)' : 'rgba(124, 58, 237, 0.2)'}`
+                            }}
+                          >
+                            {isPdf ? '📄 PDF Document' : isDoc ? '📝 Google Doc / Word' : '📖 E-Book Reference'}
+                          </span>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#059669',
+                            background: 'rgba(5, 150, 105, 0.08)',
+                            border: '1px solid rgba(5, 150, 105, 0.2)',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <CheckCircle size={13} /> Unlocked
+                        </span>
+                      </div>
+
+                      {/* Document Title */}
+                      <h4
+                        style={{
+                          fontSize: '1.05rem',
+                          fontWeight: '800',
+                          color: 'var(--text-primary)',
+                          lineHeight: 1.4,
+                          marginBottom: '10px'
+                        }}
+                      >
+                        {doc.title}
+                      </h4>
+
+                      {/* Enrolled Course info */}
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.78rem',
+                        color: 'var(--text-secondary)',
+                        background: 'var(--bg-surface)',
+                        border: '1px solid var(--border-color)',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        marginBottom: '8px',
+                        maxWidth: '100%'
+                      }}>
+                        <span style={{ color: 'var(--primary-accent)', fontWeight: '800' }}>🎓 Course:</span>
+                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{doc.courseTitle}</span>
+                      </div>
+
+                      {/* Topic info */}
+                      {doc.topic && (
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>📌 Topic:</span>
+                          <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>{doc.topic}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Buttons: Direct open & download (No slow iframe modal) */}
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                      <a
+                        href={doc.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-primary"
+                        style={{
+                          flex: 1,
+                          padding: '9px 14px',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          textDecoration: 'none',
+                          borderRadius: '8px'
+                        }}
+                      >
+                        <ExternalLink size={14} /> Open in Browser
+                      </a>
+                      <a
+                        href={doc.fileUrl}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-secondary"
+                        style={{
+                          padding: '9px 14px',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          textDecoration: 'none',
+                          borderRadius: '8px'
+                        }}
+                        title="Download Document"
+                      >
+                        <Download size={14} /> Download
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* SUB-TAB: WALLET & CREDITS */}
       {activeTab === 'WALLET' && (
         <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px' }}>
@@ -1796,12 +2201,15 @@ export const StudentPortal: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <button className="btn-primary" onClick={() => setActiveTab('BROWSE')} style={{ padding: '8px 16px', fontSize: '0.84rem' }}>
               <ShoppingBag size={14} /> Browse Courses to Enroll
             </button>
+            <button className="btn-secondary" onClick={() => setActiveTab('EBOOKS')} style={{ padding: '8px 16px', fontSize: '0.84rem' }}>
+              <BookOpen size={14} /> Browse E-Books & PDFs
+            </button>
             <button className="btn-secondary" onClick={() => setActiveTab('MLM_NETWORK')} style={{ padding: '8px 16px', fontSize: '0.84rem' }}>
-              <Share2 size={14} /> Check Referral Cashback (₹25k)
+              <Share2 size={14} /> Check Referral Rewards
             </button>
           </div>
         </div>
@@ -2314,8 +2722,28 @@ export const StudentPortal: React.FC = () => {
 
               {/* Banner Image */}
               {selectedCourseDetail.thumbnail && (
-                <div style={{ marginBottom: '14px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', maxHeight: '180px' }}>
-                  <img src={selectedCourseDetail.thumbnail} alt="Course Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{
+                  marginBottom: '16px',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  border: '1px solid var(--border-color)',
+                  background: 'rgba(0, 0, 0, 0.04)',
+                  width: '100%',
+                  aspectRatio: '16 / 9',
+                  maxHeight: '260px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <img
+                    src={selectedCourseDetail.thumbnail}
+                    alt={selectedCourseDetail.title || 'Course Banner'}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain'
+                    }}
+                  />
                 </div>
               )}
 

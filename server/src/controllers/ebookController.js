@@ -54,9 +54,9 @@ const seedEbooks = catchAsync(async (req, res) => {
       category: catId,
       description: 'Comprehensive formula sheet, vector shortcuts & 200+ solved numerical problems.',
       price: 199,
-      coverImage: 'https://cdn.eduverse.in/covers/physics_class10_thumb.jpg',
-      samplePdfUrl: 'https://cdn.eduverse.in/ebooks/samples/physics_ch1_sample.pdf',
-      fullPdfUrl: 'https://cdn.eduverse.in/ebooks/full/physics_class10_complete.pdf',
+      coverImage: 'https://images.unsplash.com/photo-1532012164546-f432f2e3d368?q=80&w=800',
+      samplePdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      fullPdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
       pages: 140
     },
     {
@@ -65,10 +65,32 @@ const seedEbooks = catchAsync(async (req, res) => {
       category: catId,
       description: 'NCERT line-by-line question bank with detailed diagrams & memory trick mnemonics.',
       price: 299,
-      coverImage: 'https://cdn.eduverse.in/covers/neet_bio_mcqs_thumb.jpg',
-      samplePdfUrl: 'https://cdn.eduverse.in/ebooks/samples/neet_bio_sample.pdf',
-      fullPdfUrl: 'https://cdn.eduverse.in/ebooks/full/neet_bio_5000mcq_complete.pdf',
+      coverImage: 'https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=800',
+      samplePdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      fullPdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
       pages: 320
+    },
+    {
+      title: 'CBSE Class 10 Mathematics Complete Formula & Exemplar Vault',
+      author: 'Er. Rajesh Kumar',
+      category: catId,
+      description: 'Chapterwise proofs, theorem mind-maps, trigonometry tables & standard CBSE 10 sample papers.',
+      price: 149,
+      coverImage: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?q=80&w=800',
+      samplePdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      fullPdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      pages: 180
+    },
+    {
+      title: 'General Knowledge & Indian Polity Rapid Revision Handbook',
+      author: 'Dr. M. S. Rao',
+      category: catId,
+      description: 'Articles, amendments, historical timelines & mock questions for state and central competitive exams.',
+      price: 249,
+      coverImage: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=800',
+      samplePdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      fullPdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      pages: 250
     }
   ]);
 

@@ -1,4 +1,5 @@
 const MLMNode = require('../models/MLMNode');
+const MLMConfig = require('../models/MLMConfig');
 const User = require('../models/User');
 const MlmPayout = require('../models/MlmPayout');
 const Wallet = require('../models/Wallet');
@@ -66,6 +67,13 @@ const getBinaryTree = catchAsync(async (req, res) => {
 const getAffiliateStats = catchAsync(async (req, res) => {
   const node = await getOrCreateMLMNode(req.user._id);
 
+  // Fetch dynamic MLM config configured by admin
+  const config = await MLMConfig.getConfig();
+  const matchingRate = (config.matchingRatePercentage !== undefined ? config.matchingRatePercentage : 10) / 100;
+  const dailyCappingLimit = config.dailyCappingLimit || 25000;
+  const adminFeePct = (config.adminFeePercentage !== undefined ? config.adminFeePercentage : 5) / 100;
+  const tdsPct = (config.tdsPercentage !== undefined ? config.tdsPercentage : 5) / 100;
+
   // Count direct referrals sponsored by this user
   const directReferralsCount = await User.countDocuments({ referredBy: req.user.referralCode });
 
@@ -75,15 +83,14 @@ const getAffiliateStats = catchAsync(async (req, res) => {
 
   // 1:1 Pair Matching on Weaker Leg
   const matchedPV = Math.min(carriedLeftPV, carriedRightPV);
-  const grossMatchingBonus = Math.round(matchedPV * 0.1); // 10% matching rate
+  const grossMatchingBonus = Math.round(matchedPV * matchingRate);
 
   // Financial Rules & Deductions
-  const dailyCappingLimit = 25000;
   const cappedGrossBonus = Math.min(grossMatchingBonus, dailyCappingLimit);
   const isCapped = grossMatchingBonus > dailyCappingLimit;
 
-  const adminFee = Math.round(cappedGrossBonus * 0.05); // 5% Admin Charge
-  const tdsDeduction = Math.round(cappedGrossBonus * 0.05); // 5% TDS
+  const adminFee = Math.round(cappedGrossBonus * adminFeePct);
+  const tdsDeduction = Math.round(cappedGrossBonus * tdsPct);
   const netPayableBonus = cappedGrossBonus - adminFee - tdsDeduction;
 
   const hostOrigin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : 'http://localhost:3000');
@@ -112,7 +119,15 @@ const getAffiliateStats = catchAsync(async (req, res) => {
       totalMatchedVolume: node.totalMatchedVolume || 0,
       totalEarnings: node.totalEarnings || 0,
       lastPayoutDate: node.lastPayoutDate || null,
-      directReferralsCount
+      directReferralsCount,
+      config: {
+        perReferralPV: config.perReferralPV,
+        directReferralBonus: config.directReferralBonus,
+        matchingRatePercentage: config.matchingRatePercentage,
+        dailyCappingLimit: config.dailyCappingLimit,
+        adminFeePercentage: config.adminFeePercentage,
+        tdsPercentage: config.tdsPercentage
+      }
     }
   });
 });
@@ -142,6 +157,13 @@ const updatePlacementPreference = catchAsync(async (req, res) => {
  * @access  Private (Super Admin)
  */
 const executeBinaryPayoutSettlement = catchAsync(async (req, res) => {
+  // Fetch dynamic MLM config configured by admin
+  const config = await MLMConfig.getConfig();
+  const matchingRate = (config.matchingRatePercentage !== undefined ? config.matchingRatePercentage : 10) / 100;
+  const dailyCappingLimit = config.dailyCappingLimit || 25000;
+  const adminFeePct = (config.adminFeePercentage !== undefined ? config.adminFeePercentage : 5) / 100;
+  const tdsPct = (config.tdsPercentage !== undefined ? config.tdsPercentage : 5) / 100;
+
   // Find all MLM nodes that have matched volume on carried legs
   const allNodes = await MLMNode.find({}).populate('user');
   const payoutResults = [];
@@ -155,12 +177,11 @@ const executeBinaryPayoutSettlement = catchAsync(async (req, res) => {
     const matchedPV = Math.min(carriedLeft, carriedRight);
     if (matchedPV <= 0) continue; // Skip if no pairs matched
 
-    const grossBonus = Math.round(matchedPV * 0.1);
-    const dailyCappingLimit = 25000;
+    const grossBonus = Math.round(matchedPV * matchingRate);
     const cappedGrossBonus = Math.min(grossBonus, dailyCappingLimit);
 
-    const adminFee = Math.round(cappedGrossBonus * 0.05);
-    const tdsDeduction = Math.round(cappedGrossBonus * 0.05);
+    const adminFee = Math.round(cappedGrossBonus * adminFeePct);
+    const tdsDeduction = Math.round(cappedGrossBonus * tdsPct);
     const netPayout = cappedGrossBonus - adminFee - tdsDeduction;
 
     const carriedLeftAfter = carriedLeft - matchedPV;
@@ -199,7 +220,7 @@ const executeBinaryPayoutSettlement = catchAsync(async (req, res) => {
       mlmNode: node._id,
       cycleDate: new Date(),
       matchedVolume: matchedPV,
-      matchingRatePercentage: 10,
+      matchingRatePercentage: config.matchingRatePercentage,
       grossBonus,
       cappingLimit: dailyCappingLimit,
       cappedGrossBonus,
@@ -251,6 +272,53 @@ const getPayoutHistory = catchAsync(async (req, res) => {
 });
 
 /**
+ * @route   GET /api/mlm/config
+ * @desc    Fetch current active dynamic MLM configuration (PV, matching rate, capping, deductions)
+ * @access  Private (All authenticated users)
+ */
+const getMLMConfig = catchAsync(async (req, res) => {
+  const config = await MLMConfig.getConfig();
+  return sendSuccess(res, 200, 'MLM configuration retrieved successfully.', {
+    config
+  });
+});
+
+/**
+ * @route   PUT /api/mlm/config
+ * @desc    Update dynamic MLM configuration (PV, matching rate, capping, deductions)
+ * @access  Private (Admin only)
+ */
+const updateMLMConfig = catchAsync(async (req, res) => {
+  const {
+    perReferralPV,
+    directReferralBonus,
+    matchingRatePercentage,
+    dailyCappingLimit,
+    adminFeePercentage,
+    tdsPercentage
+  } = req.body;
+
+  let config = await MLMConfig.findOne({ isActive: true }).sort({ createdAt: -1 });
+  if (!config) {
+    config = new MLMConfig();
+  }
+
+  if (perReferralPV !== undefined) config.perReferralPV = Math.max(1, Number(perReferralPV));
+  if (directReferralBonus !== undefined) config.directReferralBonus = Math.max(0, Number(directReferralBonus));
+  if (matchingRatePercentage !== undefined) config.matchingRatePercentage = Math.max(0, Math.min(100, Number(matchingRatePercentage)));
+  if (dailyCappingLimit !== undefined) config.dailyCappingLimit = Math.max(100, Number(dailyCappingLimit));
+  if (adminFeePercentage !== undefined) config.adminFeePercentage = Math.max(0, Math.min(50, Number(adminFeePercentage)));
+  if (tdsPercentage !== undefined) config.tdsPercentage = Math.max(0, Math.min(50, Number(tdsPercentage)));
+  config.updatedBy = req.user._id;
+
+  await config.save();
+
+  return sendSuccess(res, 200, 'MLM & Referral configuration updated successfully.', {
+    config
+  });
+});
+
+/**
  * @route   POST /api/mlm/seed
  * @desc    Seed a sample 7-node binary network tree for testing
  * @access  Public / Admin
@@ -285,5 +353,7 @@ module.exports = {
   updatePlacementPreference,
   executeBinaryPayoutSettlement,
   getPayoutHistory,
+  getMLMConfig,
+  updateMLMConfig,
   seedMLMNetwork
 };

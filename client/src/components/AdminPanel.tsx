@@ -70,7 +70,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onCheckBackendHealth, ba
   const [filterKyc, setFilterKyc] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://e-learning-63yb.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
   // Fetch Real-time Aggregated Analytics from Backend REST API
   const fetchGranularAnalytics = async () => {

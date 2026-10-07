@@ -416,7 +416,7 @@ export const StudentHomeScreen: React.FC = () => {
 
   const getMobileShareUrl = () => {
     const code = mlmStats?.referralCode || user?.referralCode || user?.userId || 'REF-STUDENT';
-    return `https://e-learning-ashy-iota.vercel.app/register?ref=${code}`;
+    return `http://localhost:3000/register?ref=${code}`;
   };
 
   const handleCopyMobileLink = () => {

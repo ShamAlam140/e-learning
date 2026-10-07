@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Users, BookOpen, FileCheck, DollarSign, Megaphone, Plus, RefreshCw, CheckCircle2, XCircle, Eye, AlertCircle, Search, X, Trash2, Edit3, Phone, Mail, MapPin, GraduationCap, Share2, UploadCloud, Download, FileSpreadsheet, HelpCircle, Tv, Play, ExternalLink, Image as ImageIcon, Film } from 'lucide-react';
+import { ShieldCheck, Users, BookOpen, FileCheck, DollarSign, Megaphone, Plus, RefreshCw, CheckCircle2, XCircle, Eye, AlertCircle, Search, X, Trash2, Edit3, Phone, Mail, MapPin, GraduationCap, Share2, UploadCloud, Download, FileSpreadsheet, HelpCircle, Tv, Play, ExternalLink, Image as ImageIcon, Film, Save, Percent, Gift, Shield, SlidersHorizontal, Zap } from 'lucide-react';
 import { INDIAN_STATES_LIST, CORE_MODULES_LIST, getSubCategoriesForModuleAndState } from '../../services/taxonomyTree';
 import {
   fetchAdminStats,
@@ -29,7 +29,7 @@ import {
   KYCRecord,
   PayoutRecord
 } from '../../services/adminService';
-import { executeBinaryPayoutSettlement } from '../../services/affiliateService';
+import { executeBinaryPayoutSettlement, fetchMlmConfig, updateMlmConfig, MlmConfigRecord } from '../../services/affiliateService';
 import {
   fetchAdminAds,
   createAd,
@@ -866,6 +866,42 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
     }
   };
 
+  // 100% Dynamic MLM & Referral Configuration State
+  const [mlmConfig, setMlmConfig] = useState<MlmConfigRecord>({
+    perReferralPV: 100,
+    directReferralBonus: 0,
+    matchingRatePercentage: 10,
+    dailyCappingLimit: 25000,
+    adminFeePercentage: 5,
+    tdsPercentage: 5
+  });
+  const [isLoadingMlmConfig, setIsLoadingMlmConfig] = useState(false);
+  const [isSavingMlmConfig, setIsSavingMlmConfig] = useState(false);
+  const [mlmConfigMsg, setMlmConfigMsg] = useState('');
+
+  const loadMlmConfig = async () => {
+    setIsLoadingMlmConfig(true);
+    const res = await fetchMlmConfig();
+    if (res.success && res.data) {
+      setMlmConfig(res.data.config);
+    }
+    setIsLoadingMlmConfig(false);
+  };
+
+  const handleSaveMlmConfig = async () => {
+    setIsSavingMlmConfig(true);
+    setMlmConfigMsg('');
+    const res = await updateMlmConfig(mlmConfig);
+    setIsSavingMlmConfig(false);
+    if (res.success && res.data) {
+      setMlmConfig(res.data.config);
+      setMlmConfigMsg('✅ MLM & Referral Rules Updated Successfully! All new referrals and settlements will use these rates.');
+      setTimeout(() => setMlmConfigMsg(''), 5000);
+    } else {
+      setMlmConfigMsg(`❌ ${res.message || 'Failed to update MLM settings'}`);
+    }
+  };
+
   // Load Initial Core Admin Data & Dynamic Tab Watchers
   useEffect(() => {
     loadStats();
@@ -873,6 +909,7 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
     loadCourses();
     loadPendingKyc();
     loadPayouts();
+    loadMlmConfig();
     loadGroupedAnalytics();
     loadAds();
   }, []);
@@ -1447,92 +1484,136 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
           </div>
 
           {/* Granular Distribution Breakdown Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', alignItems: 'start' }}>
             {/* 1. Category / Board Distribution */}
-            <div className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
-              <h4 style={{ fontSize: '0.98rem', fontWeight: '800', marginBottom: '14px', color: 'var(--primary-accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📘 Academic Board & Grade Distribution
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {((granularAnalytics?.studentsByBoard as any[]) || []).map((item: any, idx: number) => {
-                  const maxCount = Math.max(...((granularAnalytics?.studentsByBoard as any[]) || []).map((b: any) => b.count || 1), 1);
-                  const pct = Math.round((item.count / maxCount) * 100);
-                  return (
-                    <div key={idx} style={{ fontSize: '0.82rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontWeight: '700' }}>
-                        <span>{item._id || 'General Board'}</span>
-                        <span style={{ color: 'var(--primary-accent)' }}>{item.count} Students</span>
+            <div className="glass-card" style={{ padding: '20px', borderRadius: '16px', height: 'fit-content' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h4 style={{ fontSize: '0.96rem', fontWeight: '800', margin: 0, color: 'var(--primary-accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  📘 Academic Boards
+                </h4>
+                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(99,102,241,0.12)', color: 'var(--primary-accent)', fontWeight: '700' }}>
+                  {((granularAnalytics?.studentsByBoard as any[]) || []).length} Boards
+                </span>
+              </div>
+              <div className="custom-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
+                {((granularAnalytics?.studentsByBoard as any[]) || []).length === 0 ? (
+                  <div style={{ padding: '20px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', background: 'var(--bg-surface)', borderRadius: '10px' }}>
+                    No board distribution recorded yet
+                  </div>
+                ) : (
+                  ((granularAnalytics?.studentsByBoard as any[]) || []).map((item: any, idx: number) => {
+                    const maxCount = Math.max(...((granularAnalytics?.studentsByBoard as any[]) || []).map((b: any) => b.count || 1), 1);
+                    const pct = Math.round((item.count / maxCount) * 100);
+                    return (
+                      <div key={idx} style={{ fontSize: '0.82rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontWeight: '700' }}>
+                          <span style={{ color: 'var(--text-primary)' }}>{item._id || 'General Board'}</span>
+                          <span style={{ color: 'var(--primary-accent)' }}>{item.count} Students</span>
+                        </div>
+                        <div style={{ height: '6px', background: 'rgba(99,102,241,0.12)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary-gradient)', borderRadius: '3px', transition: 'width 0.4s ease' }} />
+                        </div>
                       </div>
-                      <div style={{ height: '6px', background: 'rgba(99,102,241,0.12)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary-gradient)', borderRadius: '3px' }} />
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
 
             {/* 2. Geographic State Localization Reach */}
-            <div className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
-              <h4 style={{ fontSize: '0.98rem', fontWeight: '800', marginBottom: '14px', color: '#10B981', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                🗺️ State Geographic Localization Reach
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {((granularAnalytics?.studentsByState as any[]) || []).map((item: any, idx: number) => {
-                  const maxCount = Math.max(...((granularAnalytics?.studentsByState as any[]) || []).map((s: any) => s.count || 1), 1);
-                  const pct = Math.round((item.count / maxCount) * 100);
-                  return (
-                    <div key={idx} style={{ fontSize: '0.82rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontWeight: '700' }}>
-                        <span>State Code: <strong style={{ color: '#10B981' }}>{item._id || 'GLOBAL'}</strong></span>
-                        <span>{item.count} Learners</span>
+            <div className="glass-card" style={{ padding: '20px', borderRadius: '16px', height: 'fit-content' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h4 style={{ fontSize: '0.96rem', fontWeight: '800', margin: 0, color: '#10B981', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🗺️ State Reach
+                </h4>
+                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(16,185,129,0.12)', color: '#10B981', fontWeight: '700' }}>
+                  {((granularAnalytics?.studentsByState as any[]) || []).length} States
+                </span>
+              </div>
+              <div className="custom-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
+                {((granularAnalytics?.studentsByState as any[]) || []).length === 0 ? (
+                  <div style={{ padding: '20px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', background: 'var(--bg-surface)', borderRadius: '10px' }}>
+                    No state localization recorded yet
+                  </div>
+                ) : (
+                  ((granularAnalytics?.studentsByState as any[]) || []).map((item: any, idx: number) => {
+                    const maxCount = Math.max(...((granularAnalytics?.studentsByState as any[]) || []).map((s: any) => s.count || 1), 1);
+                    const pct = Math.round((item.count / maxCount) * 100);
+                    return (
+                      <div key={idx} style={{ fontSize: '0.82rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontWeight: '700' }}>
+                          <span style={{ color: 'var(--text-primary)' }}>State Code: <strong style={{ color: '#10B981' }}>{item._id || 'GLOBAL'}</strong></span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{item.count} Learners</span>
+                        </div>
+                        <div style={{ height: '6px', background: 'rgba(16,185,129,0.12)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--emerald-gradient)', borderRadius: '3px', transition: 'width 0.4s ease' }} />
+                        </div>
                       </div>
-                      <div style={{ height: '6px', background: 'rgba(16,185,129,0.12)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--emerald-gradient)', borderRadius: '3px' }} />
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
 
             {/* 3. Educator Faculty by Subject */}
-            <div className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
-              <h4 style={{ fontSize: '0.98rem', fontWeight: '800', marginBottom: '14px', color: '#F59E0B', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                👨‍🏫 Faculty Strength by Subject Area
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {((granularAnalytics?.teachersBySubject as any[]) || []).map((item: any, idx: number) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-surface)', borderRadius: '10px', fontSize: '0.82rem' }}>
-                    <div>
-                      <div style={{ fontWeight: '800', color: 'var(--text-primary)' }}>{item._id || 'General Subject'}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.coursesCount} Courses Published</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span className="badge badge-amber" style={{ fontSize: '0.72rem' }}>{item.teachersCount} Teachers</span>
-                      <div style={{ fontSize: '0.74rem', color: '#10B981', fontWeight: '700', marginTop: '2px' }}>{item.totalEnrolled} Students</div>
-                    </div>
+            <div className="glass-card" style={{ padding: '20px', borderRadius: '16px', height: 'fit-content' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h4 style={{ fontSize: '0.96rem', fontWeight: '800', margin: 0, color: '#F59E0B', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  👨‍🏫 Faculty Strength
+                </h4>
+                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(245,158,11,0.12)', color: '#F59E0B', fontWeight: '700' }}>
+                  {((granularAnalytics?.teachersBySubject as any[]) || []).length} Subjects
+                </span>
+              </div>
+              <div className="custom-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
+                {((granularAnalytics?.teachersBySubject as any[]) || []).length === 0 ? (
+                  <div style={{ padding: '20px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', background: 'var(--bg-surface)', borderRadius: '10px' }}>
+                    No faculty subject records yet
                   </div>
-                ))}
+                ) : (
+                  ((granularAnalytics?.teachersBySubject as any[]) || []).map((item: any, idx: number) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-surface)', borderRadius: '10px', fontSize: '0.82rem' }}>
+                      <div style={{ minWidth: 0, flex: 1, marginRight: '8px' }}>
+                        <div style={{ fontWeight: '800', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item._id || 'General Subject'}</div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{item.coursesCount} Courses Published</div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <span className="badge badge-amber" style={{ fontSize: '0.72rem', padding: '2px 6px' }}>{item.teachersCount} Teachers</span>
+                        <div style={{ fontSize: '0.74rem', color: '#10B981', fontWeight: '700', marginTop: '2px' }}>{item.totalEnrolled} Students</div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
             {/* 4. KYC Identity Verification Pipeline */}
-            <div className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
-              <h4 style={{ fontSize: '0.98rem', fontWeight: '800', marginBottom: '14px', color: '#EC4899', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                🛡️ KYC Compliance Pipeline Status
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {((granularAnalytics?.studentsByKyc as any[]) || []).map((item: any, idx: number) => {
-                  const statusLabel = item._id === 'VERIFIED' || item._id === 'APPROVED' ? 'APPROVED & VERIFIED' : item._id === 'PENDING' ? 'PENDING APPROVAL QUEUE' : 'NOT SUBMITTED YET';
-                  const badgeClass = item._id === 'VERIFIED' || item._id === 'APPROVED' ? 'badge-emerald' : item._id === 'PENDING' ? 'badge-amber' : 'badge-rose';
-                  return (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-surface)', borderRadius: '10px', fontSize: '0.82rem' }}>
-                      <span className={`badge ${badgeClass}`} style={{ fontSize: '0.74rem' }}>{statusLabel}</span>
-<span style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-primary)' }}>{item.count} Records</span>
-                    </div>
-                  );
-                })}
+            <div className="glass-card" style={{ padding: '20px', borderRadius: '16px', height: 'fit-content' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h4 style={{ fontSize: '0.96rem', fontWeight: '800', margin: 0, color: '#EC4899', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🛡️ KYC Compliance
+                </h4>
+                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(236,72,153,0.12)', color: '#EC4899', fontWeight: '700' }}>
+                  {((granularAnalytics?.studentsByKyc as any[]) || []).length} Stages
+                </span>
+              </div>
+              <div className="custom-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
+                {((granularAnalytics?.studentsByKyc as any[]) || []).length === 0 ? (
+                  <div style={{ padding: '20px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', background: 'var(--bg-surface)', borderRadius: '10px' }}>
+                    No KYC data recorded yet
+                  </div>
+                ) : (
+                  ((granularAnalytics?.studentsByKyc as any[]) || []).map((item: any, idx: number) => {
+                    const statusLabel = item._id === 'VERIFIED' || item._id === 'APPROVED' ? 'APPROVED & VERIFIED' : item._id === 'PENDING' ? 'PENDING APPROVAL' : 'NOT SUBMITTED';
+                    const badgeClass = item._id === 'VERIFIED' || item._id === 'APPROVED' ? 'badge-emerald' : item._id === 'PENDING' ? 'badge-amber' : 'badge-rose';
+                    return (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: 'var(--bg-surface)', borderRadius: '10px', fontSize: '0.82rem' }}>
+                        <span className={`badge ${badgeClass}`} style={{ fontSize: '0.74rem' }}>{statusLabel}</span>
+                        <span style={{ fontWeight: '800', fontSize: '0.92rem', color: 'var(--text-primary)' }}>{item.count} Records</span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
@@ -2629,18 +2710,573 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
       {/* PAYOUTS QUEUE TAB */}
       {activeTab === 'PAYOUTS' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+          {/* 100% DYNAMIC MLM REFERRAL & COMMISSION CONFIGURATION PANEL */}
+          <div
+            className="glass-card"
+            style={{
+              padding: '28px',
+              borderRadius: '20px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              boxShadow: 'var(--shadow-card)',
+              position: 'relative'
+            }}
+          >
+            {/* Header Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+              <div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--badge-primary-bg)', color: 'var(--badge-primary-color)', border: '1px solid var(--badge-primary-border)', borderRadius: '20px', padding: '3px 10px', fontSize: '0.72rem', fontWeight: '700', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  <SlidersHorizontal size={12} /> Dynamic Commission Engine
+                </div>
+                <h3 style={{ fontSize: '1.35rem', fontWeight: '800', margin: '2px 0 6px', color: 'var(--text-primary)', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  Referral & Commission Control Center
+                </h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.84rem', margin: 0, maxWidth: '640px', lineHeight: '1.45' }}>
+                  Control pair matching rates, referral volumes, safety payout caps, and tax deductions dynamically. Changes apply instantly across the entire platform.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={loadMlmConfig}
+                  disabled={isLoadingMlmConfig}
+                  style={{
+                    padding: '9px 15px',
+                    fontSize: '0.82rem',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-surface)'
+                  }}
+                >
+                  <RefreshCw size={14} className={isLoadingMlmConfig ? 'animate-spin' : ''} />
+                  <span>Reload</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleSaveMlmConfig}
+                  disabled={isSavingMlmConfig}
+                  style={{
+                    padding: '9px 20px',
+                    fontSize: '0.84rem',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.25)',
+                    cursor: isSavingMlmConfig ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <Save size={15} />
+                  <span>{isSavingMlmConfig ? 'Saving Changes...' : 'Save & Apply Rules'}</span>
+                </button>
+              </div>
+            </div>
+
+            {mlmConfigMsg && (
+              <div
+                style={{
+                  marginBottom: '20px',
+                  padding: '11px 16px',
+                  borderRadius: '12px',
+                  background: mlmConfigMsg.startsWith('✅') ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)',
+                  border: mlmConfigMsg.startsWith('✅') ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(244,63,94,0.3)',
+                  color: mlmConfigMsg.startsWith('✅') ? '#059669' : '#E11D48',
+                  fontSize: '0.84rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {mlmConfigMsg.startsWith('✅') ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                <span>{mlmConfigMsg}</span>
+              </div>
+            )}
+
+            {/* 6 Config Inputs - Symmetrical 3x2 Balanced Grid */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
+                gap: '16px',
+                marginBottom: '22px'
+              }}
+            >
+              {/* Card 1: Per Referral PV */}
+              <div
+                style={{
+                  background: 'var(--bg-surface)',
+                  padding: '16px 18px',
+                  borderRadius: '14px',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(79, 70, 229, 0.1)', color: 'var(--primary-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Users size={15} />
+                    </div>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                      Referral Volume (PV)
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, paddingLeft: '36px' }}>
+                    PV points credited to sponsor per verified signup
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '6px 12px',
+                    gap: '8px'
+                  }}
+                >
+                  <input
+                    type="number"
+                    min="1"
+                    value={mlmConfig.perReferralPV}
+                    onChange={(e) => setMlmConfig({ ...mlmConfig, perReferralPV: Number(e.target.value) })}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      width: '100%',
+                      fontSize: '1.2rem',
+                      fontWeight: '800',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      padding: 0
+                    }}
+                  />
+                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', background: 'var(--bg-surface)', padding: '3px 8px', borderRadius: '6px' }}>
+                    PV
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 2: 1:1 Matching Bonus Rate (%) */}
+              <div
+                style={{
+                  background: 'var(--bg-surface)',
+                  padding: '16px 18px',
+                  borderRadius: '14px',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.12)', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Percent size={15} />
+                    </div>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                      Pair Matching Bonus (%)
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, paddingLeft: '36px' }}>
+                    Payout percentage on matched left & right volume
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '6px 12px',
+                    gap: '8px'
+                  }}
+                >
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={mlmConfig.matchingRatePercentage}
+                    onChange={(e) => setMlmConfig({ ...mlmConfig, matchingRatePercentage: Number(e.target.value) })}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      width: '100%',
+                      fontSize: '1.2rem',
+                      fontWeight: '800',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      padding: 0
+                    }}
+                  />
+                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', background: 'var(--bg-surface)', padding: '3px 8px', borderRadius: '6px' }}>
+                    %
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 3: Direct Referral Cash Bonus (₹) */}
+              <div
+                style={{
+                  background: 'var(--bg-surface)',
+                  padding: '16px 18px',
+                  borderRadius: '14px',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(14, 165, 233, 0.12)', color: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Gift size={15} />
+                    </div>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                      Direct Signup Bonus (₹)
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, paddingLeft: '36px' }}>
+                    Instant flat cash credited on direct referral (optional)
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '6px 12px',
+                    gap: '8px'
+                  }}
+                >
+                  <span style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-muted)' }}>₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10"
+                    value={mlmConfig.directReferralBonus}
+                    onChange={(e) => setMlmConfig({ ...mlmConfig, directReferralBonus: Number(e.target.value) })}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      width: '100%',
+                      fontSize: '1.2rem',
+                      fontWeight: '800',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      padding: 0
+                    }}
+                  />
+                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', background: 'var(--bg-surface)', padding: '3px 8px', borderRadius: '6px' }}>
+                    INR
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 4: Daily Capping Limit (₹) */}
+              <div
+                style={{
+                  background: 'var(--bg-surface)',
+                  padding: '16px 18px',
+                  borderRadius: '14px',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Shield size={15} />
+                    </div>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                      Daily Payout Capping (₹)
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, paddingLeft: '36px' }}>
+                    Safety payout ceiling allowed per user / day
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '6px 12px',
+                    gap: '8px'
+                  }}
+                >
+                  <span style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-muted)' }}>₹</span>
+                  <input
+                    type="number"
+                    min="100"
+                    step="500"
+                    value={mlmConfig.dailyCappingLimit}
+                    onChange={(e) => setMlmConfig({ ...mlmConfig, dailyCappingLimit: Number(e.target.value) })}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      width: '100%',
+                      fontSize: '1.2rem',
+                      fontWeight: '800',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      padding: 0
+                    }}
+                  />
+                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', background: 'var(--bg-surface)', padding: '3px 8px', borderRadius: '6px' }}>
+                    /day
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 5: Admin Service Charge (%) */}
+              <div
+                style={{
+                  background: 'var(--bg-surface)',
+                  padding: '16px 18px',
+                  borderRadius: '14px',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Percent size={15} />
+                    </div>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                      Admin Platform Fee (%)
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, paddingLeft: '36px' }}>
+                    Platform maintenance deducted automatically on payout
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '6px 12px',
+                    gap: '8px'
+                  }}
+                >
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={mlmConfig.adminFeePercentage}
+                    onChange={(e) => setMlmConfig({ ...mlmConfig, adminFeePercentage: Number(e.target.value) })}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      width: '100%',
+                      fontSize: '1.2rem',
+                      fontWeight: '800',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      padding: 0
+                    }}
+                  />
+                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', background: 'var(--bg-surface)', padding: '3px 8px', borderRadius: '6px' }}>
+                    %
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 6: TDS Tax Deduction (%) */}
+              <div
+                style={{
+                  background: 'var(--bg-surface)',
+                  padding: '16px 18px',
+                  borderRadius: '14px',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(168, 85, 247, 0.1)', color: '#7E22CE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FileCheck size={15} />
+                    </div>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                      TDS Statutory Tax (%)
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, paddingLeft: '36px' }}>
+                    Govt compliance tax withheld on settlement
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '6px 12px',
+                    gap: '8px'
+                  }}
+                >
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={mlmConfig.tdsPercentage}
+                    onChange={(e) => setMlmConfig({ ...mlmConfig, tdsPercentage: Number(e.target.value) })}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      width: '100%',
+                      fontSize: '1.2rem',
+                      fontWeight: '800',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      padding: 0
+                    }}
+                  />
+                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', background: 'var(--bg-surface)', padding: '3px 8px', borderRadius: '6px' }}>
+                    %
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Calculation Simulation Strip - Fintech Style */}
+            {(() => {
+              const previewMatched = mlmConfig.perReferralPV || 100;
+              const previewGross = Math.round(previewMatched * ((mlmConfig.matchingRatePercentage || 10) / 100));
+              const previewAdmin = Math.round(previewGross * ((mlmConfig.adminFeePercentage || 5) / 100));
+              const previewTds = Math.round(previewGross * ((mlmConfig.tdsPercentage || 5) / 100));
+              const previewNet = previewGross - previewAdmin - previewTds;
+              return (
+                <div
+                  style={{
+                    background: 'var(--bg-surface)',
+                    padding: '16px 20px',
+                    borderRadius: '14px',
+                    border: '1px solid var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981', display: 'inline-block', boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.2)' }} />
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
+                        Live Settlement Preview (Per 1 Matched Pair = {previewMatched} PV)
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      Auto-updates with parameters
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      flexWrap: 'wrap',
+                      background: 'var(--bg-card)',
+                      padding: '12px 18px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '0.82rem'
+                    }}
+                  >
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block', fontWeight: '600' }}>Gross Pair Bonus</span>
+                      <strong style={{ fontSize: '1.05rem', color: 'var(--text-primary)' }}>₹{previewGross}</strong>
+                    </div>
+
+                    <span style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: '700' }}>−</span>
+
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block', fontWeight: '600' }}>Admin Fee ({mlmConfig.adminFeePercentage}%)</span>
+                      <strong style={{ fontSize: '1.05rem', color: '#EF4444' }}>₹{previewAdmin}</strong>
+                    </div>
+
+                    <span style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: '700' }}>−</span>
+
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block', fontWeight: '600' }}>TDS ({mlmConfig.tdsPercentage}%)</span>
+                      <strong style={{ fontSize: '1.05rem', color: '#EF4444' }}>₹{previewTds}</strong>
+                    </div>
+
+                    <span style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: '700' }}>=</span>
+
+                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '6px 14px', borderRadius: '10px' }}>
+                      <span style={{ color: '#059669', fontSize: '0.7rem', fontWeight: '800', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Net Wallet Credit</span>
+                      <strong style={{ fontSize: '1.15rem', color: '#059669', fontWeight: '800' }}>₹{previewNet}</strong>
+                      <span style={{ fontSize: '0.72rem', color: '#059669', marginLeft: '4px', fontWeight: '700' }}>/ pair</span>
+                    </div>
+
+                    {mlmConfig.directReferralBonus > 0 && (
+                      <div style={{ marginLeft: 'auto', background: 'rgba(14, 165, 233, 0.08)', border: '1px solid rgba(14, 165, 233, 0.25)', padding: '6px 14px', borderRadius: '10px' }}>
+                        <span style={{ color: '#0284C7', fontSize: '0.7rem', fontWeight: '800', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Direct Signup Cash</span>
+                        <strong style={{ fontSize: '1.05rem', color: '#0284C7', fontWeight: '800' }}>+ ₹{mlmConfig.directReferralBonus}</strong> <span style={{ fontSize: '0.72rem', color: '#0284C7' }}>instant</span>
+                      </div>
+                    )}
+
+                    <div style={{ marginLeft: mlmConfig.directReferralBonus > 0 ? '0' : 'auto', textAlign: 'right' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block', fontWeight: '600' }}>Daily Safety Cap</span>
+                      <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>₹{mlmConfig.dailyCappingLimit?.toLocaleString('en-IN')}/day</strong>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
           {/* Binary MLM Payout Settlement Execution Card */}
-          <div className="glass-card" style={{ padding: '24px', borderRadius: '18px', background: 'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(217,119,6,0.12) 100%)', border: '1px solid rgba(245,158,11,0.3)' }}>
+          <div
+            className="glass-card"
+            style={{
+              padding: '24px 28px',
+              borderRadius: '20px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderLeft: '5px solid #F59E0B',
+              boxShadow: 'var(--shadow-card)'
+            }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
               <div>
-                <span className="badge badge-amber" style={{ fontSize: '0.75rem', padding: '3px 10px', marginBottom: '6px' }}>
+                <span className="badge badge-amber" style={{ fontSize: '0.72rem', padding: '3px 10px', marginBottom: '8px', display: 'inline-block' }}>
                   AUTOMATED BINARY SETTLEMENT ENGINE
                 </span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', margin: '4px 0' }}>
-                  ⚡ Run Binary MLM Pair Settlement & Carry-Forward Engine
+                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', margin: '4px 0 6px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Zap size={20} color="#D97706" /> Run Binary MLM Pair Settlement & Carry-Forward Engine
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: 0, maxWidth: '650px' }}>
-                  Matches 1:1 binary PV volume across all partner legs, flushes matched volume, rolls over carry-forward PV, applies ₹25,000 daily capping guard, deducts 5% Admin Fee + 5% TDS, and credits Net Payout directly into user wallets.
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: 0, maxWidth: '680px', lineHeight: '1.45' }}>
+                  Matches 1:1 binary PV volume across all partner legs, flushes matched volume, rolls over carry-forward PV, enforces the ₹{mlmConfig.dailyCappingLimit?.toLocaleString('en-IN')} daily safety cap, applies {mlmConfig.adminFeePercentage}% Admin Fee + {mlmConfig.tdsPercentage}% TDS, and credits Net Payout directly into user wallets.
                 </p>
               </div>
 
@@ -2648,16 +3284,27 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
                 className="btn-amber"
                 onClick={handleRunMlmSettlement}
                 disabled={isExecutingSettlement}
-                style={{ padding: '12px 24px', fontSize: '0.9rem', fontWeight: '800' }}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '0.88rem',
+                  fontWeight: '800',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(217, 119, 6, 0.25)',
+                  cursor: isExecutingSettlement ? 'not-allowed' : 'pointer'
+                }}
               >
                 <RefreshCw size={16} className={isExecutingSettlement ? 'animate-spin' : ''} />
-                {isExecutingSettlement ? 'Processing Settlement...' : 'Run Payout Settlement Now'}
+                <span>{isExecutingSettlement ? 'Processing Settlement...' : 'Run Payout Settlement Now'}</span>
               </button>
             </div>
 
             {settlementResultMsg && (
-              <div style={{ marginTop: '16px', padding: '12px 16px', borderRadius: '10px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34D399', fontSize: '0.88rem', fontWeight: '700' }}>
-                {settlementResultMsg}
+              <div style={{ marginTop: '16px', padding: '12px 16px', borderRadius: '12px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', color: '#059669', fontSize: '0.85rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle2 size={16} />
+                <span>{settlementResultMsg}</span>
               </div>
             )}
           </div>
@@ -3728,8 +4375,8 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
             </div>
 
             {selectedCourseDetail.thumbnail && (
-              <div style={{ borderRadius: '12px', overflow: 'hidden', height: '160px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
-                <img src={selectedCourseDetail.thumbnail} alt={selectedCourseDetail.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div style={{ borderRadius: '12px', overflow: 'hidden', width: '100%', aspectRatio: '16 / 9', maxHeight: '240px', marginBottom: '16px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src={selectedCourseDetail.thumbnail} alt={selectedCourseDetail.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </div>
             )}
 

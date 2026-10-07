@@ -5,6 +5,8 @@ const {
   updatePlacementPreference,
   executeBinaryPayoutSettlement,
   getPayoutHistory,
+  getMLMConfig,
+  updateMLMConfig,
   seedMLMNetwork
 } = require('../controllers/mlmController');
 const { protect, restrictTo } = require('../middlewares/authMiddleware');
@@ -22,6 +24,10 @@ router.use(protect);
 router.get('/tree', getBinaryTree);
 router.get('/stats', getAffiliateStats);
 router.put('/preference', validateRequest(preferenceSchema), updatePlacementPreference);
+
+// Dynamic MLM Configuration Routes (Admin can increase/decrease any rates)
+router.get('/config', getMLMConfig);
+router.put('/config', restrictTo('ADMIN'), updateMLMConfig);
 
 // Binary MLM Payout Engine Routes
 router.post('/payout/execute', restrictTo('ADMIN'), executeBinaryPayoutSettlement);

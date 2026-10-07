@@ -327,19 +327,19 @@ export const AffiliateMlmPortal: React.FC = () => {
           <div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>1:1 MATCHED PAIRS</div>
             <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#FBBF24' }}>{stats?.matchedPV || 0} PV</div>
-            <div style={{ fontSize: '0.68rem', color: '#FBBF24' }}>10% Rate = ₹{stats?.grossMatchingBonus || 0}</div>
+            <div style={{ fontSize: '0.68rem', color: '#FBBF24' }}>{stats?.config?.matchingRatePercentage ?? 10}% Rate = ₹{stats?.grossMatchingBonus || 0}</div>
           </div>
 
           <div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>DAILY CAPPING LIMIT</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: stats?.isCapped ? '#FB7185' : '#34D399' }}>₹25,000 / day</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: stats?.isCapped ? '#FB7185' : '#34D399' }}>₹{(stats?.config?.dailyCappingLimit ?? stats?.dailyCappingLimit ?? 25000).toLocaleString('en-IN')} / day</div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{stats?.isCapped ? '⚠️ Capped Limit Reached' : '✅ Within Capping Limit'}</div>
           </div>
 
           <div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>DEDUCTIONS (10%)</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>DEDUCTIONS ({(stats?.config?.adminFeePercentage ?? 5) + (stats?.config?.tdsPercentage ?? 5)}%)</div>
             <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#FB7185' }}>- ₹{(stats?.adminFee || 0) + (stats?.tdsDeduction || 0)}</div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>5% Admin (₹{stats?.adminFee || 0}) + 5% TDS (₹{stats?.tdsDeduction || 0})</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{stats?.config?.adminFeePercentage ?? 5}% Admin (₹{stats?.adminFee || 0}) + {stats?.config?.tdsPercentage ?? 5}% TDS (₹{stats?.tdsDeduction || 0})</div>
           </div>
         </div>
       </div>

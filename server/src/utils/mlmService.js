@@ -1,4 +1,7 @@
 const MLMNode = require('../models/MLMNode');
+const MLMConfig = require('../models/MLMConfig');
+const Wallet = require('../models/Wallet');
+const Transaction = require('../models/Transaction');
 
 /**
  * Gets or initializes an MLM node for a user
@@ -138,8 +141,36 @@ const placeNodeInBinaryTree = async (sponsorUserId, newUserId) => {
   }
   await parentNode.save();
 
+  // Fetch dynamic MLM config configured by admin
+  const config = await MLMConfig.getConfig();
+  const volumeToAdd = config.perReferralPV || 100;
+
   // Propagate signup business volume up the upline
-  await propagateVolumeToAncestors(newNode._id, 100);
+  await propagateVolumeToAncestors(newNode._id, volumeToAdd);
+
+  // If direct referral cash bonus is configured (> 0), credit sponsor's wallet
+  if (config.directReferralBonus && config.directReferralBonus > 0 && sponsorUserId) {
+    try {
+      let sponsorWallet = await Wallet.findOne({ user: sponsorUserId });
+      if (!sponsorWallet) {
+        sponsorWallet = await Wallet.create({ user: sponsorUserId, balance: 0 });
+      }
+      sponsorWallet.balance += config.directReferralBonus;
+      await sponsorWallet.save();
+
+      await Transaction.create({
+        wallet: sponsorWallet._id,
+        user: sponsorUserId,
+        amount: config.directReferralBonus,
+        type: 'CREDIT',
+        category: 'AFFILIATE_COMMISSION',
+        status: 'SUCCESS',
+        description: `Direct Referral Cash Bonus for onboarding new user (₹${config.directReferralBonus})`
+      });
+    } catch (err) {
+      console.error('Direct referral bonus credit error:', err);
+    }
+  }
 
   return newNode;
 };

@@ -32,10 +32,14 @@ const app = express();
 app.use(helmet());
 
 const allowedOrigins = [
-  'https://e-learning-ashy-iota.vercel.app',
   'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5000',
+  'http://localhost:5001',
   'http://localhost:5173',
-  'http://localhost:5001'
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  'http://10.0.2.2:5000'
 ];
 
 if (process.env.CORS_ORIGIN) {
@@ -52,7 +56,7 @@ app.use(cors({
     // Allow non-browser clients (mobile apps, Postman, server-to-server) where origin is undefined
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
