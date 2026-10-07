@@ -7,6 +7,7 @@ const {
   getTeacherMcqs,
   getTeacherMcqAttempts,
   createTeacherMcq,
+  deleteTeacherMcq,
   requestTeacherPayout,
   updateTeacherCourse,
   deleteTeacherCourse,
@@ -31,6 +32,7 @@ router.delete('/courses/:id', deleteTeacherCourse);
 router.get('/mcqs', getTeacherMcqs);
 router.get('/mcq-attempts', getTeacherMcqAttempts);
 router.post('/mcqs', createTeacherMcq);
+router.delete('/mcqs/:id', deleteTeacherMcq);
 router.post('/payouts/request', requestTeacherPayout);
 
 module.exports = router;

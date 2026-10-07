@@ -377,6 +377,7 @@ const getTeacherMcqAttempts = catchAsync(async (req, res) => {
   const attempts = await McqAttempt.find({})
     .populate('user', 'name mobile email userId')
     .populate('subject', 'title')
+    .populate('course', 'title stateCode boardOrGrade subjectName')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -411,8 +412,8 @@ const createTeacherMcq = catchAsync(async (req, res, next) => {
   } = req.body;
 
   let courseObj = null;
+  const mongoose = require('mongoose');
   if (courseId) {
-    const mongoose = require('mongoose');
     if (mongoose.Types.ObjectId.isValid(courseId)) {
       courseObj = await Course.findById(courseId).lean();
     }
@@ -425,8 +426,24 @@ const createTeacherMcq = catchAsync(async (req, res, next) => {
   const finalQuizSetTitle = (quizSetTitle || '').trim() || 'Practice Test Set #1';
   const finalQuizSetId = `set_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
-  // Handle Bulk Array of Questions for Test Paper Set
+  // Handle Bulk Array of Questions for Test Paper Set (from Form or CSV/Excel Upload)
   if (Array.isArray(questions) && questions.length > 0) {
+    // Pre-cache courses for rows that specify their own courseId
+    const distinctCourseIds = [...new Set(questions.map((q) => (q.courseId || '').trim()).filter(Boolean))];
+    const courseMap = {};
+    if (courseObj) {
+      courseMap[courseObj._id.toString()] = courseObj;
+    }
+    if (distinctCourseIds.length > 0) {
+      const validIds = distinctCourseIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+      if (validIds.length > 0) {
+        const foundCourses = await Course.find({ _id: { $in: validIds } }).lean();
+        foundCourses.forEach((c) => {
+          courseMap[c._id.toString()] = c;
+        });
+      }
+    }
+
     const docsToCreate = questions
       .map((q) => {
         const opts = [
@@ -435,15 +452,19 @@ const createTeacherMcq = catchAsync(async (req, res, next) => {
           (q.optionC || '').trim(),
           (q.optionD || '').trim()
         ];
+        const rowCourseId = (q.courseId || '').trim();
+        const rowCourse = courseMap[rowCourseId] || courseObj;
+        const rowSetTitle = (q.quizSetTitle || '').trim() || finalQuizSetTitle;
+
         return {
           author: req.user._id,
-          course: courseObj ? courseObj._id : undefined,
-          quizSetTitle: finalQuizSetTitle,
-          quizSetId: finalQuizSetId,
-          stateCode: finalStateCode,
-          boardOrGrade: finalBoardOrGrade,
-          subCategory: finalSubCategory,
-          subjectName: finalSubjectName,
+          course: rowCourse ? rowCourse._id : (courseObj ? courseObj._id : undefined),
+          quizSetTitle: rowSetTitle,
+          quizSetId: q.quizSetId || finalQuizSetId,
+          stateCode: q.stateCode || (rowCourse ? rowCourse.stateCode : finalStateCode),
+          boardOrGrade: q.boardOrGrade || (rowCourse ? rowCourse.boardOrGrade : finalBoardOrGrade),
+          subCategory: q.subCategory || (rowCourse ? rowCourse.subCategory : finalSubCategory),
+          subjectName: q.subjectName || (rowCourse ? rowCourse.subjectName : finalSubjectName),
           questionText: (q.questionText || '').trim(),
           options: opts,
           correctOption: Number(q.correctOptionIndex) || 0,
@@ -495,6 +516,29 @@ const createTeacherMcq = catchAsync(async (req, res, next) => {
     quizSetTitle: finalQuizSetTitle,
     mcq
   });
+});
+
+/**
+ * @route   DELETE /api/teacher/mcqs/:id
+ * @desc    Delete an MCQ question from question bank
+ * @access  Private (Teacher / Admin)
+ */
+const deleteTeacherMcq = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const teacherId = req.user._id;
+
+  const mcq = await McqQuestion.findById(id);
+  if (!mcq) {
+    return next(new AppError('MCQ question not found.', 404));
+  }
+
+  // Admin can delete any question, Teacher can delete their own or legacy bank
+  if (req.user.role !== 'admin' && mcq.author && mcq.author.toString() !== teacherId.toString()) {
+    return next(new AppError('Not authorized to delete this question.', 403));
+  }
+
+  await McqQuestion.findByIdAndDelete(id);
+  return sendSuccess(res, 200, 'MCQ Question deleted from question bank successfully.');
 });
 
 /**
@@ -802,6 +846,7 @@ module.exports = {
   getTeacherMcqs,
   getTeacherMcqAttempts,
   createTeacherMcq,
+  deleteTeacherMcq,
   requestTeacherPayout,
   updateTeacherCourse,
   deleteTeacherCourse,

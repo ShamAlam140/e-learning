@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, BookOpen, PlusCircle, DollarSign, HelpCircle, RefreshCw, Eye, X, AlertCircle, Award, Share2, Trash2, Edit3, UploadCloud, Download, FileSpreadsheet, CheckCircle2, Users, Phone, Mail, Megaphone, Building2, Smartphone, ArrowUpRight } from 'lucide-react';
+import { GraduationCap, BookOpen, PlusCircle, DollarSign, HelpCircle, RefreshCw, Eye, X, AlertCircle, Award, Share2, Trash2, Edit3, UploadCloud, Download, FileSpreadsheet, CheckCircle2, Users, Phone, Mail, Megaphone, Building2, Smartphone, ArrowUpRight, Copy, Check, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { CORE_MODULES_LIST, getSubCategoriesForModuleAndState } from '../../services/taxonomyTree';
 import { AffiliateMlmPortal } from './AffiliateMlmPortal';
@@ -21,10 +21,12 @@ import {
   updateTeacherCourse,
   deleteTeacherCourse,
   createTeacherMcq,
+  deleteTeacherMcq,
   fetchTeacherCourseStudents,
   TeacherStats,
   McqRecord,
-  McqAttemptRecord
+  McqAttemptRecord,
+  CreateMcqPayload
 } from '../../services/teacherService';
 import { 
   CourseRecord, 
@@ -402,6 +404,306 @@ export const TeacherPortal: React.FC = () => {
       updated[index] = { ...updated[index], [field]: value };
       return updated;
     });
+  };
+
+  // Copy Course ID Feedback
+  const [copiedCourseId, setCopiedCourseId] = useState<string | null>(null);
+  const handleCopyCourseId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedCourseId(id);
+    setTimeout(() => setCopiedCourseId(null), 2500);
+  };
+
+  // Bulk MCQ Upload State
+  const [showBulkMcqModal, setShowBulkMcqModal] = useState(false);
+  const [bulkMcqCourseId, setBulkMcqCourseId] = useState<string>('');
+  const [bulkMcqQuizSetTitle, setBulkMcqQuizSetTitle] = useState<string>('Practice Test Set #1');
+  const [bulkMcqFileName, setBulkMcqFileName] = useState('');
+  const [bulkMcqPastedText, setBulkMcqPastedText] = useState('');
+  const [bulkMcqInputMode, setBulkMcqInputMode] = useState<'FILE' | 'PASTE'>('FILE');
+  const [parsedBulkMcqs, setParsedBulkMcqs] = useState<Array<{
+    courseId?: string;
+    quizSetTitle?: string;
+    questionText: string;
+    optionA: string;
+    optionB: string;
+    optionC: string;
+    optionD: string;
+    correctOptionIndex: number;
+    explanation?: string;
+    marks?: number;
+    isValid: boolean;
+    errors: string[];
+  }>>([]);
+  const [isSubmittingBulkMcq, setIsSubmittingBulkMcq] = useState(false);
+  const [bulkMcqError, setBulkMcqError] = useState('');
+  const [bulkMcqSuccessMsg, setBulkMcqSuccessMsg] = useState('');
+
+  // MCQ Search & Filter State
+  const [mcqSearchQuery, setMcqSearchQuery] = useState('');
+  const [mcqFilterCourseId, setMcqFilterCourseId] = useState('');
+  const [mcqFilterQuizSet, setMcqFilterQuizSet] = useState('');
+  const [isDeletingMcqId, setIsDeletingMcqId] = useState<string | null>(null);
+
+  // Student Attempts Search & Filter State
+  const [attemptSearchQuery, setAttemptSearchQuery] = useState('');
+  const [attemptFilterQuizSet, setAttemptFilterQuizSet] = useState('');
+  const [attemptFilterStatus, setAttemptFilterStatus] = useState<'ALL' | 'PASSED' | 'FAILED'>('ALL');
+
+  const handleOpenBulkMcqForCourse = (courseId: string, courseTitle?: string) => {
+    setBulkMcqCourseId(courseId);
+    if (courseTitle) {
+      setBulkMcqQuizSetTitle(`${courseTitle.slice(0, 30)} - Quiz Set #1`);
+    }
+    setBulkMcqError('');
+    setBulkMcqSuccessMsg('');
+    setShowBulkMcqModal(true);
+  };
+
+  // Sample CSV Downloader for MCQs
+  const handleDownloadSampleMcqCsvTemplate = () => {
+    const defaultId = bulkMcqCourseId || (coursesList.length > 0 ? coursesList[0]._id : 'PASTE_COURSE_ID_HERE');
+    const header = 'courseId,quizSetTitle,questionText,optionA,optionB,optionC,optionD,correctOption,explanation,marks\n';
+    const r1 = `"${defaultId}","Chapter 1 - Chemical Reactions","What is the chemical formula of Rust?","Fe2O3.xH2O","Fe3O4","FeO","Fe(OH)2","A","Rust is hydrated iron(III) oxide with formula Fe2O3.xH2O.",1\n`;
+    const r2 = `"${defaultId}","Chapter 1 - Chemical Reactions","Which gas is liberated when Zinc granules react with dilute HCl?","Oxygen","Hydrogen","Chlorine","Nitrogen","B","Zn + 2HCl -> ZnCl2 + H2 (Hydrogen gas is released with a pop sound).",1\n`;
+    const r3 = `"${defaultId}","Chapter 1 - Chemical Reactions","What is the pH value of pure distilled water at 25°C?","5","6","7","8","C","Pure water is neutral on the pH scale and has a value of 7.",1\n`;
+    const r4 = `"${defaultId}","Chapter 1 - Chemical Reactions","Which of the following processes is exothermic in nature?","Respiration","Photosynthesis","Evaporation","Sublimation","A","Respiration produces energy (ATP) by breaking down glucose.",1\n`;
+    const r5 = `"${defaultId}","Chapter 1 - Chemical Reactions","What is the oxidation state of Manganese in Potassium Permanganate (KMnO4)?","+2","+4","+6","+7","D","In KMnO4: K(+1) + Mn(x) + 4*O(-2) = 0 => x = +7.",1\n`;
+
+    const blob = new Blob([header + r1 + r2 + r3 + r4 + r5], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'mcq_question_bank_bulk_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Robust CSV / TSV Parser for MCQs (supports CSV files and Direct Excel Copy-Paste TSV!)
+  const parseCSVToMcqObjects = (rawText: string, fallbackCourseId: string, fallbackQuizSet: string) => {
+    const lines = rawText.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length <= 1) return [];
+
+    const isTabDelimited = lines[0].includes('\t');
+    const parseLine = (textLine: string): string[] => {
+      if (isTabDelimited) {
+        return textLine.split('\t').map((col) => col.trim().replace(/^["']|["']$/g, ''));
+      }
+      const result: string[] = [];
+      let startValueIdx = 0;
+      let inQuotes = false;
+      for (let idx = 0; idx < textLine.length; idx++) {
+        const c = textLine[idx];
+        if (c === '"') {
+          inQuotes = !inQuotes;
+        } else if (c === ',' && !inQuotes) {
+          let val = textLine.substring(startValueIdx, idx).trim();
+          if (val.startsWith('"') && val.endsWith('"')) {
+            val = val.substring(1, val.length - 1).replace(/""/g, '"');
+          }
+          result.push(val);
+          startValueIdx = idx + 1;
+        }
+      }
+      let lastVal = textLine.substring(startValueIdx).trim();
+      if (lastVal.startsWith('"') && lastVal.endsWith('"')) {
+        lastVal = lastVal.substring(1, lastVal.length - 1).replace(/""/g, '"');
+      }
+      result.push(lastVal);
+      return result;
+    };
+
+    const headers = parseLine(lines[0]).map((h) => h.trim().toLowerCase().replace(/[\s_-]/g, ''));
+    const rows: any[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseLine(lines[i]);
+      if (values.length === 0 || values.every((v) => !v)) continue;
+
+      const rowObj: Record<string, string> = {};
+      headers.forEach((h, index) => {
+        rowObj[h] = values[index] !== undefined ? values[index].trim() : '';
+      });
+
+      const rowCourseId = rowObj['courseid'] || rowObj['course'] || rowObj['course_id'] || fallbackCourseId || '';
+      const rowQuizSet = rowObj['quizsettitle'] || rowObj['quizset'] || rowObj['testset'] || fallbackQuizSet || 'Practice Test Set #1';
+      const questionText = rowObj['questiontext'] || rowObj['question'] || rowObj['q'] || rowObj['statement'] || '';
+      const optionA = rowObj['optiona'] || rowObj['a'] || rowObj['opt1'] || rowObj['option1'] || '';
+      const optionB = rowObj['optionb'] || rowObj['b'] || rowObj['opt2'] || rowObj['option2'] || '';
+      const optionC = rowObj['optionc'] || rowObj['c'] || rowObj['opt3'] || rowObj['option3'] || '';
+      const optionD = rowObj['optiond'] || rowObj['d'] || rowObj['opt4'] || rowObj['option4'] || '';
+      const explanation = rowObj['explanation'] || rowObj['solution'] || rowObj['solutionnote'] || rowObj['notes'] || '';
+      const marksVal = Number(rowObj['marks'] || rowObj['mark'] || 1);
+      const marks = isNaN(marksVal) || marksVal <= 0 ? 1 : marksVal;
+
+      const rawAns = (rowObj['correctoption'] || rowObj['correctoptionindex'] || rowObj['answer'] || rowObj['correct'] || '').toUpperCase();
+      let correctOptionIndex = 0;
+      let isAnsValid = true;
+
+      if (rawAns === 'A' || rawAns === 'OPTION A' || rawAns === '0') {
+        correctOptionIndex = 0;
+      } else if (rawAns === 'B' || rawAns === 'OPTION B' || rawAns === '1') {
+        correctOptionIndex = 1;
+      } else if (rawAns === 'C' || rawAns === 'OPTION C' || rawAns === '2') {
+        correctOptionIndex = 2;
+      } else if (rawAns === 'D' || rawAns === 'OPTION D' || rawAns === '3') {
+        correctOptionIndex = 3;
+      } else if (rawAns === '4') {
+        correctOptionIndex = 3;
+      } else {
+        correctOptionIndex = 0;
+        if (!['A', 'B', 'C', 'D', '0', '1', '2', '3'].includes(rawAns)) {
+          isAnsValid = false;
+        }
+      }
+
+      const rowErrors: string[] = [];
+      if (!questionText) rowErrors.push('Question statement is missing.');
+      if (!optionA) rowErrors.push('Option A is missing.');
+      if (!optionB) rowErrors.push('Option B is missing.');
+      if (!optionC) rowErrors.push('Option C is missing.');
+      if (!optionD) rowErrors.push('Option D is missing.');
+      if (!isAnsValid && rawAns) rowErrors.push(`Unrecognized answer "${rawAns}". Use A, B, C, or D.`);
+
+      const finalCId = rowCourseId && rowCourseId !== 'PASTE_COURSE_ID_HERE' ? rowCourseId : fallbackCourseId;
+      if (!finalCId) {
+        rowErrors.push('No Course ID specified (select course batch in dropdown or add courseId column).');
+      }
+
+      rows.push({
+        courseId: finalCId,
+        quizSetTitle: rowQuizSet,
+        questionText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOptionIndex,
+        explanation,
+        marks,
+        isValid: rowErrors.length === 0,
+        errors: rowErrors
+      });
+    }
+
+    return rows;
+  };
+
+  const handleFileUploadMcqChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setBulkMcqFileName(file.name);
+    setBulkMcqError('');
+    setBulkMcqSuccessMsg('');
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = parseCSVToMcqObjects(text, bulkMcqCourseId, bulkMcqQuizSetTitle);
+        setParsedBulkMcqs(parsed);
+        if (parsed.length === 0) {
+          setBulkMcqError('No valid data rows found in uploaded file. Please check file format.');
+        }
+      } catch (err: any) {
+        setBulkMcqError('Failed to parse uploaded CSV file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handlePasteTextMcqChange = (text: string) => {
+    setBulkMcqPastedText(text);
+    setBulkMcqError('');
+    setBulkMcqSuccessMsg('');
+    if (!text.trim()) {
+      setParsedBulkMcqs([]);
+      return;
+    }
+    try {
+      const parsed = parseCSVToMcqObjects(text, bulkMcqCourseId, bulkMcqQuizSetTitle);
+      setParsedBulkMcqs(parsed);
+    } catch (err: any) {
+      setBulkMcqError('Failed to parse pasted text: ' + err.message);
+    }
+  };
+
+  const handleExecuteBulkMcqUpload = async () => {
+    const validQuestions = parsedBulkMcqs.filter((q) => q.isValid);
+    if (validQuestions.length === 0) {
+      setBulkMcqError('No valid questions found to upload. Please correct row errors.');
+      return;
+    }
+
+    const missingCourse = validQuestions.some((q) => !q.courseId && !bulkMcqCourseId);
+    if (missingCourse && !bulkMcqCourseId) {
+      setBulkMcqError('Please select a Target Course Batch or specify courseId in the file.');
+      return;
+    }
+
+    setIsSubmittingBulkMcq(true);
+    setBulkMcqError('');
+    setBulkMcqSuccessMsg('');
+
+    try {
+      const payload: CreateMcqPayload = {
+        courseId: bulkMcqCourseId || undefined,
+        quizSetTitle: bulkMcqQuizSetTitle.trim() || 'Practice Test Set #1',
+        questions: validQuestions.map((q) => ({
+          courseId: q.courseId || bulkMcqCourseId,
+          quizSetTitle: q.quizSetTitle || bulkMcqQuizSetTitle,
+          questionText: q.questionText,
+          optionA: q.optionA,
+          optionB: q.optionB,
+          optionC: q.optionC,
+          optionD: q.optionD,
+          correctOptionIndex: q.correctOptionIndex,
+          explanation: q.explanation,
+          marks: q.marks
+        }))
+      };
+
+      const res = await createTeacherMcq(payload);
+      if (res.success) {
+        const count = res.data?.count || validQuestions.length;
+        setBulkMcqSuccessMsg(`🎉 Successfully imported and published ${count} MCQ questions to question bank!`);
+        loadMcqs();
+        setTimeout(() => {
+          setShowBulkMcqModal(false);
+          setParsedBulkMcqs([]);
+          setBulkMcqPastedText('');
+          setBulkMcqFileName('');
+          setBulkMcqSuccessMsg('');
+        }, 1800);
+      } else {
+        setBulkMcqError(res.message || 'Failed to upload questions.');
+      }
+    } catch (err: any) {
+      setBulkMcqError(err.message || 'An error occurred during bulk upload.');
+    } finally {
+      setIsSubmittingBulkMcq(false);
+    }
+  };
+
+  const handleDeleteMcqItem = async (mcqId: string) => {
+    if (!window.confirm('Are you sure you want to delete this MCQ question from your bank?')) {
+      return;
+    }
+    setIsDeletingMcqId(mcqId);
+    try {
+      const res = await deleteTeacherMcq(mcqId);
+      if (res.success) {
+        setMcqsList((prev) => prev.filter((q) => q._id !== mcqId));
+      } else {
+        alert(res.message || 'Failed to delete question.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error deleting question.');
+    } finally {
+      setIsDeletingMcqId(null);
+    }
   };
 
   // Payout Request State
@@ -852,11 +1154,51 @@ export const TeacherPortal: React.FC = () => {
     const res = await cancelMyWithdrawal(id);
     if (res.success) {
       loadStats();
-      loadTeacherWithdrawalData();
     } else {
       alert(res.message || 'Failed to cancel withdrawal.');
     }
   };
+
+  // Derived filtered MCQs
+  const uniqueQuizSets = Array.from(new Set(mcqsList.map((m) => m.quizSetTitle).filter(Boolean))) as string[];
+  const filteredMcqs = mcqsList.filter((m) => {
+    if (mcqSearchQuery.trim()) {
+      const q = mcqSearchQuery.toLowerCase();
+      const inText = m.questionText?.toLowerCase().includes(q);
+      const inOpts = m.options?.some((opt) => opt?.toLowerCase().includes(q));
+      const inExp = m.explanation?.toLowerCase().includes(q);
+      if (!inText && !inOpts && !inExp) return false;
+    }
+    if (mcqFilterCourseId) {
+      const mCourseId = typeof m.course === 'object' && m.course?._id ? m.course._id : (typeof m.course === 'string' ? m.course : '');
+      if (mCourseId !== mcqFilterCourseId) return false;
+    }
+    if (mcqFilterQuizSet && m.quizSetTitle !== mcqFilterQuizSet) {
+      return false;
+    }
+    return true;
+  });
+
+  // Derived filtered attempts
+  const uniqueAttemptQuizSets = Array.from(new Set(attemptsList.map((a) => a.quizSetTitle).filter(Boolean))) as string[];
+  const passedAttemptsCount = attemptsList.filter((a) => a.passed).length;
+  const needsImprovementCount = attemptsList.filter((a) => !a.passed).length;
+
+  const filteredAttempts = attemptsList.filter((a) => {
+    if (attemptSearchQuery.trim()) {
+      const q = attemptSearchQuery.toLowerCase();
+      const inName = a.user?.name?.toLowerCase().includes(q);
+      const inId = a.user?.userId?.toLowerCase().includes(q);
+      const inMobile = a.user?.mobile?.toLowerCase().includes(q);
+      if (!inName && !inId && !inMobile) return false;
+    }
+    if (attemptFilterQuizSet && a.quizSetTitle !== attemptFilterQuizSet) {
+      return false;
+    }
+    if (attemptFilterStatus === 'PASSED' && !a.passed) return false;
+    if (attemptFilterStatus === 'FAILED' && a.passed) return false;
+    return true;
+  });
 
   return (
     <div>
@@ -1076,9 +1418,20 @@ export const TeacherPortal: React.FC = () => {
             <h3 style={{ fontSize: '1.15rem', fontWeight: '800' }}>
               My Published Courses & Batches ({coursesList.length})
             </h3>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 className="btn-amber"
+                onClick={() => {
+                  setShowBulkMcqModal(true);
+                  setBulkMcqError('');
+                  setBulkMcqSuccessMsg('');
+                }}
+                style={{ fontSize: '0.8rem', padding: '6px 14px', fontWeight: '800' }}
+              >
+                <FileSpreadsheet size={15} style={{ marginRight: '6px' }} /> Bulk Upload MCQs (CSV/Excel)
+              </button>
+              <button
+                className="btn-secondary"
                 onClick={() => {
                   setShowBulkUploadModal(true);
                   setBulkUploadError('');
@@ -1086,7 +1439,7 @@ export const TeacherPortal: React.FC = () => {
                 }}
                 style={{ fontSize: '0.8rem', padding: '6px 14px', fontWeight: '700' }}
               >
-                <UploadCloud size={15} style={{ marginRight: '6px' }} /> Bulk Upload Courses (Excel/CSV)
+                <UploadCloud size={15} style={{ marginRight: '6px' }} /> Bulk Courses
               </button>
               <button className="btn-emerald" onClick={() => setActiveTab('CREATE')} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
                 <PlusCircle size={14} style={{ marginRight: '4px' }} /> Create Course
@@ -1117,7 +1470,7 @@ export const TeacherPortal: React.FC = () => {
                   }}
                 >
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: '800', fontSize: '0.95rem' }}>{crs.title}</span>
                       <span className="badge badge-emerald" style={{ padding: '2px 6px', fontSize: '0.7rem' }}>
                         {crs.boardOrGrade || 'General Batch'}
@@ -1133,6 +1486,61 @@ export const TeacherPortal: React.FC = () => {
                     </div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                       Delivery Mode: <strong>{crs.courseMode || 'RECORDED_VIDEO'}</strong> • Price: <strong style={{ color: '#34D399' }}>₹{crs.price}</strong> (MRP: ₹{crs.originalPrice})
+                    </div>
+                    {/* Course MongoDB ID Display with 1-Click Copy for CSV/Excel */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)', fontWeight: '600' }}>Course _id:</span>
+                      <code style={{ fontSize: '0.74rem', background: 'rgba(99, 102, 241, 0.12)', color: '#818CF8', padding: '2px 8px', borderRadius: '5px', border: '1px solid rgba(99, 102, 241, 0.28)', fontFamily: 'monospace', fontWeight: '700' }}>
+                        {crs._id}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyCourseId(crs._id)}
+                        style={{
+                          background: copiedCourseId === crs._id ? 'rgba(16, 185, 129, 0.22)' : 'rgba(255, 255, 255, 0.06)',
+                          border: copiedCourseId === crs._id ? '1px solid #10B981' : '1px solid var(--border-color)',
+                          color: copiedCourseId === crs._id ? '#34D399' : 'var(--text-secondary)',
+                          padding: '2px 8px',
+                          borderRadius: '5px',
+                          fontSize: '0.72rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                        title="Copy Course ID for MCQ CSV / Excel bulk upload"
+                      >
+                        {copiedCourseId === crs._id ? (
+                          <>
+                            <Check size={12} /> Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={12} /> Copy ID
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenBulkMcqForCourse(crs._id, crs.title)}
+                        style={{
+                          background: 'rgba(245, 158, 11, 0.12)',
+                          border: '1px solid rgba(245, 158, 11, 0.3)',
+                          color: '#FBBF24',
+                          padding: '2px 8px',
+                          borderRadius: '5px',
+                          fontSize: '0.72rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                        title="Bulk upload MCQ questions for this specific course batch"
+                      >
+                        <FileSpreadsheet size={12} /> Bulk Upload MCQs
+                      </button>
                     </div>
                   </div>
 
@@ -1262,14 +1670,31 @@ export const TeacherPortal: React.FC = () => {
                 Build & Publish Live MCQ Test Paper
               </h3>
             </div>
-            <button
-              type="button"
-              className="btn-amber"
-              onClick={handleAddMcqQuestionItem}
-              style={{ fontSize: '0.85rem', padding: '8px 16px', borderRadius: '8px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <PlusCircle size={16} /> ➕ Add Another Question
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn-amber"
+                onClick={() => {
+                  if (selectedMcqCourseId) {
+                    setBulkMcqCourseId(selectedMcqCourseId);
+                  }
+                  setShowBulkMcqModal(true);
+                  setBulkMcqError('');
+                  setBulkMcqSuccessMsg('');
+                }}
+                style={{ fontSize: '0.82rem', padding: '7px 14px', borderRadius: '8px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <FileSpreadsheet size={15} /> 📥 Bulk Upload via CSV / Excel
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleAddMcqQuestionItem}
+                style={{ fontSize: '0.82rem', padding: '7px 14px', borderRadius: '8px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <PlusCircle size={15} /> ➕ Add Another Question
+              </button>
+            </div>
           </div>
 
           {mcqSavedSuccess && (
@@ -1304,6 +1729,33 @@ export const TeacherPortal: React.FC = () => {
                     </option>
                   ))}
                 </select>
+                {selectedMcqCourseId && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Target Course ID:</span>
+                    <code style={{ fontSize: '0.75rem', background: 'rgba(99, 102, 241, 0.15)', color: '#818CF8', padding: '2px 8px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: '700' }}>
+                      {selectedMcqCourseId}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyCourseId(selectedMcqCourseId)}
+                      style={{
+                        background: copiedCourseId === selectedMcqCourseId ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                        border: copiedCourseId === selectedMcqCourseId ? '1px solid #10B981' : '1px solid var(--border-color)',
+                        color: copiedCourseId === selectedMcqCourseId ? '#34D399' : 'var(--text-secondary)',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '0.72rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {copiedCourseId === selectedMcqCourseId ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy ID</>}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div style={{ padding: '16px 20px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
@@ -1501,102 +1953,350 @@ export const TeacherPortal: React.FC = () => {
 
       {/* TAB 4: MCQ BANK & STUDENT ATTEMPTS INSPECTOR */}
       {activeTab === 'MCQ_AUDIT' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Section A: Published MCQ Question List */}
-          <div className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: '800' }}>
-                📝 My Created MCQ Questions Bank ({mcqsList.length})
-              </h3>
-              <button className="btn-secondary" onClick={loadMcqs} style={{ fontSize: '0.78rem', padding: '5px 10px' }}>
-                <RefreshCw size={14} className={isLoadingMcqs ? 'animate-spin' : ''} /> Refresh Questions
-              </button>
+          <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: '800', margin: 0 }}>
+                  📝 My Created MCQ Questions Bank ({filteredMcqs.length}/{mcqsList.length})
+                </h3>
+                <span className="badge badge-amber" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+                  {uniqueQuizSets.length} Test Set(s)
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  className="btn-amber"
+                  onClick={() => {
+                    setShowBulkMcqModal(true);
+                    setBulkMcqError('');
+                    setBulkMcqSuccessMsg('');
+                  }}
+                  style={{ fontSize: '0.78rem', padding: '5px 12px', fontWeight: '800' }}
+                >
+                  <FileSpreadsheet size={14} style={{ marginRight: '5px' }} /> Bulk Upload (CSV/Excel)
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={() => setActiveTab('MCQ_BUILDER')}
+                  style={{ fontSize: '0.78rem', padding: '5px 12px', fontWeight: '700' }}
+                >
+                  <PlusCircle size={14} style={{ marginRight: '4px' }} /> Single Builder
+                </button>
+                <button className="btn-secondary" onClick={loadMcqs} style={{ fontSize: '0.78rem', padding: '5px 10px' }}>
+                  <RefreshCw size={13} className={isLoadingMcqs ? 'animate-spin' : ''} /> Refresh
+                </button>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* MCQ Search & Filter Toolbar */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', marginBottom: '12px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Search questions or options..."
+                  value={mcqSearchQuery}
+                  onChange={(e) => setMcqSearchQuery(e.target.value)}
+                  style={{ paddingLeft: '32px', fontSize: '0.8rem', padding: '6px 10px 6px 32px' }}
+                />
+              </div>
+
+              <select
+                className="form-input"
+                value={mcqFilterCourseId}
+                onChange={(e) => setMcqFilterCourseId(e.target.value)}
+                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+              >
+                <option value="">All Courses ({coursesList.length})</option>
+                {coursesList.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="form-input"
+                value={mcqFilterQuizSet}
+                onChange={(e) => setMcqFilterQuizSet(e.target.value)}
+                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+              >
+                <option value="">All Test Paper Sets ({uniqueQuizSets.length})</option>
+                {uniqueQuizSets.map((set) => (
+                  <option key={set} value={set}>
+                    {set}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Compact Questions List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {isLoadingMcqs ? (
                 <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading questions...</div>
-              ) : mcqsList.length === 0 ? (
-                <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No MCQ questions created yet. Use the "Live MCQ Question Builder" tab to publish questions!</div>
+              ) : filteredMcqs.length === 0 ? (
+                <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  {mcqsList.length === 0
+                    ? 'No MCQ questions created yet. Click "Bulk Upload (CSV/Excel)" or "Single Builder" to add questions!'
+                    : 'No questions match your current search/filter criteria.'}
+                </div>
               ) : (
-                mcqsList.map((mcq, idx) => (
-                  <div key={mcq._id} style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderLeft: '4px solid #F59E0B' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
-                      <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>
-                        Q{idx + 1}. {mcq.questionText}
+                filteredMcqs.map((mcq, idx) => {
+                  const courseTitle = typeof mcq.course === 'object' && mcq.course?.title ? mcq.course.title : null;
+                  const courseIdStr = typeof mcq.course === 'object' && mcq.course?._id ? mcq.course._id : (typeof mcq.course === 'string' ? mcq.course : null);
+
+                  return (
+                    <div
+                      key={mcq._id}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid var(--border-color)',
+                        borderLeft: '3px solid #F59E0B'
+                      }}
+                    >
+                      {/* Header Line */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.74rem', fontWeight: '800', background: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', padding: '2px 7px', borderRadius: '4px' }}>
+                            Q{idx + 1}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', padding: '2px 7px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.12)', color: '#818CF8', fontWeight: '700' }}>
+                            📁 {mcq.quizSetTitle || 'Practice Test Set'}
+                          </span>
+                          {courseTitle && (
+                            <span style={{ fontSize: '0.72rem', padding: '2px 7px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.12)', color: '#34D399', fontWeight: '600' }}>
+                              📚 {courseTitle}
+                            </span>
+                          )}
+                          {courseIdStr && (
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                              ID: {courseIdStr.slice(-6)}
+                            </span>
+                          )}
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            ⭐ {mcq.marks || 1} M
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteMcqItem(mcq._id)}
+                          disabled={isDeletingMcqId === mcq._id}
+                          title="Delete question from bank"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#FB7185',
+                            cursor: 'pointer',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            fontSize: '0.72rem',
+                            opacity: isDeletingMcqId === mcq._id ? 0.4 : 0.8
+                          }}
+                        >
+                          <Trash2 size={13} style={{ marginRight: '3px' }} /> Delete
+                        </button>
                       </div>
-                      <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: '700' }}>
-                        📁 {mcq.quizSetTitle || 'Practice Test Set'}
-                      </span>
+
+                      {/* Question Statement */}
+                      <div style={{ fontWeight: '700', fontSize: '0.86rem', color: 'var(--text-primary)', marginBottom: '8px', lineHeight: 1.35 }}>
+                        {mcq.questionText}
+                      </div>
+
+                      {/* 4 Options Grid (Compact 4-column or 2-column) */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px', fontSize: '0.78rem', marginBottom: '6px' }}>
+                        {['A', 'B', 'C', 'D'].map((letter, optIdx) => {
+                          const isCorrect = mcq.correctOption === optIdx;
+                          return (
+                            <div
+                              key={letter}
+                              style={{
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                background: isCorrect ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                                border: isCorrect ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-color)',
+                                color: isCorrect ? '#34D399' : 'var(--text-secondary)',
+                                fontWeight: isCorrect ? '700' : 'normal',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                              title={mcq.options?.[optIdx] || ''}
+                            >
+                              <strong style={{ color: isCorrect ? '#34D399' : 'var(--text-muted)' }}>{letter})</strong>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{mcq.options?.[optIdx] || '-'}</span>
+                              {isCorrect && <CheckCircle2 size={12} style={{ color: '#34D399', flexShrink: 0, marginLeft: 'auto' }} />}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Explanation note */}
+                      {mcq.explanation && (
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', padding: '4px 8px', borderRadius: '5px', marginTop: '4px' }}>
+                          💡 <strong>Solution Note:</strong> {mcq.explanation}
+                        </div>
+                      )}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '0.78rem', marginBottom: '6px' }}>
-                      <div style={{ color: mcq.correctOption === 0 ? '#34D399' : 'var(--text-secondary)', fontWeight: mcq.correctOption === 0 ? '700' : 'normal' }}>
-                        A) {mcq.options?.[0]} {mcq.correctOption === 0 ? '✅ (Correct Answer)' : ''}
-                      </div>
-                      <div style={{ color: mcq.correctOption === 1 ? '#34D399' : 'var(--text-secondary)', fontWeight: mcq.correctOption === 1 ? '700' : 'normal' }}>
-                        B) {mcq.options?.[1]} {mcq.correctOption === 1 ? '✅ (Correct Answer)' : ''}
-                      </div>
-                      <div style={{ color: mcq.correctOption === 2 ? '#34D399' : 'var(--text-secondary)', fontWeight: mcq.correctOption === 2 ? '700' : 'normal' }}>
-                        C) {mcq.options?.[2]} {mcq.correctOption === 2 ? '✅ (Correct Answer)' : ''}
-                      </div>
-                      <div style={{ color: mcq.correctOption === 3 ? '#34D399' : 'var(--text-secondary)', fontWeight: mcq.correctOption === 3 ? '700' : 'normal' }}>
-                        D) {mcq.options?.[3]} {mcq.correctOption === 3 ? '✅ (Correct Answer)' : ''}
-                      </div>
-                    </div>
-                    {mcq.explanation && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '6px' }}>
-                        💡 <strong>Solution Note:</strong> {mcq.explanation}
-                      </div>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
 
           {/* Section B: Student Quiz Attempts Log */}
-          <div className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: '800' }}>
-                🎓 Student Quiz Attendance & Marks Log ({attemptsList.length})
-              </h3>
+          <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: '800', margin: 0 }}>
+                  🎓 Student Quiz Attendance & Marks Log ({filteredAttempts.length}/{attemptsList.length})
+                </h3>
+              </div>
               <button className="btn-secondary" onClick={loadAttempts} style={{ fontSize: '0.78rem', padding: '5px 10px' }}>
-                <RefreshCw size={14} className={isLoadingAttempts ? 'animate-spin' : ''} /> Refresh Attempts
+                <RefreshCw size={13} className={isLoadingAttempts ? 'animate-spin' : ''} /> Refresh Attempts
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* KPI Metrics Strip */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Total Attempts</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#818CF8' }}>{attemptsList.length}</div>
+              </div>
+              <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Passed Tests</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#34D399' }}>{passedAttemptsCount}</div>
+              </div>
+              <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.08)', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Needs Improvement</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#FB7185' }}>{needsImprovementCount}</div>
+              </div>
+              <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Avg Pass Rate</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#FBBF24' }}>
+                  {attemptsList.length > 0 ? Math.round((passedAttemptsCount / attemptsList.length) * 100) : 0}%
+                </div>
+              </div>
+            </div>
+
+            {/* Attempts Search & Filter Toolbar */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', marginBottom: '12px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Search student name, ID or mobile..."
+                  value={attemptSearchQuery}
+                  onChange={(e) => setAttemptSearchQuery(e.target.value)}
+                  style={{ paddingLeft: '32px', fontSize: '0.8rem', padding: '6px 10px 6px 32px' }}
+                />
+              </div>
+
+              <select
+                className="form-input"
+                value={attemptFilterQuizSet}
+                onChange={(e) => setAttemptFilterQuizSet(e.target.value)}
+                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+              >
+                <option value="">All Test Paper Sets ({uniqueAttemptQuizSets.length})</option>
+                {uniqueAttemptQuizSets.map((set) => (
+                  <option key={set} value={set}>
+                    {set}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="form-input"
+                value={attemptFilterStatus}
+                onChange={(e) => setAttemptFilterStatus(e.target.value as any)}
+                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+              >
+                <option value="ALL">All Scores & Status</option>
+                <option value="PASSED">Passed (≥50%)</option>
+                <option value="FAILED">Needs Improvement (&lt;50%)</option>
+              </select>
+            </div>
+
+            {/* Compact Attempts List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {isLoadingAttempts ? (
                 <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading student attempts...</div>
-              ) : attemptsList.length === 0 ? (
-                <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No students have attempted quizzes yet. When students submit quiz responses, their marks will appear here live!</div>
+              ) : filteredAttempts.length === 0 ? (
+                <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  {attemptsList.length === 0
+                    ? 'No students have attempted quizzes yet. When students submit quiz responses, their marks will appear here live!'
+                    : 'No student attempts match your current search/filter criteria.'}
+                </div>
               ) : (
-                attemptsList.map((att) => (
-                  <div key={att._id} style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    <div>
-                      <div style={{ fontWeight: '700', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span>{att.user?.name || 'Student'} ({att.user?.userId || 'N/A'})</span>
-                        <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(99, 102, 241, 0.15)', color: '#818CF8', border: '1px solid rgba(99, 102, 241, 0.3)', fontWeight: '700' }}>
-                          📁 {att.quizSetTitle || 'Practice Test Set'}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Subject: {att.subject?.title || 'General Science'} • Mobile: {att.user?.mobile || 'N/A'}
-                      </div>
-                    </div>
+                filteredAttempts.map((att) => {
+                  const dateFormatted = att.createdAt ? new Date(att.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent';
+                  const courseTitle = typeof att.course === 'object' && att.course?.title ? att.course.title : null;
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.9rem', fontWeight: '800', color: att.passed ? '#34D399' : '#FB7185' }}>
-                          Score: {att.score} / {att.totalMarks} ({att.percentage}%)
+                  return (
+                    <div
+                      key={att._id}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '8px'
+                      }}
+                    >
+                      {/* Student & Test Info */}
+                      <div>
+                        <div style={{ fontWeight: '700', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ color: 'var(--text-primary)' }}>{att.user?.name || 'Student'}</span>
+                          <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
+                            {att.user?.userId || 'N/A'}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.12)', color: '#818CF8', fontWeight: '700' }}>
+                            📁 {att.quizSetTitle || 'Practice Test Set'}
+                          </span>
+                          {courseTitle && (
+                            <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.12)', color: '#34D399' }}>
+                              📚 {courseTitle}
+                            </span>
+                          )}
                         </div>
-                        <span className={`badge ${att.passed ? 'badge-emerald' : 'badge-rose'}`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                          {att.passed ? 'PASSED' : 'NEEDS IMPROVEMENT'}
-                        </span>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <span>📱 {att.user?.mobile || 'N/A'}</span>
+                          <span>•</span>
+                          <span>Subject: {att.subject?.title || 'General Science'}</span>
+                          <span>•</span>
+                          <span>🕒 {dateFormatted}</span>
+                        </div>
+                      </div>
+
+                      {/* Score & Status */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '0.88rem', fontWeight: '800', color: att.passed ? '#34D399' : '#FB7185' }}>
+                            Score: {att.score} / {att.totalMarks} ({att.percentage}%)
+                          </div>
+                          <span className={`badge ${att.passed ? 'badge-emerald' : 'badge-rose'}`} style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                            {att.passed ? 'PASSED' : 'NEEDS IMPROVEMENT'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -2045,6 +2745,32 @@ export const TeacherPortal: React.FC = () => {
                     <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginTop: '2px' }}>
                       {selectedCourseDetail.title}
                     </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '600' }}>MongoDB Course _id:</span>
+                      <code style={{ fontSize: '0.76rem', background: 'rgba(99, 102, 241, 0.12)', color: '#818CF8', padding: '2px 8px', borderRadius: '5px', border: '1px solid rgba(99, 102, 241, 0.28)', fontFamily: 'monospace', fontWeight: '700' }}>
+                        {selectedCourseDetail._id}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyCourseId(selectedCourseDetail._id)}
+                        style={{
+                          background: copiedCourseId === selectedCourseDetail._id ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                          border: copiedCourseId === selectedCourseDetail._id ? '1px solid #10B981' : '1px solid var(--border-color)',
+                          color: copiedCourseId === selectedCourseDetail._id ? '#34D399' : 'var(--text-secondary)',
+                          padding: '2px 8px',
+                          borderRadius: '5px',
+                          fontSize: '0.72rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                        title="Copy Course ID for MCQ CSV / Excel bulk upload"
+                      >
+                        {copiedCourseId === selectedCourseDetail._id ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy ID</>}
+                      </button>
+                    </div>
                   </div>
                   <button onClick={() => setSelectedCourseDetail(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                     <X size={20} />
@@ -2546,6 +3272,318 @@ export const TeacherPortal: React.FC = () => {
             <div style={{ marginTop: '20px', textAlign: 'right' }}>
               <button className="btn-primary" onClick={() => setSelectedTeacherCourseRoster(null)} style={{ padding: '8px 24px', fontSize: '0.85rem' }}>
                 Close Roster
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK MCQ QUESTION BANK UPLOAD MODAL (CSV / EXCEL) */}
+      {showBulkMcqModal && (
+        <div className="modal-overlay" onClick={() => setShowBulkMcqModal(false)}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '880px',
+              width: '95%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              borderRadius: '16px'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileSpreadsheet size={22} color="#FBBF24" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0 }}>
+                    Bulk Upload MCQ Questions (CSV / Excel)
+                  </h3>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Upload complete question banks in seconds instead of creating questions one-by-one.
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowBulkMcqModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Step 1: Template Download & Guidelines */}
+            <div style={{ padding: '14px 16px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(245, 158, 11, 0.08) 100%)', border: '1px solid var(--border-color)', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <div style={{ fontWeight: '800', fontSize: '0.88rem', color: 'var(--text-primary)', marginBottom: '2px' }}>
+                    📥 Step 1: Download Standard Sample Template
+                  </div>
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    Contains pre-filled sample questions, explanations, and exact column headers required.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadSampleMcqCsvTemplate}
+                  className="btn-amber"
+                  style={{ fontSize: '0.8rem', padding: '6px 14px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Download size={14} /> Download Sample CSV Template
+                </button>
+              </div>
+
+              <div style={{ marginTop: '10px', fontSize: '0.72rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '6px', fontFamily: 'monospace', overflowX: 'auto' }}>
+                <strong>Required Columns:</strong> courseId, quizSetTitle, questionText, optionA, optionB, optionC, optionD, correctOption (A/B/C/D), explanation, marks
+              </div>
+            </div>
+
+            {/* Step 2: Target Course & Test Set Setup */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+              <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                  🎯 Target Course Batch (Fallback / Default) *
+                </label>
+                <select
+                  className="form-input"
+                  value={bulkMcqCourseId}
+                  onChange={(e) => {
+                    const cId = e.target.value;
+                    setBulkMcqCourseId(cId);
+                    if (bulkMcqPastedText.trim()) {
+                      const parsed = parseCSVToMcqObjects(bulkMcqPastedText, cId, bulkMcqQuizSetTitle);
+                      setParsedBulkMcqs(parsed);
+                    }
+                  }}
+                  style={{ fontSize: '0.85rem', padding: '8px 10px', width: '100%' }}
+                >
+                  <option value="">-- Select Course Batch --</option>
+                  {coursesList.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.title} ({c.boardOrGrade || 'General'} • ₹{c.price})
+                    </option>
+                  ))}
+                </select>
+
+                {bulkMcqCourseId && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Course ID:</span>
+                    <code style={{ fontSize: '0.73rem', background: 'rgba(99, 102, 241, 0.15)', color: '#818CF8', padding: '1px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
+                      {bulkMcqCourseId}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyCourseId(bulkMcqCourseId)}
+                      style={{ background: 'none', border: 'none', color: copiedCourseId === bulkMcqCourseId ? '#34D399' : '#818CF8', fontSize: '0.72rem', cursor: 'pointer', fontWeight: '700' }}
+                    >
+                      {copiedCourseId === bulkMcqCourseId ? '✓ Copied' : '📋 Copy'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                  📝 Quiz / Test Paper Set Title *
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={bulkMcqQuizSetTitle}
+                  onChange={(e) => {
+                    const newTitle = e.target.value;
+                    setBulkMcqQuizSetTitle(newTitle);
+                    if (bulkMcqPastedText.trim()) {
+                      const parsed = parseCSVToMcqObjects(bulkMcqPastedText, bulkMcqCourseId, newTitle);
+                      setParsedBulkMcqs(parsed);
+                    }
+                  }}
+                  placeholder="e.g. Chapter 1 Practice Test Set"
+                  style={{ fontSize: '0.85rem', padding: '8px 10px', width: '100%' }}
+                />
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Used if rows in CSV leave the quizSetTitle column empty.
+                </div>
+              </div>
+            </div>
+
+            {/* Step 3: Input Mode (File Upload vs Paste from Excel) */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setBulkMcqInputMode('FILE')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: bulkMcqInputMode === 'FILE' ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.04)',
+                    color: bulkMcqInputMode === 'FILE' ? '#FFF' : 'var(--text-secondary)',
+                    fontWeight: '700',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📁 Upload CSV / TSV File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkMcqInputMode('PASTE')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: bulkMcqInputMode === 'PASTE' ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.04)',
+                    color: bulkMcqInputMode === 'PASTE' ? '#FFF' : 'var(--text-secondary)',
+                    fontWeight: '700',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📋 Direct Paste from Excel / Google Sheets
+                </button>
+              </div>
+
+              {bulkMcqInputMode === 'FILE' ? (
+                <div style={{ padding: '24px', borderRadius: '12px', border: '2px dashed var(--border-color)', textAlign: 'center', background: 'rgba(255,255,255,0.01)' }}>
+                  <input
+                    type="file"
+                    accept=".csv,.tsv,.txt"
+                    id="mcq-bulk-file-input"
+                    onChange={handleFileUploadMcqChange}
+                    style={{ display: 'none' }}
+                  />
+                  <label htmlFor="mcq-bulk-file-input" style={{ cursor: 'pointer', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <UploadCloud size={24} color="#818CF8" />
+                    </div>
+                    <span style={{ fontSize: '0.88rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                      {bulkMcqFileName ? `Selected: ${bulkMcqFileName}` : 'Choose CSV or Text File to Upload'}
+                    </span>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      Supports .csv or tab-delimited files saved from Excel
+                    </span>
+                  </label>
+                </div>
+              ) : (
+                <div>
+                  <textarea
+                    className="form-input"
+                    rows={6}
+                    value={bulkMcqPastedText}
+                    onChange={(e) => handlePasteTextMcqChange(e.target.value)}
+                    placeholder={`Paste CSV or copy cells directly from Excel / Google Sheets here...\n\nExample:\ncourseId,quizSetTitle,questionText,optionA,optionB,optionC,optionD,correctOption,explanation,marks\n${bulkMcqCourseId || 'PASTE_COURSE_ID'},Unit 1 Test,What is H2O?,Water,Salt,Acid,Base,A,Chemical formula of water,1`}
+                    style={{ width: '100%', fontSize: '0.8rem', fontFamily: 'monospace' }}
+                  />
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    💡 Tip: Simply select your question rows in Excel or Google Sheets, press Ctrl+C / Cmd+C, and paste here!
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Error or Success Messages */}
+            {bulkMcqError && (
+              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.4)', color: '#FB7185', fontSize: '0.82rem', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={15} />
+                <span>{bulkMcqError}</span>
+              </div>
+            )}
+
+            {bulkMcqSuccessMsg && (
+              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#34D399', fontSize: '0.86rem', fontWeight: '800', marginBottom: '14px' }}>
+                {bulkMcqSuccessMsg}
+              </div>
+            )}
+
+            {/* Step 4: Live Parse Preview Table */}
+            {parsedBulkMcqs.length > 0 && (
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: '800', fontSize: '0.88rem' }}>
+                      📋 Parsed Preview ({parsedBulkMcqs.length} Rows)
+                    </span>
+                    <span className="badge badge-emerald" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+                      {parsedBulkMcqs.filter((q) => q.isValid).length} Valid
+                    </span>
+                    {parsedBulkMcqs.some((q) => !q.isValid) && (
+                      <span className="badge badge-rose" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+                        {parsedBulkMcqs.filter((q) => !q.isValid).length} Error(s)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                        <th style={{ padding: '6px 8px', width: '35px' }}>#</th>
+                        <th style={{ padding: '6px 8px' }}>Question Text</th>
+                        <th style={{ padding: '6px 8px' }}>Options A–D</th>
+                        <th style={{ padding: '6px 8px', width: '70px' }}>Answer</th>
+                        <th style={{ padding: '6px 8px', width: '80px' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsedBulkMcqs.slice(0, 50).map((row, rIdx) => {
+                        const optLabels = ['A', 'B', 'C', 'D'];
+                        const correctLetter = optLabels[row.correctOptionIndex] || 'A';
+                        return (
+                          <tr key={rIdx} style={{ borderBottom: '1px solid var(--border-color)', background: row.isValid ? 'transparent' : 'rgba(244,63,94,0.05)' }}>
+                            <td style={{ padding: '6px 8px', color: 'var(--text-muted)', fontWeight: '700' }}>{rIdx + 1}</td>
+                            <td style={{ padding: '6px 8px', fontWeight: '600', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {row.questionText || <span style={{ color: '#FB7185' }}>Missing statement</span>}
+                            </td>
+                            <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              A: {row.optionA} | B: {row.optionB} | C: {row.optionC} | D: {row.optionD}
+                            </td>
+                            <td style={{ padding: '6px 8px', fontWeight: '800', color: '#34D399' }}>
+                              {correctLetter}
+                            </td>
+                            <td style={{ padding: '6px 8px' }}>
+                              {row.isValid ? (
+                                <span style={{ color: '#34D399', fontWeight: '700' }}>✓ Ready</span>
+                              ) : (
+                                <span style={{ color: '#FB7185', fontWeight: '700' }} title={row.errors.join(', ')}>
+                                  ⚠️ Error
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowBulkMcqModal(false)}
+                style={{ padding: '8px 18px', fontSize: '0.84rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-amber"
+                onClick={handleExecuteBulkMcqUpload}
+                disabled={isSubmittingBulkMcq || parsedBulkMcqs.filter((q) => q.isValid).length === 0}
+                style={{ padding: '9px 22px', fontSize: '0.86rem', fontWeight: '800', opacity: parsedBulkMcqs.filter((q) => q.isValid).length === 0 ? 0.45 : 1 }}
+              >
+                {isSubmittingBulkMcq
+                  ? 'Importing Questions...'
+                  : `🚀 Import & Publish (${parsedBulkMcqs.filter((q) => q.isValid).length}) Questions`}
               </button>
             </div>
           </div>

@@ -56,6 +56,8 @@ export interface CreateMcqPayload {
   subCategory?: string;
   subjectName?: string;
   questions?: Array<{
+    courseId?: string;
+    quizSetTitle?: string;
     questionText: string;
     optionA: string;
     optionB: string;
@@ -77,6 +79,7 @@ export interface CreateMcqPayload {
 
 export interface McqRecord {
   _id: string;
+  course?: { _id: string; title: string; stateCode?: string; boardOrGrade?: string; subjectName?: string } | any;
   quizSetTitle?: string;
   quizSetId?: string;
   questionText: string;
@@ -89,6 +92,7 @@ export interface McqRecord {
 
 export interface McqAttemptRecord {
   _id: string;
+  course?: { _id: string; title: string; stateCode?: string; boardOrGrade?: string; subjectName?: string } | any;
   quizSetTitle?: string;
   quizSetId?: string;
   user?: { _id: string; name: string; mobile: string; email?: string; userId: string };
@@ -221,6 +225,15 @@ export const createTeacherMcq = async (payload: CreateMcqPayload) => {
   return apiFetch<{ mcq?: any; count?: number; mcqs?: any[] }>('/teacher/mcqs', {
     method: 'POST',
     body: JSON.stringify(payload)
+  });
+};
+
+/**
+ * Delete an MCQ question from question bank
+ */
+export const deleteTeacherMcq = async (id: string) => {
+  return apiFetch<{ message?: string }>(`/teacher/mcqs/${id}`, {
+    method: 'DELETE'
   });
 };
 
