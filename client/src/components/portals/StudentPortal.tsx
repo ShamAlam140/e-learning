@@ -452,9 +452,11 @@ export const StudentPortal: React.FC = () => {
       setWithdrawErrorMsg('Minimum withdrawal amount is ₹50.');
       return;
     }
-    const currentBal = stats?.walletBalance || 0;
-    if (amt > currentBal) {
-      setWithdrawErrorMsg(`Insufficient balance. Maximum available for withdrawal is ₹${currentBal.toLocaleString('en-IN')}.`);
+    const withdrawableBal = stats?.withdrawableBalance !== undefined ? stats.withdrawableBalance : (stats?.walletBalance || 0);
+    if (amt > withdrawableBal) {
+      setWithdrawErrorMsg(
+        `You can only withdraw earnings from Refer & Earn (Affiliate / MLM) commissions. Your withdrawable referral earnings are ₹${withdrawableBal.toLocaleString('en-IN')}. Top-up balance is non-withdrawable and reserved for course purchases.`
+      );
       return;
     }
 
@@ -2319,7 +2321,7 @@ export const StudentPortal: React.FC = () => {
               </div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <button
-                  className="btn-secondary"
+                  className="btn-primary"
                   onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }}
                   style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
@@ -2330,33 +2332,86 @@ export const StudentPortal: React.FC = () => {
                   onClick={() => { setShowWithdrawModal(true); setWithdrawErrorMsg(''); setWithdrawSuccessMsg(''); }}
                   style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                  <ArrowUpRight size={16} /> Withdraw / Cash Out
+                  <ArrowUpRight size={16} /> Withdraw Referrals
                 </button>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-              <div style={{ padding: '20px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                <div style={{ fontSize: '0.78rem', color: '#34D399', fontWeight: '800', letterSpacing: '0.5px' }}>
-                  AVAILABLE WALLET BALANCE
-                </div>
-                <div style={{ fontSize: '2.2rem', fontWeight: '900', color: 'var(--text-primary)', margin: '8px 0' }}>
-                  ₹ {stats ? (stats.walletBalance || 0).toLocaleString('en-IN') : '0'}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-                    Earned from MLM Binary matching, referrals & top-ups.
+            {/* DUAL BALANCE SYSTEM: Course Purchase Balance vs Withdrawable Refer & Earn Commission */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+              {/* CARD 1: Course Purchase Top-up Wallet */}
+              <div style={{ padding: '22px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(37, 99, 235, 0.05) 100%)', border: '1px solid rgba(59, 130, 246, 0.3)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#60A5FA', fontWeight: '800', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      💳 COURSE PURCHASE WALLET
+                    </span>
+                    <span className="badge badge-primary" style={{ fontSize: '0.66rem', padding: '2px 6px' }}>
+                      NON-WITHDRAWABLE
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '2.1rem', fontWeight: '900', color: 'var(--text-primary)', margin: '4px 0 6px' }}>
+                    ₹ {stats ? (stats.purchaseBalance || 0).toLocaleString('en-IN') : '0'}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                    Balance added via Netbanking/UPI/Card. Reserved for enrolling in Courses, Mock Tests & E-Books.
                   </p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
                   <button
-                    onClick={() => { setShowWithdrawModal(true); setWithdrawErrorMsg(''); setWithdrawSuccessMsg(''); }}
-                    style={{ background: 'none', border: 'none', color: '#34D399', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    className="btn-primary"
+                    onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }}
+                    style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                   >
-                    Withdraw Now <ArrowRight size={12} />
+                    <PlusCircle size={14} /> Add Money to Buy Courses
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setActiveTab('BROWSE')}
+                    style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                  >
+                    Browse Courses
                   </button>
                 </div>
               </div>
 
-              {/* Saved Payout Profile Card */}
+              {/* CARD 2: Refer & Earn Commission (Withdrawable) */}
+              <div style={{ padding: '22px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(5, 150, 105, 0.06) 100%)', border: '1px solid rgba(16, 185, 129, 0.35)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#34D399', fontWeight: '800', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      🎁 REFER & EARN COMMISSIONS
+                    </span>
+                    <span className="badge badge-emerald" style={{ fontSize: '0.66rem', padding: '2px 6px' }}>
+                      100% WITHDRAWABLE
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '2.1rem', fontWeight: '900', color: 'var(--text-primary)', margin: '4px 0 6px' }}>
+                    ₹ {stats ? (stats.withdrawableBalance || 0).toLocaleString('en-IN') : '0'}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                    Earned from direct student referrals & binary MLM matching bonuses. Cash out anytime to Bank or UPI!
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn-emerald"
+                    onClick={() => { setShowWithdrawModal(true); setWithdrawErrorMsg(''); setWithdrawSuccessMsg(''); }}
+                    style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                  >
+                    <ArrowUpRight size={14} /> Withdraw to Bank / UPI
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setActiveTab('MLM_NETWORK')}
+                    style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                  >
+                    Refer & Earn Network
+                  </button>
+                </div>
+              </div>
+
+              {/* CARD 3: Saved Payout Profile Card */}
               <div style={{ padding: '20px', borderRadius: '14px', background: 'rgba(99, 102, 241, 0.06)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -2398,6 +2453,24 @@ export const StudentPortal: React.FC = () => {
                   {savedPayoutProfile?.isConfigured ? 'Update Account Details' : '+ Configure Bank / UPI'}
                 </button>
               </div>
+            </div>
+
+            {/* Total Balance Combined Banner */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.04)', borderRadius: '12px', border: '1px dashed var(--border-color)', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.2rem' }}>⚡</span>
+                <div>
+                  <span style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    Total Usable Balance for Buying Courses: ₹{(stats?.walletBalance || 0).toLocaleString('en-IN')}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                    💡 Course khareedne ke liye aap Deposit Balance aur Refer & Earn commission dono use kar sakte hain!
+                  </span>
+                </div>
+              </div>
+              <span className="badge badge-primary" style={{ fontSize: '0.72rem', padding: '3px 10px', fontWeight: 700 }}>
+                Course Checkout Ready
+              </span>
             </div>
 
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -2989,12 +3062,12 @@ export const StudentPortal: React.FC = () => {
       {/* STUDENT WITHDRAWAL REQUEST MODAL */}
       {showWithdrawModal && (
         <div className="modal-overlay" onClick={() => setShowWithdrawModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px', padding: '22px 24px', borderRadius: '18px' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '490px', padding: '22px 24px', borderRadius: '18px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div>
-                <span className="badge badge-emerald" style={{ fontSize: '0.7rem', padding: '2px 6px', fontWeight: '800' }}>WALLET CASHOUT</span>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginTop: '2px', color: 'var(--text-primary)' }}>
-                  Request Wallet Withdrawal
+                <span className="badge badge-emerald" style={{ fontSize: '0.7rem', padding: '2px 8px', fontWeight: '800' }}>REFER & EARN CASHOUT</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginTop: '2px', color: 'var(--text-primary)' }}>
+                  Withdraw Referral Commissions
                 </h3>
               </div>
               <button onClick={() => setShowWithdrawModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
@@ -3002,15 +3075,30 @@ export const StudentPortal: React.FC = () => {
               </button>
             </div>
 
-            {/* Current Balance Banner */}
-            <div style={{ padding: '12px 16px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div>
-                <div style={{ fontSize: '0.74rem', color: '#34D399', fontWeight: '700' }}>AVAILABLE BALANCE</div>
-                <div style={{ fontSize: '1.35rem', fontWeight: '900', color: 'var(--text-primary)' }}>
-                  ₹ {(stats?.walletBalance || 0).toLocaleString('en-IN')}
+            {/* Withdrawable Referral Balance Card */}
+            <div style={{ padding: '14px 16px', borderRadius: '14px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.28)', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: '#34D399', fontWeight: '800', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    WITHDRAWABLE REFERRAL EARNINGS
+                  </div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)', margin: '2px 0' }}>
+                    ₹ {(stats?.withdrawableBalance !== undefined ? stats.withdrawableBalance : 0).toLocaleString('en-IN')}
+                  </div>
                 </div>
+                <span style={{ fontSize: '0.7rem', color: '#94A3B8', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                  Min Payout: ₹50
+                </span>
               </div>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Min Withdrawal: ₹50</span>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Course Top-up Balance (Non-withdrawable):</span>
+                <strong style={{ color: 'var(--text-primary)' }}>₹ {(stats?.purchaseBalance || 0).toLocaleString('en-IN')}</strong>
+              </div>
+            </div>
+
+            {/* Explanatory Financial Notice */}
+            <div style={{ padding: '9px 12px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.22)', marginBottom: '14px', fontSize: '0.76rem', color: '#93C5FD', lineHeight: 1.45 }}>
+              💡 <strong>Note:</strong> Aap sirf <strong>Refer & Earn</strong> aur MLM network se kamaya hua commission Bank ya UPI me withdraw kar sakte hain. Course purchase ke liye add kiya gaya balance course buy karne ke liye use hota hai.
             </div>
 
             {withdrawSuccessMsg && (
@@ -3030,27 +3118,32 @@ export const StudentPortal: React.FC = () => {
               {/* Withdrawal Amount Input */}
               <div>
                 <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                  Enter Amount to Withdraw (₹) *
+                  Enter Referral Amount to Withdraw (₹) *
                 </label>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-                  {['100', '500', '1000', '2500'].map((amt) => (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => setWithdrawAmountInput(amt)}
-                      className={withdrawAmountInput === amt ? 'btn-emerald' : 'btn-secondary'}
-                      style={{ flex: 1, padding: '5px', fontSize: '0.76rem' }}
-                    >
-                      ₹{amt}
-                    </button>
-                  ))}
+                  {['50', '100', '500', '1000'].map((amt) => {
+                    const disabled = (stats?.withdrawableBalance || 0) < Number(amt);
+                    return (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setWithdrawAmountInput(amt)}
+                        disabled={disabled}
+                        className={withdrawAmountInput === amt ? 'btn-emerald' : 'btn-secondary'}
+                        style={{ flex: 1, padding: '5px', fontSize: '0.76rem', opacity: disabled ? 0.35 : 1 }}
+                      >
+                        ₹{amt}
+                      </button>
+                    );
+                  })}
                   <button
                     type="button"
-                    onClick={() => setWithdrawAmountInput(String(stats?.walletBalance || 0))}
+                    onClick={() => setWithdrawAmountInput(String(stats?.withdrawableBalance || 0))}
+                    disabled={(stats?.withdrawableBalance || 0) < 50}
                     className="btn-secondary"
-                    style={{ flex: 1, padding: '5px', fontSize: '0.76rem', fontWeight: '800' }}
+                    style={{ flex: 1, padding: '5px', fontSize: '0.76rem', fontWeight: '800', opacity: (stats?.withdrawableBalance || 0) < 50 ? 0.35 : 1 }}
                   >
-                    Max
+                    All
                   </button>
                 </div>
                 <input
@@ -3060,7 +3153,7 @@ export const StudentPortal: React.FC = () => {
                   onChange={(e) => setWithdrawAmountInput(e.target.value)}
                   placeholder="e.g. 500"
                   min="50"
-                  max={stats?.walletBalance || 0}
+                  max={stats?.withdrawableBalance !== undefined ? stats.withdrawableBalance : 0}
                   style={{ padding: '8px 12px', fontSize: '0.9rem' }}
                 />
               </div>

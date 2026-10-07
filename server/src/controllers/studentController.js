@@ -11,6 +11,8 @@ const { uploadToCloudinary } = require('../utils/cloudinary');
 const { sendSuccess } = require('../utils/apiResponse');
 const AppError = require('../utils/appError');
 
+const { getUserWalletMetrics } = require('../utils/walletMetrics');
+
 /**
  * @route   GET /api/student/stats
  * @desc    Fetch 100% dynamic student dashboard metrics overview
@@ -25,7 +27,7 @@ const getStudentDashboardStats = catchAsync(async (req, res) => {
   // 2. Completed quiz attempts count
   const quizAttemptsCount = await McqAttempt.countDocuments({ user: studentId });
 
-  // 3. Student Wallet balance (Strict 0 default)
+  // 3. Student Wallet balance & breakdown
   let wallet = await Wallet.findOne({ user: studentId });
   if (!wallet) {
     wallet = await Wallet.create({ user: studentId, balance: 0 });
@@ -35,6 +37,8 @@ const getStudentDashboardStats = catchAsync(async (req, res) => {
     await wallet.save();
   }
 
+  const metrics = await getUserWalletMetrics(studentId, 'STUDENT');
+
   // 4. KYC Status
   const kycRecord = await KYC.findOne({ user: studentId });
 
@@ -42,7 +46,11 @@ const getStudentDashboardStats = catchAsync(async (req, res) => {
     stats: {
       enrolledCoursesCount: enrolledCount,
       quizAttemptsCount: quizAttemptsCount,
-      walletBalance: wallet.balance,
+      walletBalance: metrics.totalBalance,
+      withdrawableBalance: metrics.withdrawableBalance,
+      purchaseBalance: metrics.purchaseBalance,
+      totalReferralEarned: metrics.totalReferralEarned,
+      totalDeposited: metrics.totalDeposited,
       kycStatus: kycRecord ? kycRecord.status : (req.user.kycStatus || 'NOT_SUBMITTED'),
       kycDocumentType: kycRecord ? kycRecord.documentType : null,
       kycRejectionReason: kycRecord ? kycRecord.rejectionReason : null

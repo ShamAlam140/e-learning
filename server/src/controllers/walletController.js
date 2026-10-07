@@ -4,6 +4,7 @@ const Transaction = require('../models/Transaction');
 const catchAsync = require('../utils/catchAsync');
 const { sendSuccess, sendPaginatedSuccess } = require('../utils/apiResponse');
 const AppError = require('../utils/appError');
+const { getUserWalletMetrics } = require('../utils/walletMetrics');
 
 /**
  * Get or initialize user digital wallet
@@ -18,14 +19,19 @@ const getOrCreateWallet = async (userId) => {
 
 /**
  * @route   GET /api/wallet/balance
- * @desc    Fetch current wallet balance for logged-in user
+ * @desc    Fetch current wallet balance & earning breakdown for logged-in user
  * @access  Private (Student / User)
  */
 const getWalletBalance = catchAsync(async (req, res) => {
   const wallet = await getOrCreateWallet(req.user._id);
+  const metrics = await getUserWalletMetrics(req.user._id, req.user.role);
 
   return sendSuccess(res, 200, 'Wallet balance retrieved successfully.', {
-    balance: wallet.balance,
+    balance: metrics.totalBalance,
+    withdrawableBalance: metrics.withdrawableBalance,
+    purchaseBalance: metrics.purchaseBalance,
+    totalReferralEarned: metrics.totalReferralEarned,
+    totalDeposited: metrics.totalDeposited,
     currency: wallet.currency,
     walletId: wallet._id
   });

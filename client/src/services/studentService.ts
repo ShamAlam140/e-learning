@@ -7,6 +7,10 @@ export interface StudentStats {
   enrolledCoursesCount: number;
   quizAttemptsCount: number;
   walletBalance: number;
+  withdrawableBalance?: number;
+  purchaseBalance?: number;
+  totalReferralEarned?: number;
+  totalDeposited?: number;
   kycStatus: 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'VERIFIED' | 'REJECTED';
   kycDocumentType?: string | null;
   kycRejectionReason?: string | null;

@@ -72,6 +72,8 @@ const updatePayoutProfile = catchAsync(async (req, res, next) => {
   });
 });
 
+const { getUserWalletMetrics } = require('../utils/walletMetrics');
+
 /**
  * @route   POST /api/wallet/withdraw
  * @desc    Submit new withdrawal request to Admin (Student or Teacher)
@@ -85,14 +87,47 @@ const requestWithdrawal = catchAsync(async (req, res, next) => {
     return next(new AppError('Minimum withdrawal amount is ₹50.', 400));
   }
 
+  const metrics = await getUserWalletMetrics(req.user._id, req.user.role);
   let wallet = await Wallet.findOne({ user: req.user._id });
+
   if (!wallet || wallet.balance < withdrawalAmount) {
     return next(
       new AppError(
-        `Insufficient wallet balance. Available balance: ₹${wallet ? wallet.balance : 0}.`,
+        `Insufficient wallet balance. Total available balance: ₹${wallet ? wallet.balance : 0}.`,
         400
       )
     );
+  }
+
+  // Student specific financial validation: only refer & earn commissions can be withdrawn
+  if (req.user.role === 'STUDENT') {
+    if (metrics.withdrawableBalance < 50) {
+      return next(
+        new AppError(
+          `You have ₹${metrics.withdrawableBalance} withdrawable earnings from Refer & Earn. Minimum withdrawal is ₹50. Note: Wallet top-up balance is non-withdrawable and reserved for course purchases.`,
+          400
+        )
+      );
+    }
+
+    if (withdrawalAmount > metrics.withdrawableBalance) {
+      return next(
+        new AppError(
+          `You can only withdraw earnings from Refer & Earn (Affiliate / MLM) commissions. Your current withdrawable referral earnings are ₹${metrics.withdrawableBalance.toLocaleString('en-IN')}. Money added via Wallet Top-up is reserved for course purchases.`,
+          400
+        )
+      );
+    }
+  } else {
+    // Teachers / Admins
+    if (withdrawalAmount > metrics.withdrawableBalance) {
+      return next(
+        new AppError(
+          `Insufficient royalty balance. Available royalty balance: ₹${metrics.withdrawableBalance.toLocaleString('en-IN')}.`,
+          400
+        )
+      );
+    }
   }
 
   // Validate payout method details
