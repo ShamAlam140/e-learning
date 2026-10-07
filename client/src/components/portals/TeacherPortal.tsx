@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, BookOpen, PlusCircle, DollarSign, HelpCircle, RefreshCw, Eye, X, AlertCircle, Award, Share2, Trash2, Edit3, UploadCloud, Download, FileSpreadsheet, CheckCircle2, Users, Phone, Mail, Megaphone } from 'lucide-react';
+import { GraduationCap, BookOpen, PlusCircle, DollarSign, HelpCircle, RefreshCw, Eye, X, AlertCircle, Award, Share2, Trash2, Edit3, UploadCloud, Download, FileSpreadsheet, CheckCircle2, Users, Phone, Mail, Megaphone, Building2, Smartphone } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { CORE_MODULES_LIST, getSubCategoriesForModuleAndState } from '../../services/taxonomyTree';
 import { AffiliateMlmPortal } from './AffiliateMlmPortal';
+import {
+  fetchPayoutProfile,
+  requestWithdrawal,
+  fetchMyWithdrawals,
+  cancelMyWithdrawal,
+  WithdrawalRequestRecord,
+  PayoutProfile
+} from '../../services/withdrawalService';
 import {
   fetchTeacherStats,
   fetchTeacherCourses,
@@ -13,7 +21,6 @@ import {
   updateTeacherCourse,
   deleteTeacherCourse,
   createTeacherMcq,
-  requestTeacherPayout,
   fetchTeacherCourseStudents,
   TeacherStats,
   McqRecord,
@@ -403,6 +410,20 @@ export const TeacherPortal: React.FC = () => {
   const [payoutErrorMsg, setPayoutErrorMsg] = useState('');
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
 
+  // Teacher Withdrawal & Payout Profile State
+  const [payoutMethod, setPayoutMethod] = useState<'BANK' | 'UPI'>('BANK');
+  const [bankAccountHolder, setBankAccountHolder] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountConfirm, setBankAccountConfirm] = useState('');
+  const [bankIfscCode, setBankIfscCode] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [upiIdInput, setUpiIdInput] = useState('');
+  const [upiNameInput, setUpiNameInput] = useState('');
+  const [saveAsDefaultPayout, setSaveAsDefaultPayout] = useState(true);
+  const [teacherWithdrawalsList, setTeacherWithdrawalsList] = useState<WithdrawalRequestRecord[]>([]);
+  const [isLoadingTeacherWithdrawals, setIsLoadingTeacherWithdrawals] = useState(false);
+  const [savedPayoutProfile, setSavedPayoutProfile] = useState<PayoutProfile | null>(null);
+
   // Load Teacher Stats
   const loadStats = async () => {
     setIsLoadingStats(true);
@@ -448,7 +469,15 @@ export const TeacherPortal: React.FC = () => {
     loadCourses();
     loadMcqs();
     loadAttempts();
+    loadTeacherWithdrawalData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'ROYALTY_PAYOUT') {
+      loadStats();
+      loadTeacherWithdrawalData();
+    }
+  }, [activeTab]);
 
   // Handle Thumbnail File Selection (2MB Validation Limit)
   const handleThumbnailFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -723,6 +752,36 @@ export const TeacherPortal: React.FC = () => {
     }
   };
 
+  const loadTeacherWithdrawalData = async () => {
+    setIsLoadingTeacherWithdrawals(true);
+    try {
+      const [wRes, pRes] = await Promise.all([
+        fetchMyWithdrawals(),
+        fetchPayoutProfile()
+      ]);
+      if (wRes.success && wRes.data) {
+        setTeacherWithdrawalsList(wRes.data.withdrawals || []);
+      }
+      if (pRes.success && pRes.data?.payoutProfile) {
+        const prof = pRes.data.payoutProfile;
+        setSavedPayoutProfile(prof);
+        if (prof.preferredMethod) setPayoutMethod(prof.preferredMethod);
+        if (prof.bankAccount?.accountHolderName && !bankAccountHolder) setBankAccountHolder(prof.bankAccount.accountHolderName);
+        if (prof.bankAccount?.accountNumber && !bankAccountNumber) {
+          setBankAccountNumber(prof.bankAccount.accountNumber);
+          setBankAccountConfirm(prof.bankAccount.accountNumber);
+        }
+        if (prof.bankAccount?.ifscCode && !bankIfscCode) setBankIfscCode(prof.bankAccount.ifscCode);
+        if (prof.bankAccount?.bankName && !bankName) setBankName(prof.bankAccount.bankName);
+        if (prof.upi?.upiId && !upiIdInput) setUpiIdInput(prof.upi.upiId);
+        if (prof.upi?.accountHolderName && !upiNameInput) setUpiNameInput(prof.upi.accountHolderName);
+      }
+    } catch (err) {
+      console.error('Error loading teacher withdrawal data:', err);
+    }
+    setIsLoadingTeacherWithdrawals(false);
+  };
+
   // Submit Payout Request
   const handlePayoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -730,20 +789,72 @@ export const TeacherPortal: React.FC = () => {
     setPayoutSuccessMsg('');
 
     const amt = Number(payoutAmount);
-    if (isNaN(amt) || amt <= 0) {
-      setPayoutErrorMsg('Please enter a valid payout withdrawal amount.');
+    if (isNaN(amt) || amt < 50) {
+      setPayoutErrorMsg('Please enter a valid payout withdrawal amount (Minimum ₹50).');
       return;
     }
 
+    const availableBal = stats?.walletBalance || stats?.totalRevenue || 0;
+    if (amt > availableBal) {
+      setPayoutErrorMsg(`Insufficient balance. Maximum available is ₹${availableBal.toLocaleString('en-IN')}.`);
+      return;
+    }
+
+    if (payoutMethod === 'BANK') {
+      if (!bankAccountHolder.trim() || !bankAccountNumber.trim() || !bankIfscCode.trim()) {
+        setPayoutErrorMsg('Please enter Account Holder Name, Account Number, and IFSC Code.');
+        return;
+      }
+      if (bankAccountNumber.trim() !== bankAccountConfirm.trim()) {
+        setPayoutErrorMsg('Bank Account Numbers do not match.');
+        return;
+      }
+      if (bankIfscCode.trim().length < 5) {
+        setPayoutErrorMsg('Please enter a valid IFSC code (e.g. SBIN0001234).');
+        return;
+      }
+    } else {
+      if (!upiIdInput.trim() || !upiIdInput.includes('@')) {
+        setPayoutErrorMsg('Please enter a valid UPI ID (e.g. name@bank or mobile@upi).');
+        return;
+      }
+    }
+
     setIsSubmittingPayout(true);
-    const res = await requestTeacherPayout(amt);
+    const res = await requestWithdrawal({
+      amount: amt,
+      payoutMethod,
+      bankDetails: payoutMethod === 'BANK' ? {
+        accountHolderName: bankAccountHolder.trim(),
+        accountNumber: bankAccountNumber.trim(),
+        ifscCode: bankIfscCode.trim().toUpperCase(),
+        bankName: bankName.trim() || 'Bank Transfer'
+      } : undefined,
+      upiDetails: payoutMethod === 'UPI' ? {
+        upiId: upiIdInput.trim().toLowerCase(),
+        accountHolderName: upiNameInput.trim() || user?.name || ''
+      } : undefined,
+      saveAsDefault: saveAsDefaultPayout
+    });
     setIsSubmittingPayout(false);
 
     if (res.success) {
-      setPayoutSuccessMsg(`✅ Withdrawal request of ₹${amt.toLocaleString('en-IN')} submitted to Super Admin!`);
+      setPayoutSuccessMsg(`✅ Withdrawal request of ₹${amt.toLocaleString('en-IN')} submitted to Super Admin! Funds will be transferred to your ${payoutMethod === 'BANK' ? 'Bank Account' : 'UPI ID'}.`);
       loadStats();
+      loadTeacherWithdrawalData();
     } else {
       setPayoutErrorMsg(res.message || 'Payout request failed.');
+    }
+  };
+
+  const handleCancelTeacherWithdrawal = async (id: string) => {
+    if (!window.confirm('Cancel this withdrawal request? Your funds will be returned to your balance.')) return;
+    const res = await cancelMyWithdrawal(id);
+    if (res.success) {
+      loadStats();
+      loadTeacherWithdrawalData();
+    } else {
+      alert(res.message || 'Failed to cancel withdrawal.');
     }
   };
 
@@ -1494,61 +1605,372 @@ export const TeacherPortal: React.FC = () => {
 
       {/* TAB 5: ROYALTY PAYOUT WITHDRAWAL */}
       {activeTab === 'ROYALTY_PAYOUT' && (
-        <div className="glass-card" style={{ padding: '20px 24px', borderRadius: '16px', maxWidth: '560px' }}>
-          <div style={{ marginBottom: '16px' }}>
-            <span className="badge badge-rose" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>FINANCIAL EARNINGS & ROYALTIES</span>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginTop: '4px' }}>
-              Request Royalty Payout Withdrawal
-            </h3>
-          </div>
-
-          <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '12px', padding: '14px 18px', border: '1px solid rgba(16,185,129,0.3)', marginBottom: '18px' }}>
-            <div style={{ fontSize: '0.78rem', color: '#34D399', fontWeight: '700' }}>AVAILABLE ROYALTY WALLET BALANCE</div>
-            <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#FFF' }}>
-              ₹ {stats ? (stats.walletBalance || stats.totalRevenue || 0).toLocaleString('en-IN') : '0'}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px', alignItems: 'start' }}>
+          {/* Form Card */}
+          <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span className="badge badge-emerald" style={{ fontSize: '0.72rem', padding: '3px 8px', fontWeight: '800' }}>INSTRUCTOR EARNINGS CASHOUT</span>
+                {savedPayoutProfile?.isConfigured && (
+                  <span style={{ fontSize: '0.72rem', color: '#10B981', fontWeight: 700, background: 'rgba(16,185,129,0.12)', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(16,185,129,0.25)' }}>
+                    ✓ Saved Details Auto-loaded
+                  </span>
+                )}
+              </div>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: '800', marginTop: '4px', color: 'var(--text-primary)' }}>
+                Request Royalty & Earnings Withdrawal
+              </h3>
             </div>
-            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Instructor 70% Gross Share from course enrollments</div>
-          </div>
 
-          {payoutSuccessMsg && (
-            <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34D399', fontSize: '0.84rem', fontWeight: '700', marginBottom: '14px' }}>
-              {payoutSuccessMsg}
+            <div style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%)', borderRadius: '14px', padding: '16px 20px', border: '1px solid rgba(16,185,129,0.3)', marginBottom: '18px' }}>
+              <div style={{ fontSize: '0.76rem', color: '#34D399', fontWeight: '800', letterSpacing: '0.5px' }}>AVAILABLE ROYALTY WALLET BALANCE</div>
+              <div style={{ fontSize: '2.1rem', fontWeight: '900', color: 'var(--text-primary)', margin: '4px 0' }}>
+                ₹ {stats ? (stats.walletBalance || stats.totalRevenue || 0).toLocaleString('en-IN') : '0'}
+              </div>
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Instructor 70% Gross Share + MLM referral commissions</div>
             </div>
-          )}
 
-          {payoutErrorMsg && (
-            <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#FB7185', fontSize: '0.8rem', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <AlertCircle size={15} />
-              <span>{payoutErrorMsg}</span>
-            </div>
-          )}
+            {payoutSuccessMsg && (
+              <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34D399', fontSize: '0.84rem', fontWeight: '700', marginBottom: '14px' }}>
+                {payoutSuccessMsg}
+              </div>
+            )}
 
-          <form onSubmit={handlePayoutSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                Enter Payout Withdrawal Amount (₹) *
+            {payoutErrorMsg && (
+              <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#FB7185', fontSize: '0.8rem', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertCircle size={15} />
+                <span>{payoutErrorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handlePayoutSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                  Enter Payout Withdrawal Amount (₹) *
+                </label>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+                  {['1000', '5000', '10000', '25000'].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setPayoutAmount(amt)}
+                      className={payoutAmount === amt ? 'btn-emerald' : 'btn-secondary'}
+                      style={{ flex: 1, padding: '5px', fontSize: '0.74rem' }}
+                    >
+                      ₹{amt}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setPayoutAmount(String(stats?.walletBalance || stats?.totalRevenue || 0))}
+                    className="btn-secondary"
+                    style={{ flex: 1, padding: '5px', fontSize: '0.74rem', fontWeight: '800' }}
+                  >
+                    Max
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={payoutAmount}
+                  onChange={(e) => setPayoutAmount(e.target.value)}
+                  placeholder="e.g. 5000"
+                  min="50"
+                  max={stats?.walletBalance || stats?.totalRevenue || 0}
+                  style={{ padding: '8px 12px', fontSize: '0.9rem' }}
+                />
+              </div>
+
+              {/* Payout Destination Selector */}
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                  Payout Destination Method *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPayoutMethod('BANK')}
+                    style={{
+                      padding: '10px',
+                      borderRadius: '10px',
+                      border: payoutMethod === 'BANK' ? '2px solid var(--primary-accent)' : '1px solid var(--border-color)',
+                      background: payoutMethod === 'BANK' ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-surface)',
+                      color: payoutMethod === 'BANK' ? 'var(--primary-accent)' : 'var(--text-secondary)',
+                      fontWeight: '800',
+                      fontSize: '0.82rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Building2 size={16} /> Direct Bank Transfer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPayoutMethod('UPI')}
+                    style={{
+                      padding: '10px',
+                      borderRadius: '10px',
+                      border: payoutMethod === 'UPI' ? '2px solid #34D399' : '1px solid var(--border-color)',
+                      background: payoutMethod === 'UPI' ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-surface)',
+                      color: payoutMethod === 'UPI' ? '#34D399' : 'var(--text-secondary)',
+                      fontWeight: '800',
+                      fontSize: '0.82rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Smartphone size={16} /> Instant UPI ID
+                  </button>
+                </div>
+              </div>
+
+              {/* Bank Inputs */}
+              {payoutMethod === 'BANK' && (
+                <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>Account Holder Name *</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={bankAccountHolder}
+                        onChange={(e) => setBankAccountHolder(e.target.value)}
+                        placeholder="Name on Passbook"
+                        style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>Bank Name</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        placeholder="e.g. SBI, HDFC, ICICI"
+                        style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>Account Number *</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={bankAccountNumber}
+                        onChange={(e) => setBankAccountNumber(e.target.value)}
+                        placeholder="Account Number"
+                        style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>Confirm Account Number *</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={bankAccountConfirm}
+                        onChange={(e) => setBankAccountConfirm(e.target.value)}
+                        placeholder="Re-enter Number"
+                        style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>IFSC Code * (11 Alphanumeric)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={bankIfscCode}
+                      onChange={(e) => setBankIfscCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. HDFC0001234"
+                      maxLength={11}
+                      style={{ padding: '6px 10px', fontSize: '0.82rem', letterSpacing: '1px', textTransform: 'uppercase' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* UPI Inputs */}
+              {payoutMethod === 'UPI' && (
+                <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>UPI ID / VPA *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={upiIdInput}
+                      onChange={(e) => setUpiIdInput(e.target.value)}
+                      placeholder="teacher@okhdfcbank or mobile@upi"
+                      style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>Registered Name on UPI</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={upiNameInput}
+                      onChange={(e) => setUpiNameInput(e.target.value)}
+                      placeholder={user?.name || 'Your Full Name'}
+                      style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={saveAsDefaultPayout}
+                  onChange={(e) => setSaveAsDefaultPayout(e.target.checked)}
+                />
+                Save as default withdrawal account for future payouts
               </label>
-              <input
-                type="number"
-                className="form-input"
-                value={payoutAmount}
-                onChange={(e) => setPayoutAmount(e.target.value)}
-                placeholder="50000"
-                style={{ padding: '8px 12px', fontSize: '0.9rem' }}
-              />
+
+              <button
+                type="submit"
+                className="btn-emerald"
+                disabled={isSubmittingPayout}
+                style={{ padding: '12px 18px', fontSize: '0.9rem', fontWeight: '800', marginTop: '4px' }}
+              >
+                {isSubmittingPayout ? 'Submitting Withdrawal Request...' : 'Submit Royalty Payout Request'}
+              </button>
+            </form>
+          </div>
+
+          {/* Teacher Withdrawal History Card */}
+          <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h4 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+                  Royalty Payouts History ({teacherWithdrawalsList.length})
+                </h4>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                  Track your previous payout requests, bank UTR numbers, and approval status.
+                </p>
+              </div>
+              <button
+                className="btn-secondary"
+                onClick={loadTeacherWithdrawalData}
+                style={{ fontSize: '0.78rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <RefreshCw size={13} className={isLoadingTeacherWithdrawals ? 'animate-spin' : ''} /> Refresh
+              </button>
             </div>
 
-            <button
-                  type="submit"
-                  className="btn-emerald"
-                  disabled={isSubmittingPayout}
-                  style={{ padding: '10px 18px', fontSize: '0.88rem', fontWeight: '700' }}
-                >
-                  {isSubmittingPayout ? 'Submitting Withdrawal Request...' : 'Submit Royalty Payout Request'}
-                </button>
-              </form>
-            </div>
-          )}
+            {isLoadingTeacherWithdrawals ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Loading payout records...
+              </div>
+            ) : teacherWithdrawalsList.length === 0 ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-surface)', borderRadius: '14px', border: '1px dashed var(--border-color)' }}>
+                <Building2 size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
+                <div style={{ fontWeight: '700', fontSize: '0.9rem', marginBottom: '4px' }}>No Payout Requests Yet</div>
+                <p style={{ fontSize: '0.8rem', margin: 0 }}>
+                  Submit your first royalty withdrawal request using the form on the left.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '550px', overflowY: 'auto' }}>
+                {teacherWithdrawalsList.map((item) => {
+                  const isPending = item.status === 'PENDING';
+                  const isApproved = item.status === 'APPROVED';
+                  const isRejected = item.status === 'REJECTED';
+                  const isCancelled = item.status === 'CANCELLED';
+
+                  return (
+                    <div
+                      key={item._id}
+                      style={{
+                        padding: '14px 18px',
+                        borderRadius: '12px',
+                        background: 'var(--bg-surface)',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1.2rem', fontWeight: '900', color: isApproved ? '#34D399' : isRejected ? '#FB7185' : 'var(--text-primary)' }}>
+                            ₹ {item.amount.toLocaleString('en-IN')}
+                          </span>
+                          <span
+                            className={
+                              isApproved
+                                ? 'badge badge-emerald'
+                                : isRejected
+                                ? 'badge badge-rose'
+                                : isCancelled
+                                ? 'badge badge-slate'
+                                : 'badge badge-amber'
+                            }
+                            style={{ fontSize: '0.7rem', padding: '2px 7px' }}
+                          >
+                            {isApproved && '✅ APPROVED & PAID'}
+                            {isPending && '🟡 PENDING APPROVAL'}
+                            {isRejected && '❌ REJECTED'}
+                            {isCancelled && '⚪ CANCELLED'}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          {item.payoutMethod === 'BANK' ? (
+                            <span>
+                              🏦 <strong>Bank:</strong> {item.bankDetails?.bankName || 'Bank'} • A/C: {item.bankDetails?.accountNumber} (IFSC: {item.bankDetails?.ifscCode})
+                            </span>
+                          ) : (
+                            <span>
+                              📱 <strong>UPI:</strong> {item.upiDetails?.upiId} ({item.upiDetails?.accountHolderName})
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          ID: <code style={{ color: 'var(--primary-accent)' }}>{item.withdrawalId}</code> • {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+
+                        {item.utrNumber && (
+                          <div style={{ fontSize: '0.76rem', color: '#34D399', fontWeight: '700', marginTop: '2px' }}>
+                            ✓ Bank UTR: <u>{item.utrNumber}</u>
+                          </div>
+                        )}
+
+                        {item.rejectionReason && (
+                          <div style={{ fontSize: '0.76rem', color: '#FB7185', fontWeight: '600', marginTop: '2px' }}>
+                            ⚠️ Reason: {item.rejectionReason} (Balance Refunded)
+                          </div>
+                        )}
+                      </div>
+
+                      {isPending && (
+                        <button
+                          className="btn-rose"
+                          onClick={() => handleCancelTeacherWithdrawal(item._id)}
+                          style={{ padding: '5px 10px', fontSize: '0.74rem', borderRadius: '6px' }}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
           {/* VIEW COURSE DETAILS INSPECTION MODAL */}
           {selectedCourseDetail && (

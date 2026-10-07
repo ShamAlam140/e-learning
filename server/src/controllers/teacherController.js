@@ -5,6 +5,8 @@ const McqAttempt = require('../models/McqAttempt');
 const Purchase = require('../models/Purchase');
 const Transaction = require('../models/Transaction');
 const Wallet = require('../models/Wallet');
+const WithdrawalRequest = require('../models/WithdrawalRequest');
+const User = require('../models/User');
 const catchAsync = require('../utils/catchAsync');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 const { sendSuccess } = require('../utils/apiResponse');
@@ -515,29 +517,89 @@ const createTeacherMcq = catchAsync(async (req, res, next) => {
  * @access  Private (Teacher / Admin)
  */
 const requestTeacherPayout = catchAsync(async (req, res, next) => {
-  const { amount } = req.body;
+  const { amount, payoutMethod = 'BANK', bankDetails, upiDetails, saveAsDefault } = req.body;
   const payoutAmount = Number(amount);
 
-  if (isNaN(payoutAmount) || payoutAmount <= 0) {
-    return next(new AppError('Please enter a valid payout withdrawal amount.', 400));
+  if (isNaN(payoutAmount) || payoutAmount < 50) {
+    return next(new AppError('Please enter a valid payout withdrawal amount (Minimum ₹50).', 400));
   }
 
   let wallet = await Wallet.findOne({ user: req.user._id });
   if (!wallet || wallet.balance < payoutAmount) {
-    return next(new AppError(`Insufficient wallet balance for withdrawal. Current balance: ₹${wallet ? wallet.balance : 0}`, 400));
+    return next(
+      new AppError(
+        `Insufficient wallet balance for withdrawal. Current balance: ₹${wallet ? wallet.balance : 0}`,
+        400
+      )
+    );
   }
+
+  // Deduct/hold wallet balance
+  wallet.balance -= payoutAmount;
+  await wallet.save();
+
+  // Create WithdrawalRequest
+  const withdrawal = await WithdrawalRequest.create({
+    user: req.user._id,
+    userRole: 'TEACHER',
+    wallet: wallet._id,
+    amount: payoutAmount,
+    payoutMethod,
+    bankDetails:
+      payoutMethod === 'BANK' && bankDetails
+        ? {
+            accountHolderName: (bankDetails.accountHolderName || '').trim(),
+            accountNumber: (bankDetails.accountNumber || '').trim(),
+            ifscCode: (bankDetails.ifscCode || '').trim().toUpperCase(),
+            bankName: (bankDetails.bankName || '').trim()
+          }
+        : undefined,
+    upiDetails:
+      payoutMethod === 'UPI' && upiDetails
+        ? {
+            upiId: (upiDetails.upiId || '').trim().toLowerCase(),
+            accountHolderName: (upiDetails.accountHolderName || req.user.name || '').trim()
+          }
+        : undefined,
+    status: 'PENDING'
+  });
 
   // Create pending payout transaction
   const transaction = await Transaction.create({
+    wallet: wallet._id,
     user: req.user._id,
     amount: payoutAmount,
     type: 'DEBIT',
     category: 'ROYALTY_PAYOUT',
     status: 'PENDING',
-    description: `Instructor royalty payout request of ₹${payoutAmount}`
+    description: `Instructor royalty payout request (${withdrawal.withdrawalId}) via ${payoutMethod}`
   });
 
+  if (saveAsDefault) {
+    const user = await User.findById(req.user._id);
+    if (user) {
+      if (!user.payoutProfile) user.payoutProfile = {};
+      user.payoutProfile.preferredMethod = payoutMethod;
+      if (payoutMethod === 'BANK' && bankDetails) {
+        user.payoutProfile.bankAccount = {
+          accountHolderName: (bankDetails.accountHolderName || '').trim(),
+          accountNumber: (bankDetails.accountNumber || '').trim(),
+          ifscCode: (bankDetails.ifscCode || '').trim().toUpperCase(),
+          bankName: (bankDetails.bankName || '').trim()
+        };
+      } else if (payoutMethod === 'UPI' && upiDetails) {
+        user.payoutProfile.upi = {
+          upiId: (upiDetails.upiId || '').trim().toLowerCase(),
+          accountHolderName: (upiDetails.accountHolderName || req.user.name || '').trim()
+        };
+      }
+      user.payoutProfile.isConfigured = true;
+      await user.save();
+    }
+  }
+
   return sendSuccess(res, 201, 'Royalty payout withdrawal request submitted to Super Admin for approval.', {
+    withdrawal,
     transaction,
     currentWalletBalance: wallet.balance
   });

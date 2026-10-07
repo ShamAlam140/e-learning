@@ -26,7 +26,17 @@ const transactionSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ['TOPUP', 'WALLET_TOPUP', 'COURSE_PURCHASE', 'EBOOK_PURCHASE', 'ROYALTY_PAYOUT', 'AFFILIATE_COMMISSION'],
+      enum: [
+        'TOPUP',
+        'WALLET_TOPUP',
+        'COURSE_PURCHASE',
+        'EBOOK_PURCHASE',
+        'ROYALTY_PAYOUT',
+        'AFFILIATE_COMMISSION',
+        'WITHDRAWAL',
+        'WITHDRAWAL_REFUND',
+        'WITHDRAWAL_PAID'
+      ],
       required: [true, 'Transaction category is required'],
       index: true
     },

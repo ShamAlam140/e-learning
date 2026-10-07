@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Users, BookOpen, FileCheck, DollarSign, Megaphone, Plus, RefreshCw, CheckCircle2, XCircle, Eye, AlertCircle, Search, X, Trash2, Edit3, Phone, Mail, MapPin, GraduationCap, Share2, UploadCloud, Download, FileSpreadsheet, HelpCircle, Tv, Play, ExternalLink, Image as ImageIcon, Film, Save, Percent, Gift, Shield, SlidersHorizontal, Zap } from 'lucide-react';
+import { ShieldCheck, Users, BookOpen, FileCheck, DollarSign, Megaphone, Plus, RefreshCw, CheckCircle2, XCircle, Eye, AlertCircle, Search, X, Trash2, Edit3, Phone, Mail, MapPin, GraduationCap, Share2, UploadCloud, Download, FileSpreadsheet, HelpCircle, Tv, Play, ExternalLink, Image as ImageIcon, Film, Save, Percent, Gift, Shield, SlidersHorizontal, Zap, Building2, Smartphone, Copy, Check } from 'lucide-react';
 import { INDIAN_STATES_LIST, CORE_MODULES_LIST, getSubCategoriesForModuleAndState } from '../../services/taxonomyTree';
+import {
+  fetchAdminWithdrawals,
+  approveAdminWithdrawal,
+  rejectAdminWithdrawal,
+  WithdrawalRequestRecord
+} from '../../services/withdrawalService';
 import {
   fetchAdminStats,
   fetchAdminUsers,
@@ -18,7 +24,6 @@ import {
   fetchPendingKYC,
   verifyKYCDocument,
   fetchPendingPayouts,
-  approvePayout,
   AdminStats,
   UserRecord,
   CourseRecord,
@@ -573,7 +578,29 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
 
   // Payouts Queue State
   const [payoutsList, setPayoutsList] = useState<PayoutRecord[]>([]);
-  const [isLoadingPayouts, setIsLoadingPayouts] = useState(false);
+
+  // Admin Withdrawals Management State (Student MLM & Teacher Royalties)
+  const [adminWithdrawalsList, setAdminWithdrawalsList] = useState<WithdrawalRequestRecord[]>([]);
+  const [isLoadingAdminWithdrawals, setIsLoadingAdminWithdrawals] = useState(false);
+  const [withdrawalFilterStatus, setWithdrawalFilterStatus] = useState<string>('ALL');
+  const [withdrawalFilterRole, setWithdrawalFilterRole] = useState<string>('ALL');
+  const [withdrawalSearchQuery, setWithdrawalSearchQuery] = useState('');
+
+  // Approve Modal State
+  const [approvingWithdrawal, setApprovingWithdrawal] = useState<WithdrawalRequestRecord | null>(null);
+  const [utrNumberInput, setUtrNumberInput] = useState('');
+  const [adminRemarksInput, setAdminRemarksInput] = useState('');
+  const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+  const [approvalErrorMsg, setApprovalErrorMsg] = useState('');
+
+  // Reject Modal State
+  const [rejectingWithdrawal, setRejectingWithdrawal] = useState<WithdrawalRequestRecord | null>(null);
+  const [adminRejectionReason, setAdminRejectionReason] = useState('Invalid bank details or IFSC code.');
+  const [isSubmittingAdminRejection, setIsSubmittingAdminRejection] = useState(false);
+  const [adminRejectErrorMsg, setAdminRejectErrorMsg] = useState('');
+
+  // Copy Feedback State
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Grouped Student Preferences & Faculty Matrix State (Real-time Backend Aggregations)
   const [granularAnalytics, setGranularAnalytics] = useState<any | null>(null);
@@ -841,12 +868,85 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
 
   // Load Pending Payouts
   const loadPayouts = async () => {
-    setIsLoadingPayouts(true);
     const res = await fetchPendingPayouts();
     if (res.success && res.data) {
       setPayoutsList(res.data.payouts || []);
     }
-    setIsLoadingPayouts(false);
+    loadAdminWithdrawals();
+  };
+
+  // Load Super Admin Withdrawal Requests (Student MLM & Teacher Royalties)
+  const loadAdminWithdrawals = async () => {
+    setIsLoadingAdminWithdrawals(true);
+    const res = await fetchAdminWithdrawals({
+      status: withdrawalFilterStatus,
+      role: withdrawalFilterRole,
+      search: withdrawalSearchQuery
+    });
+    if (res.success && res.data) {
+      setAdminWithdrawalsList(res.data.withdrawals || []);
+    }
+    setIsLoadingAdminWithdrawals(false);
+  };
+
+  const handleOpenApproveModal = (w: WithdrawalRequestRecord) => {
+    setApprovingWithdrawal(w);
+    setUtrNumberInput(`UTR-${Date.now().toString().slice(-8)}`);
+    setAdminRemarksInput('Paid successfully via Bank NEFT / IMPS / UPI.');
+    setApprovalErrorMsg('');
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!approvingWithdrawal) return;
+    setIsSubmittingApproval(true);
+    setApprovalErrorMsg('');
+    const res = await approveAdminWithdrawal(approvingWithdrawal._id, {
+      utrNumber: utrNumberInput.trim() || `UTR-${Date.now()}`,
+      adminRemarks: adminRemarksInput.trim()
+    });
+    setIsSubmittingApproval(false);
+    if (res.success) {
+      setApprovingWithdrawal(null);
+      loadAdminWithdrawals();
+      loadPayouts();
+      loadStats();
+    } else {
+      setApprovalErrorMsg(res.message || 'Failed to approve withdrawal.');
+    }
+  };
+
+  const handleOpenRejectModal = (w: WithdrawalRequestRecord) => {
+    setRejectingWithdrawal(w);
+    setAdminRejectionReason('Incorrect account details or invalid IFSC code.');
+    setAdminRejectErrorMsg('');
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectingWithdrawal) return;
+    if (!adminRejectionReason.trim()) {
+      setAdminRejectErrorMsg('Please provide a reason for rejection.');
+      return;
+    }
+    setIsSubmittingAdminRejection(true);
+    setAdminRejectErrorMsg('');
+    const res = await rejectAdminWithdrawal(rejectingWithdrawal._id, {
+      rejectionReason: adminRejectionReason.trim()
+    });
+    setIsSubmittingAdminRejection(false);
+    if (res.success) {
+      setRejectingWithdrawal(null);
+      loadAdminWithdrawals();
+      loadPayouts();
+      loadStats();
+    } else {
+      setAdminRejectErrorMsg(res.message || 'Failed to reject withdrawal.');
+    }
+  };
+
+  const handleCopyText = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2500);
   };
 
   const [isExecutingSettlement, setIsExecutingSettlement] = useState(false);
@@ -924,6 +1024,12 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
     if (activeTab === 'PAYOUTS') loadPayouts();
     if (activeTab === 'ADS') loadAds();
   }, [activeTab, kycStatusFilter, roleFilter, userSearch, userDirectoryPage, userDirectorySortBy, userStateFilter, userKycFilter, userBoardFilter, userSubjectFilter, courseDirectoryPage, courseDirectorySortBy, courseSearch, courseModeFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'PAYOUTS') {
+      loadAdminWithdrawals();
+    }
+  }, [activeTab, withdrawalFilterStatus, withdrawalFilterRole, withdrawalSearchQuery]);
 
   // Handle Thumbnail File Selection (2MB Validation Limit)
   const handleThumbnailFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1206,14 +1312,6 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
       setPreviewKycDoc(null);
     } else {
       setRejectionErrorMsg(res.message || 'Failed to reject KYC document.');
-    }
-  };
-
-  const handleApprovePayoutItem = async (transactionId: string) => {
-    const res = await approvePayout(transactionId);
-    if (res.success) {
-      loadPayouts();
-      loadStats();
     }
   };
 
@@ -3309,33 +3407,304 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
             )}
           </div>
 
-          <div className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '16px' }}>
-              Pending Affiliate & Teacher Payouts Queue ({payoutsList.length})
-            </h3>
-          {isLoadingPayouts ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading payout records...</div>
-          ) : payoutsList.length === 0 ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>No pending payouts requests.</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {payoutsList.map((p) => (
-                <div key={p._id} style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{p.user?.name || 'User'} ({p.user?.role})</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Category: {p.category} • Mobile: {p.user?.mobile}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#34D399' }}>₹ {p.amount}</div>
-                    <button className="btn-emerald" onClick={() => handleApprovePayoutItem(p._id)} style={{ fontSize: '0.75rem', padding: '5px 10px' }}>
-                      Approve Payout
-                    </button>
-                  </div>
-                </div>
-              ))}
+          {/* COMPREHENSIVE WITHDRAWAL REQUESTS QUEUE */}
+          <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <span className="badge badge-emerald" style={{ fontSize: '0.72rem', padding: '3px 8px', fontWeight: '800' }}>
+                  BANK & UPI DISBURSEMENTS
+                </span>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: '800', marginTop: '4px', color: 'var(--text-primary)' }}>
+                  Student (MLM) & Teacher (Royalty) Withdrawal Requests ({adminWithdrawalsList.length})
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                  Verify requester account details, copy Bank / UPI info for IMPS/NEFT transfers, and confirm with UTR transaction numbers.
+                </p>
+              </div>
+
+              <button
+                className="btn-secondary"
+                onClick={loadAdminWithdrawals}
+                style={{ fontSize: '0.8rem', padding: '8px 14px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <RefreshCw size={14} className={isLoadingAdminWithdrawals ? 'animate-spin' : ''} /> Refresh Queue
+              </button>
             </div>
-          )}
-        </div>
+
+            {/* Filter and Search Bar */}
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px', alignItems: 'center' }}>
+              {/* Status Tabs */}
+              <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-surface)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setWithdrawalFilterStatus(st)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: withdrawalFilterStatus === st ? 'var(--primary-gradient)' : 'transparent',
+                      color: withdrawalFilterStatus === st ? '#FFF' : 'var(--text-secondary)',
+                      fontSize: '0.76rem',
+                      fontWeight: '800',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {st === 'ALL' && `All (${adminWithdrawalsList.length})`}
+                    {st === 'PENDING' && `Pending (${adminWithdrawalsList.filter(w => w.status === 'PENDING').length})`}
+                    {st === 'APPROVED' && `Approved (${adminWithdrawalsList.filter(w => w.status === 'APPROVED').length})`}
+                    {st === 'REJECTED' && `Rejected (${adminWithdrawalsList.filter(w => w.status === 'REJECTED').length})`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Role Filter */}
+              <select
+                className="form-input"
+                value={withdrawalFilterRole}
+                onChange={(e) => setWithdrawalFilterRole(e.target.value)}
+                style={{ padding: '6px 10px', fontSize: '0.8rem', width: 'auto', minWidth: '160px' }}
+              >
+                <option value="ALL">All Roles (Student & Teacher)</option>
+                <option value="STUDENT">🎓 Students (MLM Commissions)</option>
+                <option value="TEACHER">👨‍🏫 Teachers (Course Royalties)</option>
+              </select>
+
+              {/* Search Bar */}
+              <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Search name, mobile, user ID, A/C, UPI, UTR..."
+                  value={withdrawalSearchQuery}
+                  onChange={(e) => setWithdrawalSearchQuery(e.target.value)}
+                  style={{ padding: '6px 10px 6px 30px', fontSize: '0.8rem', width: '100%' }}
+                />
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              </div>
+            </div>
+
+            {/* Withdrawals List */}
+            {isLoadingAdminWithdrawals ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Loading withdrawal requests queue...
+              </div>
+            ) : adminWithdrawalsList.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-surface)', borderRadius: '14px', border: '1px dashed var(--border-color)' }}>
+                <Building2 size={36} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
+                <div style={{ fontWeight: '800', fontSize: '0.95rem', marginBottom: '4px' }}>No Withdrawal Requests Found</div>
+                <p style={{ fontSize: '0.8rem', margin: 0 }}>
+                  No requests matching current filter ({withdrawalFilterStatus} / {withdrawalFilterRole}).
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {adminWithdrawalsList.map((item) => {
+                  const isPending = item.status === 'PENDING';
+                  const isApproved = item.status === 'APPROVED';
+                  const isRejected = item.status === 'REJECTED';
+                  const isStudent = item.userRole === 'STUDENT';
+
+                  return (
+                    <div
+                      key={item._id}
+                      style={{
+                        padding: '18px 22px',
+                        borderRadius: '14px',
+                        background: 'var(--bg-surface)',
+                        border: isPending ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-color)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}
+                    >
+                      {/* Card Top Row: Requester Info, Role, Amount & Status */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span
+                            className={isStudent ? 'badge badge-primary' : 'badge badge-emerald'}
+                            style={{ fontSize: '0.74rem', padding: '3px 10px', fontWeight: '800' }}
+                          >
+                            {isStudent ? '🎓 STUDENT (MLM EARNINGS)' : '👨‍🏫 TEACHER (ROYALTIES)'}
+                          </span>
+
+                          <span style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                            {item.user?.name || 'User'}
+                          </span>
+
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            ID: <code style={{ color: 'var(--primary-accent)' }}>{item.user?.userId || 'N/A'}</code> • Mobile: <strong>{item.user?.mobile || 'N/A'}</strong>
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '1.4rem', fontWeight: '900', color: isApproved ? '#34D399' : isRejected ? '#FB7185' : 'var(--text-primary)' }}>
+                            ₹ {item.amount.toLocaleString('en-IN')}
+                          </span>
+                          <span
+                            className={
+                              isApproved
+                                ? 'badge badge-emerald'
+                                : isRejected
+                                ? 'badge badge-rose'
+                                : isPending
+                                ? 'badge badge-amber'
+                                : 'badge badge-slate'
+                            }
+                            style={{ fontSize: '0.74rem', padding: '3px 10px' }}
+                          >
+                            {isApproved && '✅ APPROVED & PAID'}
+                            {isPending && '🟡 PENDING APPROVAL'}
+                            {isRejected && '❌ REJECTED'}
+                            {item.status === 'CANCELLED' && '⚪ CANCELLED'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Card Middle: Bank / UPI Details Destination Box */}
+                      <div
+                        style={{
+                          padding: '14px 18px',
+                          borderRadius: '12px',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px solid rgba(255, 255, 255, 0.07)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '12px'
+                        }}
+                      >
+                        {item.payoutMethod === 'BANK' ? (
+                          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: 'var(--primary-accent)', fontSize: '0.85rem' }}>
+                              <Building2 size={18} />
+                              <span>{item.bankDetails?.bankName || 'Bank Transfer'}</span>
+                            </div>
+
+                            <div>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>A/C HOLDER</span>
+                              <span style={{ fontSize: '0.84rem', fontWeight: '700' }}>{item.bankDetails?.accountHolderName}</span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>ACCOUNT NUMBER</span>
+                                <code style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                  {item.bankDetails?.accountNumber}
+                                </code>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyText(item.bankDetails?.accountNumber || '', `acc_${item._id}`)}
+                                className="btn-secondary"
+                                style={{ padding: '3px 7px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '3px' }}
+                                title="Copy Account Number"
+                              >
+                                {copiedKey === `acc_${item._id}` ? <Check size={12} color="#34D399" /> : <Copy size={12} />}
+                                {copiedKey === `acc_${item._id}` ? 'Copied' : 'Copy'}
+                              </button>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>IFSC CODE</span>
+                                <code style={{ fontSize: '0.9rem', fontWeight: '800', color: '#F59E0B' }}>
+                                  {item.bankDetails?.ifscCode}
+                                </code>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyText(item.bankDetails?.ifscCode || '', `ifsc_${item._id}`)}
+                                className="btn-secondary"
+                                style={{ padding: '3px 7px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '3px' }}
+                                title="Copy IFSC Code"
+                              >
+                                {copiedKey === `ifsc_${item._id}` ? <Check size={12} color="#34D399" /> : <Copy size={12} />}
+                                {copiedKey === `ifsc_${item._id}` ? 'Copied' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: '#34D399', fontSize: '0.85rem' }}>
+                              <Smartphone size={18} />
+                              <span>Instant UPI Transfer</span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>UPI ID (VPA)</span>
+                                <code style={{ fontSize: '0.95rem', fontWeight: '800', color: '#34D399' }}>
+                                  {item.upiDetails?.upiId}
+                                </code>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyText(item.upiDetails?.upiId || '', `upi_${item._id}`)}
+                                className="btn-secondary"
+                                style={{ padding: '3px 7px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '3px' }}
+                                title="Copy UPI ID"
+                              >
+                                {copiedKey === `upi_${item._id}` ? <Check size={12} color="#34D399" /> : <Copy size={12} />}
+                                {copiedKey === `upi_${item._id}` ? 'Copied' : 'Copy'}
+                              </button>
+                            </div>
+
+                            <div>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>NAME ON UPI</span>
+                              <span style={{ fontSize: '0.84rem', fontWeight: '700' }}>{item.upiDetails?.accountHolderName || item.user?.name}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Buttons when PENDING */}
+                        {isPending && (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              className="btn-emerald"
+                              onClick={() => handleOpenApproveModal(item)}
+                              style={{ padding: '7px 14px', fontSize: '0.8rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <CheckCircle2 size={14} /> Mark as Paid / Approve
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-rose"
+                              onClick={() => handleOpenRejectModal(item)}
+                              style={{ padding: '7px 14px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <XCircle size={14} /> Reject & Refund
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Bottom Row: Metadata & Proof Status */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        <div>
+                          Tracking ID: <code style={{ color: 'var(--primary-accent)' }}>{item.withdrawalId}</code> • Submitted: {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+
+                        {item.utrNumber && (
+                          <div style={{ color: '#34D399', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Check size={14} /> Bank UTR / Proof Ref: <u>{item.utrNumber}</u> ({item.adminRemarks || 'Paid'})
+                          </div>
+                        )}
+
+                        {item.rejectionReason && (
+                          <div style={{ color: '#FB7185', fontWeight: '700' }}>
+                            ⚠️ Rejected Reason: {item.rejectionReason} (Amount Refunded to User Wallet)
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
       </div>
       )}
 
@@ -5938,6 +6307,383 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
                 style={{ padding: '7px 18px', fontSize: '0.82rem' }}
               >
                 Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Payout Request Approval Modal ────────────────────────────── */}
+      {approvingWithdrawal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(2, 6, 23, 0.82)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+          onClick={() => setApprovingWithdrawal(null)}
+        >
+          <div
+            style={{
+              background: '#0F172A',
+              border: '1px solid #1E293B',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '560px',
+              padding: '28px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '100px', background: 'rgba(16, 185, 129, 0.15)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                    SETTLE CASHOUT
+                  </span>
+                  <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 600 }}>
+                    #{approvingWithdrawal.withdrawalId}
+                  </span>
+                </div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#F8FAFC', margin: 0 }}>
+                  Approve Payout Transfer
+                </h3>
+              </div>
+              <button
+                onClick={() => setApprovingWithdrawal(null)}
+                style={{ background: '#1E293B', border: 'none', color: '#94A3B8', borderRadius: '8px', padding: '6px', cursor: 'pointer', display: 'flex' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Payout Summary Box */}
+            <div style={{ background: '#020617', borderRadius: '14px', border: '1px solid #1E293B', padding: '16px 20px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ fontSize: '0.82rem', color: '#94A3B8', fontWeight: 600 }}>Amount to Transfer:</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#10B981' }}>
+                  ₹{approvingWithdrawal.amount.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', color: '#CBD5E1', borderTop: '1px solid #1E293B', paddingTop: '10px' }}>
+                <span>Beneficiary: <strong style={{ color: '#FFF' }}>{approvingWithdrawal.user?.name}</strong> ({approvingWithdrawal.userRole})</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '2px 8px', borderRadius: '6px', background: '#1E293B', fontSize: '0.75rem', fontWeight: 700, color: '#38BDF8' }}>
+                  {approvingWithdrawal.payoutMethod === 'BANK' ? <Building2 size={12} /> : <Smartphone size={12} />}
+                  {approvingWithdrawal.payoutMethod === 'BANK' ? 'Bank Account' : 'UPI ID'}
+                </span>
+              </div>
+            </div>
+
+            {/* Payout Destination Details */}
+            <div style={{ background: '#0B132B', border: '1px solid #1E293B', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#38BDF8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+                {approvingWithdrawal.payoutMethod === 'BANK' ? 'Bank Account Credentials' : 'UPI Credentials'}
+              </div>
+
+              {approvingWithdrawal.payoutMethod === 'BANK' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.82rem' }}>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.72rem' }}>ACCOUNT HOLDER</span>
+                    <strong style={{ color: '#F8FAFC' }}>{approvingWithdrawal.bankDetails?.accountHolderName || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.72rem' }}>BANK NAME</span>
+                    <strong style={{ color: '#F8FAFC' }}>{approvingWithdrawal.bankDetails?.bankName || 'N/A'}</strong>
+                  </div>
+                  <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#020617', padding: '8px 12px', borderRadius: '8px' }}>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.72rem' }}>A/C NUMBER</span>
+                      <strong style={{ color: '#38BDF8', fontFamily: 'monospace', fontSize: '0.95rem' }}>{approvingWithdrawal.bankDetails?.accountNumber}</strong>
+                    </div>
+                    <button
+                      onClick={() => handleCopyText(approvingWithdrawal.bankDetails?.accountNumber || '', `acc-${approvingWithdrawal._id}`)}
+                      style={{ background: '#1E293B', border: 'none', color: copiedKey === `acc-${approvingWithdrawal._id}` ? '#10B981' : '#94A3B8', padding: '5px 10px', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      {copiedKey === `acc-${approvingWithdrawal._id}` ? <Check size={12} /> : <Copy size={12} />}
+                      {copiedKey === `acc-${approvingWithdrawal._id}` ? 'Copied' : 'Copy A/C'}
+                    </button>
+                  </div>
+                  <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#020617', padding: '8px 12px', borderRadius: '8px' }}>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.72rem' }}>IFSC CODE</span>
+                      <strong style={{ color: '#F59E0B', fontFamily: 'monospace', fontSize: '0.95rem' }}>{approvingWithdrawal.bankDetails?.ifscCode}</strong>
+                    </div>
+                    <button
+                      onClick={() => handleCopyText(approvingWithdrawal.bankDetails?.ifscCode || '', `ifsc-${approvingWithdrawal._id}`)}
+                      style={{ background: '#1E293B', border: 'none', color: copiedKey === `ifsc-${approvingWithdrawal._id}` ? '#10B981' : '#94A3B8', padding: '5px 10px', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      {copiedKey === `ifsc-${approvingWithdrawal._id}` ? <Check size={12} /> : <Copy size={12} />}
+                      {copiedKey === `ifsc-${approvingWithdrawal._id}` ? 'Copied' : 'Copy IFSC'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#020617', padding: '12px 14px', borderRadius: '8px' }}>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.72rem' }}>VPA / UPI ADDRESS</span>
+                    <strong style={{ color: '#38BDF8', fontFamily: 'monospace', fontSize: '1rem' }}>{approvingWithdrawal.upiDetails?.upiId}</strong>
+                    {approvingWithdrawal.upiDetails?.accountHolderName && (
+                      <span style={{ color: '#94A3B8', display: 'block', fontSize: '0.75rem', marginTop: '2px' }}>
+                        Holder: {approvingWithdrawal.upiDetails.accountHolderName}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleCopyText(approvingWithdrawal.upiDetails?.upiId || '', `upi-${approvingWithdrawal._id}`)}
+                    style={{ background: '#1E293B', border: 'none', color: copiedKey === `upi-${approvingWithdrawal._id}` ? '#10B981' : '#94A3B8', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    {copiedKey === `upi-${approvingWithdrawal._id}` ? <Check size={12} /> : <Copy size={12} />}
+                    {copiedKey === `upi-${approvingWithdrawal._id}` ? 'Copied' : 'Copy UPI'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Inputs: UTR Number & Remarks */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '22px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#E2E8F0', marginBottom: '6px' }}>
+                  Bank UTR / Transaction Reference Number <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={utrNumberInput}
+                  onChange={(e) => setUtrNumberInput(e.target.value)}
+                  placeholder="e.g. UTR123456789 or Bank Ref No."
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #334155',
+                    background: '#020617',
+                    color: '#FFF',
+                    fontSize: '0.88rem',
+                    fontFamily: 'monospace'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#E2E8F0', marginBottom: '6px' }}>
+                  Admin Remarks (Visible to Beneficiary)
+                </label>
+                <input
+                  type="text"
+                  value={adminRemarksInput}
+                  onChange={(e) => setAdminRemarksInput(e.target.value)}
+                  placeholder="e.g. Paid successfully via Corporate NEFT"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #334155',
+                    background: '#020617',
+                    color: '#FFF',
+                    fontSize: '0.88rem'
+                  }}
+                />
+              </div>
+            </div>
+
+            {approvalErrorMsg && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '10px', padding: '10px 14px', color: '#F87171', fontSize: '0.82rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={16} />
+                {approvalErrorMsg}
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setApprovingWithdrawal(null)}
+                style={{ padding: '9px 18px', borderRadius: '10px', border: '1px solid #334155', background: '#1E293B', color: '#CBD5E1', fontSize: '0.84rem', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmApprove}
+                disabled={isSubmittingApproval}
+                style={{
+                  padding: '9px 22px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #059669, #10B981)',
+                  color: '#FFF',
+                  fontSize: '0.84rem',
+                  fontWeight: 800,
+                  cursor: isSubmittingApproval ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  opacity: isSubmittingApproval ? 0.7 : 1
+                }}
+              >
+                {isSubmittingApproval ? <RefreshCw size={14} className="spin" /> : <CheckCircle2 size={16} />}
+                Confirm & Mark as Paid
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Payout Request Rejection Modal ────────────────────────────── */}
+      {rejectingWithdrawal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(2, 6, 23, 0.82)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+          onClick={() => setRejectingWithdrawal(null)}
+        >
+          <div
+            style={{
+              background: '#0F172A',
+              border: '1px solid #1E293B',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '520px',
+              padding: '28px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '100px', background: 'rgba(239, 68, 68, 0.15)', color: '#F87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                  REJECT & REFUND
+                </span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#F8FAFC', margin: '6px 0 0' }}>
+                  Reject Withdrawal Request
+                </h3>
+              </div>
+              <button
+                onClick={() => setRejectingWithdrawal(null)}
+                style={{ background: '#1E293B', border: 'none', color: '#94A3B8', borderRadius: '8px', padding: '6px', cursor: 'pointer', display: 'flex' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Refund Notice */}
+            <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '12px', padding: '14px 16px', marginBottom: '18px' }}>
+              <p style={{ margin: 0, fontSize: '0.84rem', color: '#FCA5A5', lineHeight: 1.5 }}>
+                ⚠️ Rejecting will <strong>instantly refund ₹{rejectingWithdrawal.amount.toLocaleString('en-IN')}</strong> back into <strong>{rejectingWithdrawal.user?.name}</strong>&apos;s available wallet balance.
+              </p>
+            </div>
+
+            {/* Quick Reason Chips */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#94A3B8', marginBottom: '8px' }}>
+                Quick Selection:
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {[
+                  'Invalid IFSC Code',
+                  'Incorrect Account Number',
+                  'UPI ID Not Valid / Inactive',
+                  'Account Holder Name Mismatch',
+                  'Requested by User to Cancel'
+                ].map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setAdminRejectionReason(reason)}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      border: adminRejectionReason === reason ? '1px solid #EF4444' : '1px solid #334155',
+                      background: adminRejectionReason === reason ? 'rgba(239, 68, 68, 0.2)' : '#1E293B',
+                      color: adminRejectionReason === reason ? '#FCA5A5' : '#94A3B8',
+                      fontSize: '0.74rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Reason Textarea */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#E2E8F0', marginBottom: '6px' }}>
+                Reason for Rejection (Shown to user) <span style={{ color: '#EF4444' }}>*</span>
+              </label>
+              <textarea
+                rows={3}
+                value={adminRejectionReason}
+                onChange={(e) => setAdminRejectionReason(e.target.value)}
+                placeholder="Enter specific reason why this payout was rejected..."
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #334155',
+                  background: '#020617',
+                  color: '#FFF',
+                  fontSize: '0.86rem',
+                  resize: 'none'
+                }}
+              />
+            </div>
+
+            {adminRejectErrorMsg && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '10px', padding: '10px 14px', color: '#F87171', fontSize: '0.82rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={16} />
+                {adminRejectErrorMsg}
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setRejectingWithdrawal(null)}
+                style={{ padding: '9px 18px', borderRadius: '10px', border: '1px solid #334155', background: '#1E293B', color: '#CBD5E1', fontSize: '0.84rem', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={isSubmittingAdminRejection}
+                style={{
+                  padding: '9px 22px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #DC2626, #EF4444)',
+                  color: '#FFF',
+                  fontSize: '0.84rem',
+                  fontWeight: 800,
+                  cursor: isSubmittingAdminRejection ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  opacity: isSubmittingAdminRejection ? 0.7 : 1
+                }}
+              >
+                {isSubmittingAdminRejection ? <RefreshCw size={14} className="spin" /> : <XCircle size={16} />}
+                Confirm Rejection & Refund Wallet
               </button>
             </div>
           </div>

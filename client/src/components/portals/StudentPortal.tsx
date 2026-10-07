@@ -26,11 +26,23 @@ import {
   FileText,
   Download,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowUpRight,
+  Building2,
+  Smartphone,
+  Check
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { StudentPreferenceModal } from '../StudentPreferenceModal';
 import { AffiliateMlmPortal } from './AffiliateMlmPortal';
+import {
+  fetchPayoutProfile,
+  requestWithdrawal,
+  fetchMyWithdrawals,
+  cancelMyWithdrawal,
+  WithdrawalRequestRecord,
+  PayoutProfile
+} from '../../services/withdrawalService';
 import {
   fetchStudentDashboardStats,
   fetchMyEnrolledCourses,
@@ -258,6 +270,25 @@ export const StudentPortal: React.FC = () => {
   const [topUpErrorMsg, setTopUpErrorMsg] = useState('');
   const [isSubmittingTopUp, setIsSubmittingTopUp] = useState(false);
 
+  // Student Withdrawal & Payout Profile State
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmountInput, setWithdrawAmountInput] = useState('');
+  const [payoutMethod, setPayoutMethod] = useState<'BANK' | 'UPI'>('BANK');
+  const [bankAccountHolder, setBankAccountHolder] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountConfirm, setBankAccountConfirm] = useState('');
+  const [bankIfscCode, setBankIfscCode] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [upiIdInput, setUpiIdInput] = useState('');
+  const [upiNameInput, setUpiNameInput] = useState('');
+  const [saveAsDefaultPayout, setSaveAsDefaultPayout] = useState(true);
+  const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
+  const [withdrawSuccessMsg, setWithdrawSuccessMsg] = useState('');
+  const [withdrawErrorMsg, setWithdrawErrorMsg] = useState('');
+  const [myWithdrawalsList, setMyWithdrawalsList] = useState<WithdrawalRequestRecord[]>([]);
+  const [isLoadingWithdrawals, setIsLoadingWithdrawals] = useState(false);
+  const [savedPayoutProfile, setSavedPayoutProfile] = useState<PayoutProfile | null>(null);
+
   // Interactive Quiz Player State
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
   const [quizResult, setQuizResult] = useState<QuizAttemptResult | null>(null);
@@ -380,6 +411,116 @@ export const StudentPortal: React.FC = () => {
     setIsLoadingStats(false);
   };
 
+  // Load Student Withdrawals History & Saved Payout Profile
+  const loadWithdrawalData = async () => {
+    setIsLoadingWithdrawals(true);
+    try {
+      const [wRes, pRes] = await Promise.all([
+        fetchMyWithdrawals(),
+        fetchPayoutProfile()
+      ]);
+      if (wRes.success && wRes.data) {
+        setMyWithdrawalsList(wRes.data.withdrawals || []);
+      }
+      if (pRes.success && pRes.data?.payoutProfile) {
+        const prof = pRes.data.payoutProfile;
+        setSavedPayoutProfile(prof);
+        if (prof.preferredMethod) setPayoutMethod(prof.preferredMethod);
+        if (prof.bankAccount?.accountHolderName && !bankAccountHolder) setBankAccountHolder(prof.bankAccount.accountHolderName);
+        if (prof.bankAccount?.accountNumber && !bankAccountNumber) {
+          setBankAccountNumber(prof.bankAccount.accountNumber);
+          setBankAccountConfirm(prof.bankAccount.accountNumber);
+        }
+        if (prof.bankAccount?.ifscCode && !bankIfscCode) setBankIfscCode(prof.bankAccount.ifscCode);
+        if (prof.bankAccount?.bankName && !bankName) setBankName(prof.bankAccount.bankName);
+        if (prof.upi?.upiId && !upiIdInput) setUpiIdInput(prof.upi.upiId);
+        if (prof.upi?.accountHolderName && !upiNameInput) setUpiNameInput(prof.upi.accountHolderName);
+      }
+    } catch (err) {
+      console.error('Error loading student withdrawal data:', err);
+    }
+    setIsLoadingWithdrawals(false);
+  };
+
+  const handleWithdrawSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setWithdrawErrorMsg('');
+    setWithdrawSuccessMsg('');
+
+    const amt = Number(withdrawAmountInput);
+    if (isNaN(amt) || amt < 50) {
+      setWithdrawErrorMsg('Minimum withdrawal amount is ₹50.');
+      return;
+    }
+    const currentBal = stats?.walletBalance || 0;
+    if (amt > currentBal) {
+      setWithdrawErrorMsg(`Insufficient balance. Maximum available for withdrawal is ₹${currentBal.toLocaleString('en-IN')}.`);
+      return;
+    }
+
+    if (payoutMethod === 'BANK') {
+      if (!bankAccountHolder.trim() || !bankAccountNumber.trim() || !bankIfscCode.trim()) {
+        setWithdrawErrorMsg('Please fill in Account Holder Name, Account Number, and IFSC Code.');
+        return;
+      }
+      if (bankAccountNumber.trim() !== bankAccountConfirm.trim()) {
+        setWithdrawErrorMsg('Bank Account Numbers do not match. Please verify.');
+        return;
+      }
+      if (bankIfscCode.trim().length < 5) {
+        setWithdrawErrorMsg('Please enter a valid IFSC Code (e.g. SBIN0001234).');
+        return;
+      }
+    } else {
+      if (!upiIdInput.trim() || !upiIdInput.includes('@')) {
+        setWithdrawErrorMsg('Please enter a valid UPI ID (e.g. mobile@upi or username@bank).');
+        return;
+      }
+    }
+
+    setIsSubmittingWithdraw(true);
+    const res = await requestWithdrawal({
+      amount: amt,
+      payoutMethod,
+      bankDetails: payoutMethod === 'BANK' ? {
+        accountHolderName: bankAccountHolder.trim(),
+        accountNumber: bankAccountNumber.trim(),
+        ifscCode: bankIfscCode.trim().toUpperCase(),
+        bankName: bankName.trim() || 'Bank Transfer'
+      } : undefined,
+      upiDetails: payoutMethod === 'UPI' ? {
+        upiId: upiIdInput.trim().toLowerCase(),
+        accountHolderName: upiNameInput.trim() || user?.name || ''
+      } : undefined,
+      saveAsDefault: saveAsDefaultPayout
+    });
+    setIsSubmittingWithdraw(false);
+
+    if (res.success && res.data) {
+      setWithdrawSuccessMsg(`✅ Withdrawal request of ₹${amt.toLocaleString('en-IN')} submitted successfully! Admin will review and transfer funds to your ${payoutMethod === 'BANK' ? 'Bank Account' : 'UPI ID'}.`);
+      setWithdrawAmountInput('');
+      loadStats();
+      loadWithdrawalData();
+      setTimeout(() => {
+        setShowWithdrawModal(false);
+        setWithdrawSuccessMsg('');
+      }, 3500);
+    } else {
+      setWithdrawErrorMsg(res.message || 'Withdrawal request failed.');
+    }
+  };
+
+  const handleCancelWithdrawal = async (withdrawalId: string) => {
+    if (!window.confirm('Cancel this withdrawal request? Your money will be refunded back to your wallet instantly.')) return;
+    const res = await cancelMyWithdrawal(withdrawalId);
+    if (res.success) {
+      loadStats();
+      loadWithdrawalData();
+    } else {
+      alert(res.message || 'Failed to cancel withdrawal.');
+    }
+  };
+
   // Load My Enrolled Courses
   const loadEnrolled = async () => {
     setIsLoadingEnrolled(true);
@@ -466,12 +607,20 @@ export const StudentPortal: React.FC = () => {
     loadBrowse();
     loadMcqs();
     loadActiveAds();
+    loadWithdrawalData();
 
     // Auto-launch Preference Selection Modal if student has not set preferences yet!
     if (user?.role === 'STUDENT' && !user?.learningPreference?.isPreferenceSet) {
       setShowPreferenceModal(true);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'WALLET') {
+      loadStats();
+      loadWithdrawalData();
+    }
+  }, [activeTab]);
 
   // Reload courses when filter mode toggles (Goal Match ↔ Explore All)
   useEffect(() => {
@@ -2159,58 +2308,233 @@ export const StudentPortal: React.FC = () => {
 
       {/* SUB-TAB: WALLET & CREDITS */}
       {activeTab === 'WALLET' && (
-        <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <span className="badge badge-emerald" style={{ fontSize: '0.72rem', padding: '3px 8px', fontWeight: '800' }}>STUDENT WALLET & CREDITS</span>
-              <h3 style={{ fontSize: '1.35rem', fontWeight: '800', marginTop: '6px', color: 'var(--text-primary)' }}>
-                EduVerse Student Wallet & E-Books Access
-              </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <span className="badge badge-emerald" style={{ fontSize: '0.72rem', padding: '3px 8px', fontWeight: '800' }}>STUDENT WALLET & EARNINGS</span>
+                <h3 style={{ fontSize: '1.35rem', fontWeight: '800', marginTop: '6px', color: 'var(--text-primary)' }}>
+                  Student Digital Wallet & Payout Center
+                </h3>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  className="btn-secondary"
+                  onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }}
+                  style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <PlusCircle size={15} /> Add Money (Top-Up)
+                </button>
+                <button
+                  className="btn-emerald"
+                  onClick={() => { setShowWithdrawModal(true); setWithdrawErrorMsg(''); setWithdrawSuccessMsg(''); }}
+                  style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <ArrowUpRight size={16} /> Withdraw / Cash Out
+                </button>
+              </div>
             </div>
-            <button
-              className="btn-emerald"
-              onClick={() => { setShowTopUpModal(true); setTopUpErrorMsg(''); }}
-              style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <PlusCircle size={15} /> Add Money (Top-Up)
-            </button>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ padding: '20px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                <div style={{ fontSize: '0.78rem', color: '#34D399', fontWeight: '800', letterSpacing: '0.5px' }}>
+                  AVAILABLE WALLET BALANCE
+                </div>
+                <div style={{ fontSize: '2.2rem', fontWeight: '900', color: 'var(--text-primary)', margin: '8px 0' }}>
+                  ₹ {stats ? (stats.walletBalance || 0).toLocaleString('en-IN') : '0'}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                    Earned from MLM Binary matching, referrals & top-ups.
+                  </p>
+                  <button
+                    onClick={() => { setShowWithdrawModal(true); setWithdrawErrorMsg(''); setWithdrawSuccessMsg(''); }}
+                    style={{ background: 'none', border: 'none', color: '#34D399', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    Withdraw Now <ArrowRight size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Saved Payout Profile Card */}
+              <div style={{ padding: '20px', borderRadius: '14px', background: 'rgba(99, 102, 241, 0.06)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Building2 size={16} color="var(--primary-accent)" /> Saved Withdrawal Destination
+                    </div>
+                    {savedPayoutProfile?.isConfigured && (
+                      <span className="badge badge-primary" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>ACTIVE</span>
+                    )}
+                  </div>
+
+                  {savedPayoutProfile?.isConfigured ? (
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                      {savedPayoutProfile.preferredMethod === 'BANK' ? (
+                        <div>
+                          <div><strong>Bank:</strong> {savedPayoutProfile.bankAccount?.bankName || 'Direct Bank Transfer'}</div>
+                          <div><strong>A/C:</strong> ••••••••{(savedPayoutProfile.bankAccount?.accountNumber || '').slice(-4)} ({savedPayoutProfile.bankAccount?.accountHolderName})</div>
+                          <div><strong>IFSC:</strong> {savedPayoutProfile.bankAccount?.ifscCode}</div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div><strong>UPI ID:</strong> {savedPayoutProfile.upi?.upiId}</div>
+                          <div><strong>Holder:</strong> {savedPayoutProfile.upi?.accountHolderName || user?.name}</div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                      No Bank Account or UPI ID saved yet. Set it up when you request your first withdrawal.
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  className="btn-secondary"
+                  onClick={() => { setShowWithdrawModal(true); setWithdrawErrorMsg(''); }}
+                  style={{ alignSelf: 'flex-start', marginTop: '12px', padding: '4px 10px', fontSize: '0.75rem' }}
+                >
+                  {savedPayoutProfile?.isConfigured ? 'Update Account Details' : '+ Configure Bank / UPI'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button className="btn-primary" onClick={() => setActiveTab('BROWSE')} style={{ padding: '8px 16px', fontSize: '0.84rem' }}>
+                <ShoppingBag size={14} /> Browse Courses to Enroll
+              </button>
+              <button className="btn-secondary" onClick={() => setActiveTab('EBOOKS')} style={{ padding: '8px 16px', fontSize: '0.84rem' }}>
+                <BookOpen size={14} /> Browse E-Books & PDFs
+              </button>
+              <button className="btn-secondary" onClick={() => setActiveTab('MLM_NETWORK')} style={{ padding: '8px 16px', fontSize: '0.84rem' }}>
+                <Share2 size={14} /> Check MLM Network & Earnings
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-            <div style={{ padding: '20px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-              <div style={{ fontSize: '0.78rem', color: '#34D399', fontWeight: '800', letterSpacing: '0.5px' }}>
-                CURRENT WALLET BALANCE
+          {/* WITHDRAWAL REQUESTS & PAYOUT HISTORY CARD */}
+          <div className="glass-card" style={{ padding: '24px 28px', borderRadius: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h4 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+                  Bank & UPI Withdrawal History ({myWithdrawalsList.length})
+                </h4>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                  Track your payout status, approval UTR numbers, and cash disbursement history.
+                </p>
               </div>
-              <div style={{ fontSize: '2.2rem', fontWeight: '900', color: 'var(--text-primary)', margin: '8px 0' }}>
-                ₹ {stats ? (stats.walletBalance || 0).toLocaleString('en-IN') : '0'}
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-                Instantly usable for 1-Click Course Enrollments, E-Books & Mock Test papers.
-              </p>
+              <button
+                className="btn-secondary"
+                onClick={loadWithdrawalData}
+                style={{ fontSize: '0.78rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <RefreshCw size={13} className={isLoadingWithdrawals ? 'animate-spin' : ''} /> Refresh Status
+              </button>
             </div>
 
-            <div style={{ padding: '20px', borderRadius: '14px', background: 'rgba(99, 102, 241, 0.06)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px' }}>
-                ✨ Wallet Perks & Advantages
+            {isLoadingWithdrawals ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Loading withdrawal records...
               </div>
-              <ul style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, paddingLeft: '18px', lineHeight: 1.7 }}>
-                <li>Zero transaction fees on all internal enrollments</li>
-                <li>Instant course activation with zero bank wait times</li>
-                <li>Matching bonus cashback automatically credited here</li>
-              </ul>
-            </div>
-          </div>
+            ) : myWithdrawalsList.length === 0 ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-surface)', borderRadius: '14px', border: '1px dashed var(--border-color)' }}>
+                <Building2 size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
+                <div style={{ fontWeight: '700', fontSize: '0.9rem', marginBottom: '4px' }}>No Withdrawal Requests Yet</div>
+                <p style={{ fontSize: '0.8rem', margin: 0 }}>
+                  You have not submitted any withdrawal requests yet. Earn from MLM referrals and cash out anytime!
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {myWithdrawalsList.map((item) => {
+                  const isPending = item.status === 'PENDING';
+                  const isApproved = item.status === 'APPROVED';
+                  const isRejected = item.status === 'REJECTED';
+                  const isCancelled = item.status === 'CANCELLED';
 
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <button className="btn-primary" onClick={() => setActiveTab('BROWSE')} style={{ padding: '8px 16px', fontSize: '0.84rem' }}>
-              <ShoppingBag size={14} /> Browse Courses to Enroll
-            </button>
-            <button className="btn-secondary" onClick={() => setActiveTab('EBOOKS')} style={{ padding: '8px 16px', fontSize: '0.84rem' }}>
-              <BookOpen size={14} /> Browse E-Books & PDFs
-            </button>
-            <button className="btn-secondary" onClick={() => setActiveTab('MLM_NETWORK')} style={{ padding: '8px 16px', fontSize: '0.84rem' }}>
-              <Share2 size={14} /> Check Referral Rewards
-            </button>
+                  return (
+                    <div
+                      key={item._id}
+                      style={{
+                        padding: '16px 20px',
+                        borderRadius: '12px',
+                        background: 'var(--bg-surface)',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1.25rem', fontWeight: '900', color: isApproved ? '#34D399' : isRejected ? '#FB7185' : 'var(--text-primary)' }}>
+                            ₹ {item.amount.toLocaleString('en-IN')}
+                          </span>
+                          <span
+                            className={
+                              isApproved
+                                ? 'badge badge-emerald'
+                                : isRejected
+                                ? 'badge badge-rose'
+                                : isCancelled
+                                ? 'badge badge-slate'
+                                : 'badge badge-amber'
+                            }
+                            style={{ fontSize: '0.72rem', padding: '3px 8px' }}
+                          >
+                            {isApproved && '✅ APPROVED & PAID'}
+                            {isPending && '🟡 PENDING ADMIN APPROVAL'}
+                            {isRejected && '❌ REJECTED (REFUNDED)'}
+                            {isCancelled && '⚪ CANCELLED'}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                          {item.payoutMethod === 'BANK' ? (
+                            <span>
+                              🏦 <strong>Bank Transfer:</strong> {item.bankDetails?.bankName || 'Bank'} • A/C: {item.bankDetails?.accountNumber} (IFSC: {item.bankDetails?.ifscCode})
+                            </span>
+                          ) : (
+                            <span>
+                              📱 <strong>UPI Transfer:</strong> {item.upiDetails?.upiId} ({item.upiDetails?.accountHolderName})
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          ID: <code style={{ color: 'var(--primary-accent)' }}>{item.withdrawalId}</code> • Requested on: {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+
+                        {item.utrNumber && (
+                          <div style={{ fontSize: '0.78rem', color: '#34D399', fontWeight: '700', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Check size={14} /> Bank UTR / Proof Ref: <span style={{ textDecoration: 'underline' }}>{item.utrNumber}</span>
+                          </div>
+                        )}
+
+                        {item.rejectionReason && (
+                          <div style={{ fontSize: '0.78rem', color: '#FB7185', fontWeight: '600', marginTop: '2px' }}>
+                            ⚠️ Reason: {item.rejectionReason} (Amount has been refunded to your wallet)
+                          </div>
+                        )}
+                      </div>
+
+                      {isPending && (
+                        <button
+                          className="btn-rose"
+                          onClick={() => handleCancelWithdrawal(item._id)}
+                          style={{ padding: '6px 12px', fontSize: '0.76rem', borderRadius: '8px' }}
+                        >
+                          Cancel Request
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2655,6 +2979,252 @@ export const StudentPortal: React.FC = () => {
                 </button>
                 <button type="submit" className="btn-emerald" disabled={isSubmittingTopUp} style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
                   {isSubmittingTopUp ? 'Recharging...' : 'Confirm Top-Up'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* STUDENT WITHDRAWAL REQUEST MODAL */}
+      {showWithdrawModal && (
+        <div className="modal-overlay" onClick={() => setShowWithdrawModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px', padding: '22px 24px', borderRadius: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div>
+                <span className="badge badge-emerald" style={{ fontSize: '0.7rem', padding: '2px 6px', fontWeight: '800' }}>WALLET CASHOUT</span>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginTop: '2px', color: 'var(--text-primary)' }}>
+                  Request Wallet Withdrawal
+                </h3>
+              </div>
+              <button onClick={() => setShowWithdrawModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Current Balance Banner */}
+            <div style={{ padding: '12px 16px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div>
+                <div style={{ fontSize: '0.74rem', color: '#34D399', fontWeight: '700' }}>AVAILABLE BALANCE</div>
+                <div style={{ fontSize: '1.35rem', fontWeight: '900', color: 'var(--text-primary)' }}>
+                  ₹ {(stats?.walletBalance || 0).toLocaleString('en-IN')}
+                </div>
+              </div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Min Withdrawal: ₹50</span>
+            </div>
+
+            {withdrawSuccessMsg && (
+              <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34D399', fontSize: '0.84rem', fontWeight: '700', marginBottom: '14px' }}>
+                {withdrawSuccessMsg}
+              </div>
+            )}
+
+            {withdrawErrorMsg && (
+              <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#FB7185', fontSize: '0.8rem', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertCircle size={15} />
+                <span>{withdrawErrorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleWithdrawSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Withdrawal Amount Input */}
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                  Enter Amount to Withdraw (₹) *
+                </label>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+                  {['100', '500', '1000', '2500'].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setWithdrawAmountInput(amt)}
+                      className={withdrawAmountInput === amt ? 'btn-emerald' : 'btn-secondary'}
+                      style={{ flex: 1, padding: '5px', fontSize: '0.76rem' }}
+                    >
+                      ₹{amt}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setWithdrawAmountInput(String(stats?.walletBalance || 0))}
+                    className="btn-secondary"
+                    style={{ flex: 1, padding: '5px', fontSize: '0.76rem', fontWeight: '800' }}
+                  >
+                    Max
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={withdrawAmountInput}
+                  onChange={(e) => setWithdrawAmountInput(e.target.value)}
+                  placeholder="e.g. 500"
+                  min="50"
+                  max={stats?.walletBalance || 0}
+                  style={{ padding: '8px 12px', fontSize: '0.9rem' }}
+                />
+              </div>
+
+              {/* Payout Method Toggle */}
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                  Select Payout Destination *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPayoutMethod('BANK')}
+                    style={{
+                      padding: '10px',
+                      borderRadius: '10px',
+                      border: payoutMethod === 'BANK' ? '2px solid var(--primary-accent)' : '1px solid var(--border-color)',
+                      background: payoutMethod === 'BANK' ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-surface)',
+                      color: payoutMethod === 'BANK' ? 'var(--primary-accent)' : 'var(--text-secondary)',
+                      fontWeight: '800',
+                      fontSize: '0.82rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Building2 size={16} /> Direct Bank Transfer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPayoutMethod('UPI')}
+                    style={{
+                      padding: '10px',
+                      borderRadius: '10px',
+                      border: payoutMethod === 'UPI' ? '2px solid #34D399' : '1px solid var(--border-color)',
+                      background: payoutMethod === 'UPI' ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-surface)',
+                      color: payoutMethod === 'UPI' ? '#34D399' : 'var(--text-secondary)',
+                      fontWeight: '800',
+                      fontSize: '0.82rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Smartphone size={16} /> Instant UPI ID
+                  </button>
+                </div>
+              </div>
+
+              {/* Bank Transfer Inputs */}
+              {payoutMethod === 'BANK' && (
+                <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>Account Holder Name *</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={bankAccountHolder}
+                        onChange={(e) => setBankAccountHolder(e.target.value)}
+                        placeholder="Name on Passbook"
+                        style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>Bank Name</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        placeholder="e.g. SBI, HDFC, ICICI"
+                        style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>Account Number *</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={bankAccountNumber}
+                        onChange={(e) => setBankAccountNumber(e.target.value)}
+                        placeholder="Account Number"
+                        style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>Confirm Account Number *</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={bankAccountConfirm}
+                        onChange={(e) => setBankAccountConfirm(e.target.value)}
+                        placeholder="Re-enter Number"
+                        style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>IFSC Code * (11 Alphanumeric)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={bankIfscCode}
+                      onChange={(e) => setBankIfscCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. HDFC0001234"
+                      maxLength={11}
+                      style={{ padding: '6px 10px', fontSize: '0.82rem', letterSpacing: '1px', textTransform: 'uppercase' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* UPI Inputs */}
+              {payoutMethod === 'UPI' && (
+                <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>UPI ID / VPA *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={upiIdInput}
+                      onChange={(e) => setUpiIdInput(e.target.value)}
+                      placeholder="username@okhdfcbank or mobile@upi"
+                      style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '2px', display: 'block' }}>Registered Name on UPI</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={upiNameInput}
+                      onChange={(e) => setUpiNameInput(e.target.value)}
+                      placeholder={user?.name || 'Your Full Name'}
+                      style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-secondary)', cursor: 'pointer', marginTop: '2px' }}>
+                <input
+                  type="checkbox"
+                  checked={saveAsDefaultPayout}
+                  onChange={(e) => setSaveAsDefaultPayout(e.target.checked)}
+                />
+                Save as default withdrawal method for next time
+              </label>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowWithdrawModal(false)} style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-emerald" disabled={isSubmittingWithdraw} style={{ padding: '8px 18px', fontSize: '0.85rem', fontWeight: '800' }}>
+                  {isSubmittingWithdraw ? 'Submitting...' : 'Submit Withdrawal Request'}
                 </button>
               </div>
             </form>

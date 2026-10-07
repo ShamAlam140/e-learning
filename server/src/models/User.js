@@ -66,6 +66,27 @@ const userSchema = new mongoose.Schema(
       default: 'NOT_SUBMITTED',
       index: true
     },
+    payoutProfile: {
+      preferredMethod: {
+        type: String,
+        enum: ['BANK', 'UPI'],
+        default: 'BANK'
+      },
+      bankAccount: {
+        accountHolderName: { type: String, trim: true, default: '' },
+        accountNumber: { type: String, trim: true, default: '' },
+        ifscCode: { type: String, uppercase: true, trim: true, default: '' },
+        bankName: { type: String, trim: true, default: '' }
+      },
+      upi: {
+        upiId: { type: String, lowercase: true, trim: true, default: '' },
+        accountHolderName: { type: String, trim: true, default: '' }
+      },
+      isConfigured: {
+        type: Boolean,
+        default: false
+      }
+    },
     isMobileVerified: {
       type: Boolean,
       default: false

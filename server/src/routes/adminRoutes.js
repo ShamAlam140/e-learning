@@ -16,6 +16,11 @@ const {
   deleteAdminCourse,
   getCourseEnrolledStudents
 } = require('../controllers/adminController');
+const {
+  getAdminWithdrawals,
+  approveAdminWithdrawal,
+  rejectAdminWithdrawal
+} = require('../controllers/withdrawalController');
 const { protect, restrictTo } = require('../middlewares/authMiddleware');
 const { uploadKycImage } = require('../middlewares/uploadMiddleware');
 
@@ -32,6 +37,9 @@ router.post('/users/bulk', bulkCreateAdminUsers);
 router.put('/users/:userId/role-status', updateUserRoleStatus);
 router.get('/payouts', getPendingPayouts);
 router.post('/payouts/:transactionId/approve', approvePayout);
+router.get('/withdrawals', getAdminWithdrawals);
+router.post('/withdrawals/:id/approve', approveAdminWithdrawal);
+router.post('/withdrawals/:id/reject', rejectAdminWithdrawal);
 router.get('/courses', getAllCourses);
 router.get('/courses/:courseId/students', getCourseEnrolledStudents);
 router.post('/courses/bulk', bulkCreateAdminCourses);
