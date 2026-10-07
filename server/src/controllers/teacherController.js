@@ -12,41 +12,27 @@ const { uploadToCloudinary } = require('../utils/cloudinary');
 const { sendSuccess } = require('../utils/apiResponse');
 const AppError = require('../utils/appError');
 
+const { getUserWalletMetrics } = require('../utils/walletMetrics');
+
 /**
  * @route   GET /api/teacher/stats
- * @desc    Fetch instructor metrics overview (Total sales, student count, wallet balance) - 100% Dynamic
+ * @desc    Fetch instructor metrics overview (Course sales royalty, Refer & Earn commissions, wallet balance) - 100% Dynamic
  * @access  Private (Teacher / Admin)
  */
 const getTeacherStats = catchAsync(async (req, res) => {
   const teacherId = req.user._id;
-
-  // 1. Fetch all courses created by this teacher
-  const teacherCourses = await Course.find({ instructor: teacherId }).select('_id price active');
-  const courseIds = teacherCourses.map((c) => c._id);
-
-  // 2. Calculate actual total revenue (70% instructor royalty share from successful student purchases)
-  const purchases = await Purchase.find({ course: { $in: courseIds }, status: { $ne: 'FAILED' } });
-  const purchasesCount = purchases.length;
-  const totalGrossSales = purchases.reduce((acc, item) => acc + (item.amountPaid || item.amount || 0), 0);
-  const calculatedRoyalty = totalGrossSales * 0.7;
-
-  // 4. Fetch or sync wallet balance for teacher
-  let wallet = await Wallet.findOne({ user: teacherId });
-  if (!wallet) {
-    wallet = await Wallet.create({ user: teacherId, balance: calculatedRoyalty });
-  } else {
-    wallet.balance = calculatedRoyalty;
-    await wallet.save();
-  }
-
-  const actualRevenue = calculatedRoyalty;
+  const metrics = await getUserWalletMetrics(teacherId, 'TEACHER');
 
   return sendSuccess(res, 200, 'Teacher analytics overview retrieved successfully.', {
     stats: {
-      totalRevenue: actualRevenue,
-      totalStudents: purchasesCount,
-      activeCoursesCount: teacherCourses.length,
-      walletBalance: actualRevenue
+      totalRevenue: metrics.totalEarned,
+      courseRoyaltyEarnings: metrics.courseRoyaltyEarned,
+      referralEarnings: metrics.referralEarned,
+      totalStudents: metrics.totalStudents,
+      activeCoursesCount: metrics.activeCoursesCount,
+      walletBalance: metrics.withdrawableBalance,
+      withdrawableBalance: metrics.withdrawableBalance,
+      totalWithdrawn: metrics.totalWithdrawnOrPending
     }
   });
 });

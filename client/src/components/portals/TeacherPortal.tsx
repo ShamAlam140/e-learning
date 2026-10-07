@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, BookOpen, PlusCircle, DollarSign, HelpCircle, RefreshCw, Eye, X, AlertCircle, Award, Share2, Trash2, Edit3, UploadCloud, Download, FileSpreadsheet, CheckCircle2, Users, Phone, Mail, Megaphone, Building2, Smartphone } from 'lucide-react';
+import { GraduationCap, BookOpen, PlusCircle, DollarSign, HelpCircle, RefreshCw, Eye, X, AlertCircle, Award, Share2, Trash2, Edit3, UploadCloud, Download, FileSpreadsheet, CheckCircle2, Users, Phone, Mail, Megaphone, Building2, Smartphone, ArrowUpRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { CORE_MODULES_LIST, getSubCategoriesForModuleAndState } from '../../services/taxonomyTree';
 import { AffiliateMlmPortal } from './AffiliateMlmPortal';
@@ -1622,12 +1622,69 @@ export const TeacherPortal: React.FC = () => {
               </h3>
             </div>
 
-            <div style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%)', borderRadius: '14px', padding: '16px 20px', border: '1px solid rgba(16,185,129,0.3)', marginBottom: '18px' }}>
-              <div style={{ fontSize: '0.76rem', color: '#34D399', fontWeight: '800', letterSpacing: '0.5px' }}>AVAILABLE ROYALTY WALLET BALANCE</div>
-              <div style={{ fontSize: '2.1rem', fontWeight: '900', color: 'var(--text-primary)', margin: '4px 0' }}>
-                ₹ {stats ? (stats.walletBalance || stats.totalRevenue || 0).toLocaleString('en-IN') : '0'}
+            {/* DUAL EARNINGS BREAKDOWN: Course Sales Royalties vs Refer & Earn Commissions */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+              {/* CARD 1: Course Sales Royalties */}
+              <div style={{ padding: '18px 20px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(37, 99, 235, 0.05) 100%)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.72rem', color: '#60A5FA', fontWeight: '800', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    🎓 COURSE SALES ROYALTIES
+                  </span>
+                  <span className="badge badge-primary" style={{ fontSize: '0.64rem', padding: '2px 6px' }}>
+                    70% GROSS SHARE
+                  </span>
+                </div>
+                <div style={{ fontSize: '1.8rem', fontWeight: '900', color: 'var(--text-primary)', margin: '4px 0' }}>
+                  ₹ {(stats?.courseRoyaltyEarnings || 0).toLocaleString('en-IN')}
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                  Earned from {(stats?.totalStudents || 0)} student enrollments across {(stats?.activeCoursesCount || 0)} published courses.
+                </div>
               </div>
-              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Instructor 70% Gross Share + MLM referral commissions</div>
+
+              {/* CARD 2: Refer & Earn MLM Commissions */}
+              <div style={{ padding: '18px 20px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(147, 51, 234, 0.05) 100%)', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.72rem', color: '#C084FC', fontWeight: '800', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    🎁 REFER & EARN COMMISSIONS
+                  </span>
+                  <span className="badge badge-rose" style={{ fontSize: '0.64rem', padding: '2px 6px' }}>
+                    AFFILIATE & MLM
+                  </span>
+                </div>
+                <div style={{ fontSize: '1.8rem', fontWeight: '900', color: 'var(--text-primary)', margin: '4px 0' }}>
+                  ₹ {(stats?.referralEarnings || 0).toLocaleString('en-IN')}
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                  Earned from onboarding faculty & student referrals and binary matching bonuses.
+                </div>
+              </div>
+
+              {/* CARD 3: Total Available Withdrawable Balance */}
+              <div style={{ padding: '18px 20px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(5, 150, 105, 0.08) 100%)', border: '1px solid rgba(16, 185, 129, 0.4)', gridColumn: 'span 1' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.72rem', color: '#34D399', fontWeight: '800', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    💰 TOTAL WITHDRAWABLE BALANCE
+                  </span>
+                  <span className="badge badge-emerald" style={{ fontSize: '0.64rem', padding: '2px 6px' }}>
+                    100% CASHOUT READY
+                  </span>
+                </div>
+                <div style={{ fontSize: '2.1rem', fontWeight: '900', color: '#34D399', margin: '4px 0' }}>
+                  ₹ {(stats?.walletBalance || 0).toLocaleString('en-IN')}
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Course Royalties + Referrals</span>
+                  {(stats?.totalWithdrawn || 0) > 0 && (
+                    <span>Settled: ₹{(stats?.totalWithdrawn || 0).toLocaleString('en-IN')}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Explanatory Notice */}
+            <div style={{ padding: '9px 12px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.22)', marginBottom: '16px', fontSize: '0.76rem', color: '#93C5FD', lineHeight: 1.45 }}>
+              💡 <strong>Note:</strong> Aap apne <strong>Course Sales</strong> ki royalties aur <strong>Refer & Earn</strong> se kamaya hua commission dono ko ek sath ya apni marzi se Bank Account ya UPI ID me withdraw kar sakte hain.
             </div>
 
             {payoutSuccessMsg && (
@@ -1649,24 +1706,29 @@ export const TeacherPortal: React.FC = () => {
                   Enter Payout Withdrawal Amount (₹) *
                 </label>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-                  {['1000', '5000', '10000', '25000'].map((amt) => (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => setPayoutAmount(amt)}
-                      className={payoutAmount === amt ? 'btn-emerald' : 'btn-secondary'}
-                      style={{ flex: 1, padding: '5px', fontSize: '0.74rem' }}
-                    >
-                      ₹{amt}
-                    </button>
-                  ))}
+                  {['500', '1000', '2500', '5000'].map((amt) => {
+                    const disabled = (stats?.walletBalance || 0) < Number(amt);
+                    return (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setPayoutAmount(amt)}
+                        disabled={disabled}
+                        className={payoutAmount === amt ? 'btn-emerald' : 'btn-secondary'}
+                        style={{ flex: 1, padding: '5px', fontSize: '0.74rem', opacity: disabled ? 0.35 : 1 }}
+                      >
+                        ₹{amt}
+                      </button>
+                    );
+                  })}
                   <button
                     type="button"
-                    onClick={() => setPayoutAmount(String(stats?.walletBalance || stats?.totalRevenue || 0))}
+                    onClick={() => setPayoutAmount(String(stats?.walletBalance || 0))}
+                    disabled={(stats?.walletBalance || 0) < 50}
                     className="btn-secondary"
-                    style={{ flex: 1, padding: '5px', fontSize: '0.74rem', fontWeight: '800' }}
+                    style={{ flex: 1, padding: '5px', fontSize: '0.74rem', fontWeight: '800', opacity: (stats?.walletBalance || 0) < 50 ? 0.35 : 1 }}
                   >
-                    Max
+                    All
                   </button>
                 </div>
                 <input
@@ -1676,7 +1738,7 @@ export const TeacherPortal: React.FC = () => {
                   onChange={(e) => setPayoutAmount(e.target.value)}
                   placeholder="e.g. 5000"
                   min="50"
-                  max={stats?.walletBalance || stats?.totalRevenue || 0}
+                  max={stats?.walletBalance || 0}
                   style={{ padding: '8px 12px', fontSize: '0.9rem' }}
                 />
               </div>
@@ -1839,9 +1901,10 @@ export const TeacherPortal: React.FC = () => {
                 type="submit"
                 className="btn-emerald"
                 disabled={isSubmittingPayout}
-                style={{ padding: '12px 18px', fontSize: '0.9rem', fontWeight: '800', marginTop: '4px' }}
+                style={{ padding: '12px 18px', fontSize: '0.9rem', fontWeight: '800', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
-                {isSubmittingPayout ? 'Submitting Withdrawal Request...' : 'Submit Royalty Payout Request'}
+                <ArrowUpRight size={18} />
+                {isSubmittingPayout ? 'Submitting Withdrawal Request...' : 'Submit Payout Withdrawal Request'}
               </button>
             </form>
           </div>
