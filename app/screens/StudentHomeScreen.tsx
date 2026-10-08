@@ -30,6 +30,11 @@ import {
   updateLegPreference,
   fetchBinaryTree,
   fetchActiveAds,
+  fetchPayoutProfile,
+  savePayoutProfile,
+  requestWithdrawal,
+  fetchMyWithdrawals,
+  cancelMyWithdrawal,
   StudentStats,
   CourseRecord,
   McqRecord,
@@ -37,6 +42,8 @@ import {
   QuizSetGroup,
   EbookRecord,
   AdRecord,
+  PayoutProfile,
+  WithdrawalRequestRecord,
 } from '../services/studentService';
 
 const DEFAULT_COURSE_BANNER = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800';
@@ -348,6 +355,25 @@ export const StudentHomeScreen: React.FC = () => {
   const [isSubmittingTopUp, setIsSubmittingTopUp] = useState(false);
   const [topUpMsg, setTopUpMsg] = useState('');
 
+  // Withdrawal Request & Payout State
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmountInput, setWithdrawAmountInput] = useState('');
+  const [payoutMethod, setPayoutMethod] = useState<'BANK' | 'UPI'>('BANK');
+  const [bankAccountHolder, setBankAccountHolder] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountConfirm, setBankAccountConfirm] = useState('');
+  const [bankIfscCode, setBankIfscCode] = useState('');
+  const [upiIdInput, setUpiIdInput] = useState('');
+  const [upiNameInput, setUpiNameInput] = useState('');
+  const [saveAsDefaultPayout, setSaveAsDefaultPayout] = useState(true);
+  const [savedPayoutProfile, setSavedPayoutProfile] = useState<PayoutProfile | null>(null);
+  const [myWithdrawalsList, setMyWithdrawalsList] = useState<WithdrawalRequestRecord[]>([]);
+  const [isLoadingWithdrawals, setIsLoadingWithdrawals] = useState(false);
+  const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
+  const [withdrawSuccessMsg, setWithdrawSuccessMsg] = useState('');
+  const [withdrawErrorMsg, setWithdrawErrorMsg] = useState('');
+
   // Interactive MCQ Quiz State
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
   const [quizResult, setQuizResult] = useState<QuizAttemptResult | null>(null);
@@ -462,15 +488,140 @@ export const StudentHomeScreen: React.FC = () => {
   // Course Filtering Preference Mode
   const [filterMode, setFilterMode] = useState<'GOAL_MATCH' | 'EXPLORE_ALL'>('GOAL_MATCH');
 
-  const loadBrowse = async (overrideMode?: 'GOAL_MATCH' | 'EXPLORE_ALL') => {
+  const loadBrowse = async (overrideMode?: 'GOAL_MATCH' | 'EXPLORE_ALL', forceShowAll: boolean = false) => {
     setIsLoadingBrowse(true);
     const targetMode = overrideMode || filterMode;
-    const params = targetMode === 'EXPLORE_ALL' ? { showAll: true } : {};
+    const shouldShowAll = forceShowAll || targetMode === 'EXPLORE_ALL' || selectedCategoryFilter !== 'ALL';
+    const params = shouldShowAll ? { showAll: true } : {};
     const res = await fetchBrowseCourses(params);
     if (res.success && res.data) {
       setBrowseCoursesList(res.data.courses || []);
     }
     setIsLoadingBrowse(false);
+  };
+
+  // Load Student Withdrawals History & Saved Payout Profile
+  const loadWithdrawalData = async () => {
+    setIsLoadingWithdrawals(true);
+    try {
+      const [wRes, pRes] = await Promise.all([
+        fetchMyWithdrawals(),
+        fetchPayoutProfile(),
+      ]);
+      if (wRes.success && wRes.data) {
+        setMyWithdrawalsList(wRes.data.withdrawals || []);
+      }
+      if (pRes.success && pRes.data?.payoutProfile) {
+        const prof = pRes.data.payoutProfile;
+        setSavedPayoutProfile(prof);
+        if (prof.preferredMethod) setPayoutMethod(prof.preferredMethod);
+        if (prof.bankAccount?.accountHolderName && !bankAccountHolder) setBankAccountHolder(prof.bankAccount.accountHolderName);
+        if (prof.bankAccount?.accountNumber && !bankAccountNumber) {
+          setBankAccountNumber(prof.bankAccount.accountNumber);
+          setBankAccountConfirm(prof.bankAccount.accountNumber);
+        }
+        if (prof.bankAccount?.ifscCode && !bankIfscCode) setBankIfscCode(prof.bankAccount.ifscCode);
+        if (prof.bankAccount?.bankName && !bankName) setBankName(prof.bankAccount.bankName);
+        if (prof.upi?.upiId && !upiIdInput) setUpiIdInput(prof.upi.upiId);
+        if (prof.upi?.accountHolderName && !upiNameInput) setUpiNameInput(prof.upi.accountHolderName);
+      }
+    } catch (err) {
+      console.error('Error loading student withdrawal data:', err);
+    }
+    setIsLoadingWithdrawals(false);
+  };
+
+  const handleWithdrawSubmit = async () => {
+    setWithdrawErrorMsg('');
+    setWithdrawSuccessMsg('');
+
+    const amt = Number(withdrawAmountInput);
+    if (isNaN(amt) || amt < 50) {
+      setWithdrawErrorMsg('Minimum withdrawal amount is ₹50.');
+      return;
+    }
+    const withdrawableBal = stats?.withdrawableBalance !== undefined ? stats.withdrawableBalance : (stats?.walletBalance || 0);
+    if (amt > withdrawableBal) {
+      setWithdrawErrorMsg(
+        `You can only withdraw earnings from Refer & Earn commissions. Your withdrawable referral earnings are ₹${withdrawableBal.toLocaleString('en-IN')}. Top-up balance is non-withdrawable and reserved for course purchases.`
+      );
+      return;
+    }
+
+    if (payoutMethod === 'BANK') {
+      if (!bankAccountHolder.trim() || !bankAccountNumber.trim() || !bankIfscCode.trim()) {
+        setWithdrawErrorMsg('Please fill in Account Holder Name, Account Number, and IFSC Code.');
+        return;
+      }
+      if (bankAccountNumber.trim() !== bankAccountConfirm.trim()) {
+        setWithdrawErrorMsg('Bank Account Numbers do not match. Please verify.');
+        return;
+      }
+      if (bankIfscCode.trim().length < 5) {
+        setWithdrawErrorMsg('Please enter a valid IFSC Code (e.g. SBIN0001234).');
+        return;
+      }
+    } else {
+      if (!upiIdInput.trim() || !upiIdInput.includes('@')) {
+        setWithdrawErrorMsg('Please enter a valid UPI ID (e.g. mobile@upi or username@bank).');
+        return;
+      }
+    }
+
+    setIsSubmittingWithdraw(true);
+    const res = await requestWithdrawal({
+      amount: amt,
+      payoutMethod,
+      bankDetails: payoutMethod === 'BANK' ? {
+        accountHolderName: bankAccountHolder.trim(),
+        accountNumber: bankAccountNumber.trim(),
+        ifscCode: bankIfscCode.trim().toUpperCase(),
+        bankName: bankName.trim() || 'Bank Transfer',
+      } : undefined,
+      upiDetails: payoutMethod === 'UPI' ? {
+        upiId: upiIdInput.trim().toLowerCase(),
+        accountHolderName: upiNameInput.trim() || user?.name || '',
+      } : undefined,
+      saveAsDefault: saveAsDefaultPayout,
+    });
+    setIsSubmittingWithdraw(false);
+
+    if (res.success && res.data) {
+      setWithdrawSuccessMsg(`✅ Withdrawal request of ₹${amt.toLocaleString('en-IN')} submitted successfully! Admin will review and transfer funds to your ${payoutMethod === 'BANK' ? 'Bank Account' : 'UPI ID'}.`);
+      setWithdrawAmountInput('');
+      loadDashboardStats();
+      loadWithdrawalData();
+      setTimeout(() => {
+        setShowWithdrawModal(false);
+        setWithdrawSuccessMsg('');
+      }, 3000);
+    } else {
+      setWithdrawErrorMsg(res.message || 'Withdrawal request failed.');
+    }
+  };
+
+  const handleCancelWithdrawal = (withdrawalId: string) => {
+    Alert.alert(
+      'Cancel Withdrawal',
+      'Cancel this withdrawal request? Your money will be refunded back to your wallet instantly.',
+      [
+        { text: 'No, Keep It', style: 'cancel' },
+        {
+          text: 'Yes, Cancel Request',
+          style: 'destructive',
+          onPress: async () => {
+            const res = await cancelMyWithdrawal(withdrawalId);
+            if (res.success) {
+              loadDashboardStats();
+              loadWithdrawalData();
+              Alert.alert('Cancelled', 'Withdrawal request has been cancelled and refunded to your wallet.');
+            } else {
+              Alert.alert('Error', res.message || 'Failed to cancel withdrawal.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const loadMcqs = async () => {
@@ -534,7 +685,29 @@ export const StudentHomeScreen: React.FC = () => {
     loadMlmStats();
     loadBinaryTreeData();
     loadDynamicAds();
+    loadWithdrawalData();
   }, []);
+
+  // Reload courses when filter mode toggles or category filter selected
+  useEffect(() => {
+    loadBrowse();
+  }, [filterMode, selectedCategoryFilter]);
+
+  // Synchronize dynamic tab-specific data when user switches tabs
+  useEffect(() => {
+    if (activeTab === 'WALLET') {
+      loadWithdrawalData();
+      loadEbooksData();
+      loadDashboardStats();
+    } else if (activeTab === 'BROWSE') {
+      loadBrowse();
+    } else if (activeTab === 'MY_CLASSES') {
+      loadEnrolled();
+    } else if (activeTab === 'MLM_NETWORK') {
+      loadMlmStats();
+      loadBinaryTreeData();
+    }
+  }, [activeTab]);
 
   // Handlers
   const handleEnrollCourse = async (course: CourseRecord) => {
@@ -886,7 +1059,9 @@ export const StudentHomeScreen: React.FC = () => {
           <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '800', marginTop: 4 }}>
             ₹ {stats ? (stats.walletBalance || 0).toLocaleString('en-IN') : '0'}
           </Text>
-          <Text style={{ color: colors.textSecondary, fontSize: 10, marginTop: 2 }}>1-Click Enroll Credits</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 10, marginTop: 2 }}>
+            Dep: ₹{stats?.purchaseBalance || 0} • Ref: ₹{stats?.withdrawableBalance || 0}
+          </Text>
         </View>
 
         <View style={{ flex: 1, minWidth: 140, backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.08)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)' }}>
@@ -1285,8 +1460,8 @@ export const StudentHomeScreen: React.FC = () => {
                     {/* COURSE THUMBNAIL BANNER */}
                     <Image
                       source={{ uri: crs.thumbnail || DEFAULT_COURSE_BANNER }}
-                      style={{ width: '100%', height: 130, borderRadius: 10, marginBottom: 10 }}
-                      resizeMode="cover"
+                      style={{ width: '100%', height: 130, borderRadius: 10, marginBottom: 10, backgroundColor: isDarkMode ? '#1E293B' : '#F1F5F9' }}
+                      resizeMode="contain"
                     />
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -1879,6 +2054,9 @@ export const StudentHomeScreen: React.FC = () => {
                   onPress={() => {
                     setSelectedCategoryFilter(sec.id);
                     setSelectedCategoryTitle(sec.title);
+                    if (filterMode !== 'EXPLORE_ALL') {
+                      setFilterMode('EXPLORE_ALL');
+                    }
                   }}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
                 >
@@ -1898,6 +2076,9 @@ export const StudentHomeScreen: React.FC = () => {
                       onPress={() => {
                         setSelectedCategoryFilter(item.filterKey);
                         setSelectedCategoryTitle(item.name.replace('\n', ' '));
+                        if (filterMode !== 'EXPLORE_ALL') {
+                          setFilterMode('EXPLORE_ALL');
+                        }
                       }}
                       style={{
                         width: '23%',
@@ -2058,12 +2239,38 @@ export const StudentHomeScreen: React.FC = () => {
               const filteredList = browseCoursesList.filter((crs) => {
                 if (selectedCategoryFilter === 'ALL') return true;
                 const filterLower = selectedCategoryFilter.toLowerCase();
-                const matchCat = (crs.categoryCode || (typeof crs.category === 'string' ? crs.category : crs.category?.code))?.toLowerCase() === filterLower;
-                const matchSub = (crs as any).subCategory?.toLowerCase()?.includes(filterLower) ||
-                                 crs.title?.toLowerCase()?.includes(filterLower) ||
-                                 crs.description?.toLowerCase()?.includes(filterLower) ||
-                                 (crs as any).boardOrGrade?.toLowerCase()?.includes(filterLower) ||
-                                 (crs as any).subjectName?.toLowerCase()?.includes(filterLower);
+                const cleanFilter = filterLower.replace(/[^a-z0-9]/g, '');
+
+                const crsCatCode = ((crs as any).categoryCode || (typeof crs.category === 'string' ? crs.category : (crs.category as any)?.code) || '').toLowerCase();
+                const cleanCatCode = crsCatCode.replace(/[^a-z0-9]/g, '');
+                const matchCat = crsCatCode === filterLower || cleanCatCode === cleanFilter;
+
+                const subCat = ((crs as any).subCategory || '').toLowerCase();
+                const cleanSub = subCat.replace(/[^a-z0-9]/g, '');
+
+                const subCatTitle = ((crs as any).subCategoryTitle || '').toLowerCase();
+                const cleanSubTitle = subCatTitle.replace(/[^a-z0-9]/g, '');
+
+                const title = (crs.title || '').toLowerCase();
+                const cleanTitle = title.replace(/[^a-z0-9]/g, '');
+
+                const desc = (crs.description || '').toLowerCase();
+                const board = ((crs as any).boardOrGrade || '').toLowerCase();
+                const stream = ((crs as any).stream || '').toLowerCase();
+                const subject = ((crs as any).subjectName || '').toLowerCase();
+
+                const matchSub =
+                  subCat.includes(filterLower) ||
+                  cleanSub.includes(cleanFilter) ||
+                  subCatTitle.includes(filterLower) ||
+                  cleanSubTitle.includes(cleanFilter) ||
+                  title.includes(filterLower) ||
+                  cleanTitle.includes(cleanFilter) ||
+                  desc.includes(filterLower) ||
+                  board.includes(filterLower) ||
+                  stream.includes(filterLower) ||
+                  subject.includes(filterLower);
+
                 return matchCat || matchSub;
               });
 
@@ -2112,8 +2319,8 @@ export const StudentHomeScreen: React.FC = () => {
                     <TouchableOpacity activeOpacity={0.85} onPress={() => setSelectedCourseDetail(crs)}>
                       <Image
                         source={{ uri: crs.thumbnail || DEFAULT_COURSE_BANNER }}
-                        style={{ width: '100%', height: 130, borderRadius: 10, marginBottom: 10 }}
-                        resizeMode="cover"
+                        style={{ width: '100%', height: 130, borderRadius: 10, marginBottom: 10, backgroundColor: isDarkMode ? '#1E293B' : '#F1F5F9' }}
+                        resizeMode="contain"
                       />
 
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
@@ -2352,63 +2559,449 @@ export const StudentHomeScreen: React.FC = () => {
         </View>
       )}
 
-      {/* SUB-TAB 4: WALLET & E-BOOKS */}
+      {/* SUB-TAB 4: WALLET & EARNINGS & PAYOUTS */}
       {activeTab === 'WALLET' && (
-        <View style={{ backgroundColor: colors.cardBg, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.cardBorder }}>
-          <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 }}>
-            Digital E-Book Store & Library ({ebookList.length})
-          </Text>
-
-          {!!ebookMsg && (
-            <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', padding: 10, borderRadius: 8, marginBottom: 12 }}>
-              <Text style={{ color: '#10B981', fontSize: 12, fontWeight: '600' }}>{ebookMsg}</Text>
+        <View style={{ gap: 16 }}>
+          {/* MAIN WALLET CARD */}
+          <View style={{ backgroundColor: colors.cardBg, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: colors.cardBorder }}>
+            {/* Header with Title and Action Buttons */}
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '800' }}>STUDENT WALLET & EARNINGS</Text>
+                </View>
+              </View>
+              <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '800' }}>
+                Student Digital Wallet & Payout Center
+              </Text>
             </View>
-          )}
 
-          {isLoadingEbooks ? (
-            <ActivityIndicator color="#10B981" style={{ marginVertical: 20 }} />
-          ) : (
-            ebookList.map((eb) => (
-              <View
-                key={eb._id}
+            {/* Quick Action Buttons */}
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowTopUpModal(true);
+                  setTopUpMsg('');
+                }}
                 style={{
-                  backgroundColor: colors.itemSubCard,
-                  borderRadius: 12,
+                  flex: 1,
+                  backgroundColor: '#6366F1',
+                  borderRadius: 10,
+                  paddingVertical: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 6,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
+                  + Add Money (Top-Up)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setShowWithdrawModal(true);
+                  setWithdrawErrorMsg('');
+                  setWithdrawSuccessMsg('');
+                }}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#10B981',
+                  borderRadius: 10,
+                  paddingVertical: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 6,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
+                  ↗ Withdraw Referrals
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* DUAL BALANCE SYSTEM */}
+            <View style={{ gap: 12, marginBottom: 16 }}>
+              {/* CARD 1: Course Purchase Top-up Wallet */}
+              <View
+                style={{
+                  padding: 16,
+                  borderRadius: 14,
+                  backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.08)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(59, 130, 246, 0.3)',
+                }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 11, color: '#60A5FA', fontWeight: '800', letterSpacing: 0.5 }}>
+                    💳 COURSE PURCHASE WALLET
+                  </Text>
+                  <View style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 9, color: '#93C5FD', fontWeight: '800' }}>NON-WITHDRAWABLE</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 26, fontWeight: '900', color: colors.textPrimary, marginVertical: 4 }}>
+                  ₹ {stats ? (stats.purchaseBalance || 0).toLocaleString('en-IN') : '0'}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 16 }}>
+                  Balance added via Netbanking/UPI/Card. Reserved for enrolling in Courses, Mock Tests & E-Books.
+                </Text>
+
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowTopUpModal(true);
+                      setTopUpMsg('');
+                    }}
+                    style={{ backgroundColor: '#6366F1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>+ Add Money</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setActiveTab('BROWSE')}
+                    style={{ backgroundColor: colors.itemSubCard, borderWidth: 1, borderColor: colors.cardBorder, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
+                  >
+                    <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '600' }}>Browse Courses</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* CARD 2: Refer & Earn Commission (Withdrawable) */}
+              <View
+                style={{
+                  padding: 16,
+                  borderRadius: 14,
+                  backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.08)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(16, 185, 129, 0.35)',
+                }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 11, color: '#34D399', fontWeight: '800', letterSpacing: 0.5 }}>
+                    🎁 REFER & EARN COMMISSIONS
+                  </Text>
+                  <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 9, color: '#10B981', fontWeight: '800' }}>100% WITHDRAWABLE</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 26, fontWeight: '900', color: colors.textPrimary, marginVertical: 4 }}>
+                  ₹ {stats ? (stats.withdrawableBalance !== undefined ? stats.withdrawableBalance : 0).toLocaleString('en-IN') : '0'}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 16 }}>
+                  Earned from direct student referrals & binary MLM matching bonuses. Cash out anytime to Bank or UPI!
+                </Text>
+
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowWithdrawModal(true);
+                      setWithdrawErrorMsg('');
+                      setWithdrawSuccessMsg('');
+                    }}
+                    style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>↗ Withdraw to Bank / UPI</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setActiveTab('MLM_NETWORK')}
+                    style={{ backgroundColor: colors.itemSubCard, borderWidth: 1, borderColor: colors.cardBorder, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
+                  >
+                    <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '600' }}>MLM Network</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* CARD 3: Saved Payout Profile Card */}
+              <View
+                style={{
                   padding: 14,
-                  marginBottom: 12,
+                  borderRadius: 12,
+                  backgroundColor: colors.itemSubCard,
                   borderWidth: 1,
                   borderColor: colors.cardBorder,
                 }}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '800' }}>{eb.title}</Text>
-                  <Text style={{ color: '#10B981', fontSize: 15, fontWeight: '800' }}>₹{eb.price}</Text>
-                </View>
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>Author: {eb.author}</Text>
-
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                  <TouchableOpacity
-                    onPress={() => handlePurchaseEbook(eb._id)}
-                    disabled={purchasingEbookId === eb._id}
-                    style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
-                  >
-                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
-                      {purchasingEbookId === eb._id ? 'Buying...' : 'Buy E-Book'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {eb.fullPdfUrl && (
-                    <TouchableOpacity
-                      onPress={() => Linking.openURL(eb.fullPdfUrl!)}
-                      style={{ backgroundColor: '#6366F1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
-                    >
-                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>📖 Open PDF</Text>
-                    </TouchableOpacity>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary }}>
+                    🏦 Saved Withdrawal Destination
+                  </Text>
+                  {savedPayoutProfile?.isConfigured && (
+                    <View style={{ backgroundColor: 'rgba(99, 102, 241, 0.2)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 9, color: '#818CF8', fontWeight: '800' }}>ACTIVE</Text>
+                    </View>
                   )}
                 </View>
+
+                {savedPayoutProfile?.isConfigured ? (
+                  <View style={{ marginTop: 2 }}>
+                    {savedPayoutProfile.preferredMethod === 'BANK' ? (
+                      <View>
+                        <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+                          <Text style={{ fontWeight: '700' }}>Bank:</Text> {savedPayoutProfile.bankAccount?.bankName || 'Direct Bank Transfer'}
+                        </Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>
+                          <Text style={{ fontWeight: '700' }}>A/C:</Text> ••••••••{(savedPayoutProfile.bankAccount?.accountNumber || '').slice(-4)} ({savedPayoutProfile.bankAccount?.accountHolderName})
+                        </Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>
+                          <Text style={{ fontWeight: '700' }}>IFSC:</Text> {savedPayoutProfile.bankAccount?.ifscCode}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View>
+                        <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+                          <Text style={{ fontWeight: '700' }}>UPI ID:</Text> {savedPayoutProfile.upi?.upiId}
+                        </Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>
+                          <Text style={{ fontWeight: '700' }}>Holder:</Text> {savedPayoutProfile.upi?.accountHolderName || user?.name}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                    No Bank Account or UPI ID saved yet. Configure it when requesting a withdrawal.
+                  </Text>
+                )}
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowWithdrawModal(true);
+                    setWithdrawErrorMsg('');
+                  }}
+                  style={{ alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.cardBorder }}
+                >
+                  <Text style={{ color: '#6366F1', fontSize: 11, fontWeight: '700' }}>
+                    {savedPayoutProfile?.isConfigured ? 'Update Account Details' : '+ Configure Bank / UPI'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-            ))
-          )}
+            </View>
+
+            {/* Total Balance Combined Banner */}
+            <View
+              style={{
+                backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.04)' : '#F8FAFC',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderStyle: 'dashed',
+                borderColor: colors.cardBorder,
+                padding: 12,
+                marginBottom: 16,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary }}>
+                ⚡ Total Usable Balance for Buying Courses: ₹{(stats?.walletBalance || 0).toLocaleString('en-IN')}
+              </Text>
+              <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 3 }}>
+                💡 Course khareedne ke liye aap Deposit Balance aur Refer & Earn commission dono use kar sakte hain!
+              </Text>
+            </View>
+          </View>
+
+          {/* WITHDRAWAL REQUESTS & PAYOUT HISTORY CARD */}
+          <View style={{ backgroundColor: colors.cardBg, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: colors.cardBorder }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '800' }}>
+                  Bank & UPI Withdrawal History ({myWithdrawalsList.length})
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>
+                  Track your payout status, approval UTR numbers & cash disbursement
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={loadWithdrawalData}
+                style={{ backgroundColor: colors.itemSubCard, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder }}
+              >
+                <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>
+                  {isLoadingWithdrawals ? '⏳' : '🔄 Refresh'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {isLoadingWithdrawals ? (
+              <ActivityIndicator color="#10B981" style={{ marginVertical: 18 }} />
+            ) : myWithdrawalsList.length === 0 ? (
+              <View style={{ padding: 20, alignItems: 'center', backgroundColor: colors.itemSubCard, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.cardBorder }}>
+                <Text style={{ fontSize: 24, marginBottom: 4 }}>🏦</Text>
+                <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 13, marginBottom: 2 }}>
+                  No Withdrawal Requests Yet
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 11, textAlign: 'center' }}>
+                  You have not submitted any withdrawal requests yet. Earn from MLM referrals and cash out anytime!
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: 10 }}>
+                {myWithdrawalsList.map((item) => {
+                  const isPending = item.status === 'PENDING';
+                  const isApproved = item.status === 'APPROVED';
+                  const isRejected = item.status === 'REJECTED';
+                  const isCancelled = item.status === 'CANCELLED';
+
+                  return (
+                    <View
+                      key={item._id}
+                      style={{
+                        padding: 14,
+                        borderRadius: 12,
+                        backgroundColor: colors.itemSubCard,
+                        borderWidth: 1,
+                        borderColor: colors.cardBorder,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <Text
+                          style={{
+                            fontSize: 17,
+                            fontWeight: '900',
+                            color: isApproved ? '#10B981' : isRejected ? '#F43F5E' : colors.textPrimary,
+                          }}
+                        >
+                          ₹ {item.amount.toLocaleString('en-IN')}
+                        </Text>
+                        <View
+                          style={{
+                            backgroundColor: isApproved
+                              ? 'rgba(16, 185, 129, 0.15)'
+                              : isRejected
+                              ? 'rgba(244, 63, 94, 0.15)'
+                              : isCancelled
+                              ? 'rgba(148, 163, 184, 0.15)'
+                              : 'rgba(245, 158, 11, 0.15)',
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 6,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              fontWeight: '800',
+                              color: isApproved ? '#10B981' : isRejected ? '#F43F5E' : isCancelled ? '#94A3B8' : '#D97706',
+                            }}
+                          >
+                            {isApproved && '✅ APPROVED & PAID'}
+                            {isPending && '🟡 PENDING APPROVAL'}
+                            {isRejected && '❌ REJECTED'}
+                            {isCancelled && '⚪ CANCELLED'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 4 }}>
+                        {item.payoutMethod === 'BANK' ? (
+                          `🏦 Bank: ${item.bankDetails?.bankName || 'Bank'} • A/C: ${item.bankDetails?.accountNumber} (IFSC: ${item.bankDetails?.ifscCode})`
+                        ) : (
+                          `📱 UPI: ${item.upiDetails?.upiId} (${item.upiDetails?.accountHolderName || ''})`
+                        )}
+                      </Text>
+
+                      <Text style={{ fontSize: 10, color: colors.textMuted }}>
+                        ID: {item.withdrawalId} • {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+
+                      {!!item.utrNumber && (
+                        <View style={{ marginTop: 6, backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 6, borderRadius: 6 }}>
+                          <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '700' }}>
+                            ✓ UTR / Ref: {item.utrNumber}
+                          </Text>
+                        </View>
+                      )}
+
+                      {!!item.rejectionReason && (
+                        <View style={{ marginTop: 6, backgroundColor: 'rgba(244, 63, 94, 0.1)', padding: 6, borderRadius: 6 }}>
+                          <Text style={{ color: '#F43F5E', fontSize: 11, fontWeight: '600' }}>
+                            ⚠️ Reason: {item.rejectionReason} (Refunded to wallet)
+                          </Text>
+                        </View>
+                      )}
+
+                      {isPending && (
+                        <TouchableOpacity
+                          onPress={() => handleCancelWithdrawal(item._id)}
+                          style={{
+                            alignSelf: 'flex-start',
+                            marginTop: 10,
+                            backgroundColor: 'rgba(244, 63, 94, 0.15)',
+                            paddingHorizontal: 12,
+                            paddingVertical: 5,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: 'rgba(244, 63, 94, 0.3)',
+                          }}
+                        >
+                          <Text style={{ color: '#F43F5E', fontSize: 11, fontWeight: '700' }}>
+                            Cancel Request
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {/* DIGITAL E-BOOK STORE & LIBRARY */}
+          <View style={{ backgroundColor: colors.cardBg, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.cardBorder }}>
+            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 }}>
+              Digital E-Book Store & Library ({ebookList.length})
+            </Text>
+
+            {!!ebookMsg && (
+              <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', padding: 10, borderRadius: 8, marginBottom: 12 }}>
+                <Text style={{ color: '#10B981', fontSize: 12, fontWeight: '600' }}>{ebookMsg}</Text>
+              </View>
+            )}
+
+            {isLoadingEbooks ? (
+              <ActivityIndicator color="#10B981" style={{ marginVertical: 20 }} />
+            ) : (
+              ebookList.map((eb) => (
+                <View
+                  key={eb._id}
+                  style={{
+                    backgroundColor: colors.itemSubCard,
+                    borderRadius: 12,
+                    padding: 14,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: colors.cardBorder,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '800' }}>{eb.title}</Text>
+                    <Text style={{ color: '#10B981', fontSize: 15, fontWeight: '800' }}>₹{eb.price}</Text>
+                  </View>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>Author: {eb.author}</Text>
+
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <TouchableOpacity
+                      onPress={() => handlePurchaseEbook(eb._id)}
+                      disabled={purchasingEbookId === eb._id}
+                      style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
+                        {purchasingEbookId === eb._id ? 'Buying...' : 'Buy E-Book'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {eb.fullPdfUrl && (
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL(eb.fullPdfUrl!)}
+                        style={{ backgroundColor: '#6366F1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
+                      >
+                        <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>📖 Open PDF</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
         </View>
       )}
 
@@ -2605,6 +3198,346 @@ export const StudentHomeScreen: React.FC = () => {
         </View>
       </Modal>
 
+      {/* STUDENT WITHDRAWAL REQUEST MODAL */}
+      <Modal visible={showWithdrawModal} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 16 }}>
+          <View
+            style={{
+              backgroundColor: colors.cardBg,
+              borderRadius: 18,
+              padding: 18,
+              borderWidth: 1,
+              borderColor: colors.cardBorder,
+              maxHeight: '90%',
+            }}
+          >
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Modal Header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginBottom: 4 }}>
+                    <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '800' }}>REFER & EARN CASHOUT</Text>
+                  </View>
+                  <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '800' }}>
+                    Withdraw Referral Commissions
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowWithdrawModal(false)}
+                  style={{ padding: 4 }}
+                >
+                  <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '800' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Withdrawable Referral Balance Card */}
+              <View
+                style={{
+                  padding: 14,
+                  borderRadius: 12,
+                  backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.08)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(16, 185, 129, 0.3)',
+                  marginBottom: 10,
+                }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 10, color: '#34D399', fontWeight: '800', letterSpacing: 0.5 }}>
+                    WITHDRAWABLE REFERRAL EARNINGS
+                  </Text>
+                  <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '600' }}>
+                    Min Payout: ₹50
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 22, fontWeight: '900', color: colors.textPrimary, marginVertical: 4 }}>
+                  ₹ {(stats?.withdrawableBalance !== undefined ? stats.withdrawableBalance : 0).toLocaleString('en-IN')}
+                </Text>
+                <View style={{ borderTopWidth: 1, borderTopColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', paddingTop: 6, flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 10, color: colors.textMuted }}>Course Top-up Balance (Non-withdrawable):</Text>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textPrimary }}>₹ {(stats?.purchaseBalance || 0).toLocaleString('en-IN')}</Text>
+                </View>
+              </View>
+
+              {/* Explanatory Financial Notice */}
+              <View
+                style={{
+                  padding: 10,
+                  borderRadius: 10,
+                  backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.08)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(59, 130, 246, 0.25)',
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={{ fontSize: 11, color: '#60A5FA', lineHeight: 15 }}>
+                  💡 <Text style={{ fontWeight: '700' }}>Note:</Text> Aap sirf <Text style={{ fontWeight: '700' }}>Refer & Earn</Text> aur MLM network se kamaya hua commission Bank ya UPI me withdraw kar sakte hain. Course purchase ke liye add kiya gaya balance course buy karne ke liye use hota hai.
+                </Text>
+              </View>
+
+              {!!withdrawSuccessMsg && (
+                <View style={{ padding: 10, borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.15)', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.4)', marginBottom: 12 }}>
+                  <Text style={{ color: '#10B981', fontSize: 12, fontWeight: '700' }}>{withdrawSuccessMsg}</Text>
+                </View>
+              )}
+
+              {!!withdrawErrorMsg && (
+                <View style={{ padding: 10, borderRadius: 8, backgroundColor: 'rgba(244, 63, 94, 0.15)', borderWidth: 1, borderColor: 'rgba(244, 63, 94, 0.4)', marginBottom: 12 }}>
+                  <Text style={{ color: '#F43F5E', fontSize: 11, fontWeight: '600' }}>⚠️ {withdrawErrorMsg}</Text>
+                </View>
+              )}
+
+              {/* Amount Input */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 6 }}>
+                  Enter Referral Amount to Withdraw (₹) *
+                </Text>
+
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+                  {['50', '100', '500', '1000'].map((amt) => {
+                    const disabled = (stats?.withdrawableBalance || 0) < Number(amt);
+                    const isSelected = withdrawAmountInput === amt;
+                    return (
+                      <TouchableOpacity
+                        key={amt}
+                        onPress={() => setWithdrawAmountInput(amt)}
+                        disabled={disabled}
+                        style={{
+                          flex: 1,
+                          backgroundColor: isSelected ? '#10B981' : colors.inputBg,
+                          paddingVertical: 7,
+                          borderRadius: 6,
+                          alignItems: 'center',
+                          borderWidth: 1,
+                          borderColor: isSelected ? '#10B981' : colors.cardBorder,
+                          opacity: disabled ? 0.35 : 1,
+                        }}
+                      >
+                        <Text style={{ color: isSelected ? '#FFFFFF' : colors.textPrimary, fontWeight: '700', fontSize: 11 }}>₹{amt}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity
+                    onPress={() => setWithdrawAmountInput(String(stats?.withdrawableBalance || 0))}
+                    disabled={(stats?.withdrawableBalance || 0) < 50}
+                    style={{
+                      flex: 1,
+                      backgroundColor: colors.inputBg,
+                      paddingVertical: 7,
+                      borderRadius: 6,
+                      alignItems: 'center',
+                      borderWidth: 1,
+                      borderColor: colors.cardBorder,
+                      opacity: (stats?.withdrawableBalance || 0) < 50 ? 0.35 : 1,
+                    }}
+                  >
+                    <Text style={{ color: colors.textPrimary, fontWeight: '800', fontSize: 11 }}>All</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TextInput
+                  value={withdrawAmountInput}
+                  onChangeText={setWithdrawAmountInput}
+                  keyboardType="number-pad"
+                  placeholder="e.g. 500"
+                  placeholderTextColor="#94A3B8"
+                  style={{
+                    backgroundColor: colors.inputBg,
+                    borderWidth: 1,
+                    borderColor: colors.cardBorder,
+                    borderRadius: 8,
+                    padding: 10,
+                    color: colors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: '700',
+                  }}
+                />
+              </View>
+
+              {/* Payout Destination Selector */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 6 }}>
+                  Select Payout Destination *
+                </Text>
+
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => setPayoutMethod('BANK')}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      borderRadius: 10,
+                      alignItems: 'center',
+                      backgroundColor: payoutMethod === 'BANK' ? (isDarkMode ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.12)') : colors.inputBg,
+                      borderWidth: payoutMethod === 'BANK' ? 2 : 1,
+                      borderColor: payoutMethod === 'BANK' ? '#6366F1' : colors.cardBorder,
+                    }}
+                  >
+                    <Text style={{ color: payoutMethod === 'BANK' ? '#6366F1' : colors.textSecondary, fontWeight: '800', fontSize: 12 }}>
+                      🏦 Bank Transfer
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => setPayoutMethod('UPI')}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      borderRadius: 10,
+                      alignItems: 'center',
+                      backgroundColor: payoutMethod === 'UPI' ? (isDarkMode ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.12)') : colors.inputBg,
+                      borderWidth: payoutMethod === 'UPI' ? 2 : 1,
+                      borderColor: payoutMethod === 'UPI' ? '#10B981' : colors.cardBorder,
+                    }}
+                  >
+                    <Text style={{ color: payoutMethod === 'UPI' ? '#10B981' : colors.textSecondary, fontWeight: '800', fontSize: 12 }}>
+                      📱 Instant UPI ID
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Bank Inputs */}
+              {payoutMethod === 'BANK' && (
+                <View style={{ backgroundColor: colors.itemSubCard, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.cardBorder, gap: 8, marginBottom: 12 }}>
+                  <View>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 2 }}>Account Holder Name *</Text>
+                    <TextInput
+                      value={bankAccountHolder}
+                      onChangeText={setBankAccountHolder}
+                      placeholder="Name on Passbook"
+                      placeholderTextColor="#94A3B8"
+                      style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 6, padding: 8, fontSize: 12, color: colors.textPrimary }}
+                    />
+                  </View>
+
+                  <View>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 2 }}>Bank Name</Text>
+                    <TextInput
+                      value={bankName}
+                      onChangeText={setBankName}
+                      placeholder="e.g. SBI, HDFC, ICICI"
+                      placeholderTextColor="#94A3B8"
+                      style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 6, padding: 8, fontSize: 12, color: colors.textPrimary }}
+                    />
+                  </View>
+
+                  <View>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 2 }}>Account Number *</Text>
+                    <TextInput
+                      value={bankAccountNumber}
+                      onChangeText={setBankAccountNumber}
+                      keyboardType="number-pad"
+                      placeholder="Enter Account Number"
+                      placeholderTextColor="#94A3B8"
+                      style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 6, padding: 8, fontSize: 12, color: colors.textPrimary }}
+                    />
+                  </View>
+
+                  <View>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 2 }}>Confirm Account Number *</Text>
+                    <TextInput
+                      value={bankAccountConfirm}
+                      onChangeText={setBankAccountConfirm}
+                      keyboardType="number-pad"
+                      placeholder="Re-enter Account Number"
+                      placeholderTextColor="#94A3B8"
+                      style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 6, padding: 8, fontSize: 12, color: colors.textPrimary }}
+                    />
+                  </View>
+
+                  <View>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 2 }}>IFSC Code * (11 Alphanumeric)</Text>
+                    <TextInput
+                      value={bankIfscCode}
+                      onChangeText={(t) => setBankIfscCode(t.toUpperCase())}
+                      autoCapitalize="characters"
+                      maxLength={11}
+                      placeholder="e.g. HDFC0001234"
+                      placeholderTextColor="#94A3B8"
+                      style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 6, padding: 8, fontSize: 12, color: colors.textPrimary, letterSpacing: 1 }}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* UPI Inputs */}
+              {payoutMethod === 'UPI' && (
+                <View style={{ backgroundColor: colors.itemSubCard, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.cardBorder, gap: 8, marginBottom: 12 }}>
+                  <View>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 2 }}>UPI ID / VPA *</Text>
+                    <TextInput
+                      value={upiIdInput}
+                      onChangeText={setUpiIdInput}
+                      autoCapitalize="none"
+                      placeholder="username@okhdfcbank or mobile@upi"
+                      placeholderTextColor="#94A3B8"
+                      style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 6, padding: 8, fontSize: 12, color: colors.textPrimary }}
+                    />
+                  </View>
+
+                  <View>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 2 }}>Registered Name on UPI</Text>
+                    <TextInput
+                      value={upiNameInput}
+                      onChangeText={setUpiNameInput}
+                      placeholder={user?.name || 'Your Full Name'}
+                      placeholderTextColor="#94A3B8"
+                      style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 6, padding: 8, fontSize: 12, color: colors.textPrimary }}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* Save As Default Checkbox */}
+              <TouchableOpacity
+                onPress={() => setSaveAsDefaultPayout(!saveAsDefaultPayout)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}
+              >
+                <View
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 4,
+                    borderWidth: 1.5,
+                    borderColor: saveAsDefaultPayout ? '#10B981' : colors.cardBorder,
+                    backgroundColor: saveAsDefaultPayout ? '#10B981' : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {saveAsDefaultPayout && <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>✓</Text>}
+                </View>
+                <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                  Save as default withdrawal method for next time
+                </Text>
+              </TouchableOpacity>
+
+              {/* Action Buttons */}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity
+                  onPress={() => setShowWithdrawModal(false)}
+                  style={{ flex: 1, backgroundColor: colors.inputBg, paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
+                >
+                  <Text style={{ color: colors.textSecondary, fontWeight: '700', fontSize: 13 }}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleWithdrawSubmit}
+                  disabled={isSubmittingWithdraw}
+                  style={{ flex: 1.5, backgroundColor: '#10B981', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
+                >
+                  {isSubmittingWithdraw ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>Submit Request</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* COURSE INSPECTION DETAILS MODAL (FULL RICH MOBILE SPECIFICATION) */}
       <Modal visible={!!selectedCourseDetail} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 14 }}>
@@ -2655,8 +3588,8 @@ export const StudentHomeScreen: React.FC = () => {
                   {selectedCourseDetail.thumbnail && (
                     <Image
                       source={{ uri: selectedCourseDetail.thumbnail }}
-                      style={{ width: '100%', height: 140, borderRadius: 12, marginBottom: 12 }}
-                      resizeMode="cover"
+                      style={{ width: '100%', height: 160, borderRadius: 12, marginBottom: 12, backgroundColor: isDarkMode ? '#1E293B' : '#F1F5F9' }}
+                      resizeMode="contain"
                     />
                   )}
 
