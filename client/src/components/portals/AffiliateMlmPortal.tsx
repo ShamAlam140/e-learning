@@ -171,40 +171,40 @@ export const AffiliateMlmPortal: React.FC = () => {
       </div>
 
       {feedbackMsg && (
-        <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34D399', fontSize: '0.85rem', fontWeight: '700', marginBottom: '20px' }}>
+        <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'var(--badge-emerald-bg)', border: '1px solid var(--badge-emerald-border)', color: 'var(--badge-emerald-color)', fontSize: '0.85rem', fontWeight: '700', marginBottom: '18px' }}>
           {feedbackMsg}
         </div>
       )}
 
       {errorMsg && (
-        <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#FB7185', fontSize: '0.85rem', fontWeight: '600', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'var(--badge-rose-bg)', border: '1px solid var(--badge-rose-border)', color: 'var(--badge-rose-color)', fontSize: '0.85rem', fontWeight: '600', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <AlertCircle size={16} />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {/* Rank Progress & Auto-Placement Selector Bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '18px' }}>
         {/* Rank Progression Bar */}
-        <div className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
+        <div className="glass-card" style={{ padding: '18px', borderRadius: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', fontSize: '0.95rem', color: '#FBBF24' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', fontSize: '0.95rem', color: 'var(--badge-amber-color)' }}>
               <Award size={18} /> Current Rank: {stats?.rank || 'BRONZE'} PARTNER
             </div>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Progress Active</span>
           </div>
 
-          <div style={{ height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden', marginBottom: '10px' }}>
+          <div style={{ height: '8px', background: 'var(--bg-surface)', borderRadius: '4px', overflow: 'hidden', marginBottom: '10px', border: '1px solid var(--border-color)' }}>
             <div style={{ width: stats?.rank === 'GOLD' ? '85%' : '45%', height: '100%', background: 'var(--amber-gradient)' }} />
           </div>
 
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            Total Network Volume: <strong style={{ color: '#FFF' }}>{stats ? (stats.totalVolume || 0).toLocaleString('en-IN') : 0} PV</strong> (Direct Referrals: {stats?.directReferralsCount || 0})
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            Total Network Volume: <strong style={{ color: 'var(--text-primary)' }}>{stats ? (stats.totalVolume || 0).toLocaleString('en-IN') : 0} PV</strong> (Direct Referrals: <strong style={{ color: 'var(--text-primary)' }}>{stats?.directReferralsCount || 0}</strong>)
           </div>
         </div>
 
         {/* Auto-Placement Selector */}
-        <div className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
+        <div className="glass-card" style={{ padding: '18px', borderRadius: '16px' }}>
           <div style={{ fontWeight: '800', fontSize: '0.95rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Network size={18} color="var(--primary-accent)" />
             Downline Binary Placement Leg Preference
@@ -219,8 +219,8 @@ export const AffiliateMlmPortal: React.FC = () => {
                 padding: '8px 10px',
                 borderRadius: '10px',
                 border: placementLeg === 'AUTO' ? '2px solid var(--primary-accent)' : '1px solid var(--border-color)',
-                background: placementLeg === 'AUTO' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
-                color: placementLeg === 'AUTO' ? '#818CF8' : 'var(--text-secondary)',
+                background: placementLeg === 'AUTO' ? 'var(--badge-primary-bg)' : 'var(--bg-surface)',
+                color: placementLeg === 'AUTO' ? 'var(--primary-accent)' : 'var(--text-secondary)',
                 fontWeight: '700',
                 cursor: 'pointer',
                 fontSize: '0.8rem'
@@ -236,9 +236,9 @@ export const AffiliateMlmPortal: React.FC = () => {
                 flex: 1,
                 padding: '8px 10px',
                 borderRadius: '10px',
-                border: placementLeg === 'LEFT' ? '2px solid #34D399' : '1px solid var(--border-color)',
-                background: placementLeg === 'LEFT' ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.03)',
-                color: placementLeg === 'LEFT' ? '#34D399' : 'var(--text-secondary)',
+                border: placementLeg === 'LEFT' ? '2px solid var(--badge-emerald-color)' : '1px solid var(--border-color)',
+                background: placementLeg === 'LEFT' ? 'var(--badge-emerald-bg)' : 'var(--bg-surface)',
+                color: placementLeg === 'LEFT' ? 'var(--badge-emerald-color)' : 'var(--text-secondary)',
                 fontWeight: '700',
                 cursor: 'pointer',
                 fontSize: '0.8rem'
@@ -254,9 +254,9 @@ export const AffiliateMlmPortal: React.FC = () => {
                 flex: 1,
                 padding: '8px 10px',
                 borderRadius: '10px',
-                border: placementLeg === 'RIGHT' ? '2px solid #818CF8' : '1px solid var(--border-color)',
-                background: placementLeg === 'RIGHT' ? 'rgba(129,140,248,0.2)' : 'rgba(255,255,255,0.03)',
-                color: placementLeg === 'RIGHT' ? '#818CF8' : 'var(--text-secondary)',
+                border: placementLeg === 'RIGHT' ? '2px solid var(--primary-accent)' : '1px solid var(--border-color)',
+                background: placementLeg === 'RIGHT' ? 'var(--badge-primary-bg)' : 'var(--bg-surface)',
+                color: placementLeg === 'RIGHT' ? 'var(--primary-accent)' : 'var(--text-secondary)',
                 fontWeight: '700',
                 cursor: 'pointer',
                 fontSize: '0.8rem'
@@ -269,12 +269,12 @@ export const AffiliateMlmPortal: React.FC = () => {
       </div>
 
       {/* 1-Click Social Marketing Share Suite Bar */}
-      <div className="glass-card" style={{ padding: '16px 24px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', borderRadius: '16px' }}>
+      <div className="glass-card" style={{ padding: '14px 20px', marginBottom: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', borderRadius: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Share2 size={22} color="var(--primary-accent)" />
           <div>
-            <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>1-Click Social Marketing Share Suite</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Share referral link directly to WhatsApp & Telegram contacts</div>
+            <div style={{ fontWeight: '700', fontSize: '0.92rem' }}>1-Click Social Marketing Share Suite</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Share referral link directly to WhatsApp & Telegram contacts</div>
           </div>
         </div>
 
@@ -290,76 +290,77 @@ export const AffiliateMlmPortal: React.FC = () => {
       </div>
 
       {/* Complete Binary MLM Calculation & Payout Card */}
-      <div className="glass-card" style={{ padding: '24px', marginBottom: '28px', background: 'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(217,119,6,0.12) 100%)', borderRadius: '18px', border: '1px solid rgba(245,158,11,0.3)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+      <div className="glass-card" style={{ padding: '20px 24px', marginBottom: '22px', background: 'var(--bg-card)', borderRadius: '16px', border: '1.5px solid var(--badge-amber-border)', boxShadow: 'var(--shadow-card)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '14px' }}>
           <div>
-            <div style={{ fontSize: '0.78rem', color: '#FBBF24', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '4px' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--badge-amber-color)', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '4px' }}>
               ⚡ REAL-TIME BINARY MATCHING COMMISSION BREAKDOWN
             </div>
-            <div style={{ fontSize: '2.2rem', fontWeight: '900', color: '#10B981', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ fontSize: '2.1rem', fontWeight: '900', color: 'var(--badge-emerald-color)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               ₹ {stats ? (stats.netPayableBonus || 0).toLocaleString('en-IN') : 0}.00
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>(Net Receivable Payout)</span>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: '600' }}>(Net Receivable Payout)</span>
             </div>
           </div>
 
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '700' }}>Lifetime Binary Paid</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#FBBF24' }}>
+            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: '700' }}>Lifetime Binary Paid</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--badge-amber-color)' }}>
               ₹ {stats ? (stats.totalEarnings || 0).toLocaleString('en-IN') : 0}.00
             </div>
           </div>
         </div>
 
         {/* Binary Matching Metrics Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', background: 'var(--bg-surface)', padding: '16px', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', background: 'var(--bg-surface)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
           <div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>CARRIED LEFT PV</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#34D399' }}>{stats?.carriedLeftPV || 0} PV</div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Total: {stats?.leftVolume || 0} PV</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '2px' }}>CARRIED LEFT PV</div>
+            <div style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--badge-emerald-color)' }}>{stats?.carriedLeftPV || 0} PV</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Total: {stats?.leftVolume || 0} PV</div>
           </div>
 
           <div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>CARRIED RIGHT PV</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#818CF8' }}>{stats?.carriedRightPV || 0} PV</div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Total: {stats?.rightVolume || 0} PV</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '2px' }}>CARRIED RIGHT PV</div>
+            <div style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--primary-accent)' }}>{stats?.carriedRightPV || 0} PV</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Total: {stats?.rightVolume || 0} PV</div>
           </div>
 
           <div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>1:1 MATCHED PAIRS</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#FBBF24' }}>{stats?.matchedPV || 0} PV</div>
-            <div style={{ fontSize: '0.68rem', color: '#FBBF24' }}>{stats?.config?.matchingRatePercentage ?? 10}% Rate = ₹{stats?.grossMatchingBonus || 0}</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '2px' }}>1:1 MATCHED PAIRS</div>
+            <div style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--badge-amber-color)' }}>{stats?.matchedPV || 0} PV</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{stats?.config?.matchingRatePercentage ?? 10}% Rate = <strong style={{ color: 'var(--badge-amber-color)' }}>₹{stats?.grossMatchingBonus || 0}</strong></div>
           </div>
 
           <div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>DAILY CAPPING LIMIT</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: stats?.isCapped ? '#FB7185' : '#34D399' }}>₹{(stats?.config?.dailyCappingLimit ?? stats?.dailyCappingLimit ?? 25000).toLocaleString('en-IN')} / day</div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{stats?.isCapped ? '⚠️ Capped Limit Reached' : '✅ Within Capping Limit'}</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '2px' }}>DAILY CAPPING LIMIT</div>
+            <div style={{ fontSize: '1.15rem', fontWeight: '800', color: stats?.isCapped ? 'var(--badge-rose-color)' : 'var(--badge-emerald-color)' }}>₹{(stats?.config?.dailyCappingLimit ?? stats?.dailyCappingLimit ?? 25000).toLocaleString('en-IN')} / day</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{stats?.isCapped ? '⚠️ Capped Limit Reached' : '✅ Within Capping Limit'}</div>
           </div>
 
           <div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>DEDUCTIONS ({(stats?.config?.adminFeePercentage ?? 5) + (stats?.config?.tdsPercentage ?? 5)}%)</div>
-            <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#FB7185' }}>- ₹{(stats?.adminFee || 0) + (stats?.tdsDeduction || 0)}</div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{stats?.config?.adminFeePercentage ?? 5}% Admin (₹{stats?.adminFee || 0}) + {stats?.config?.tdsPercentage ?? 5}% TDS (₹{stats?.tdsDeduction || 0})</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '2px' }}>DEDUCTIONS ({(stats?.config?.adminFeePercentage ?? 5) + (stats?.config?.tdsPercentage ?? 5)}%)</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--badge-rose-color)' }}>- ₹{(stats?.adminFee || 0) + (stats?.tdsDeduction || 0)}</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{stats?.config?.adminFeePercentage ?? 5}% Admin + {stats?.config?.tdsPercentage ?? 5}% TDS</div>
           </div>
         </div>
       </div>
 
-      {/* Render Main Binary Tree & Volume Visualizer */}
+      {/* Render Main Binary Tree & Volume Visualizer (with hideDuplicateHeader to eliminate redundant cards) */}
       <MlmTreeVisualizer
         treeData={treeData}
         stats={stats}
         isLoading={isLoadingTree || isLoadingStats}
         onRefresh={() => { loadStats(); loadTree(); loadPayoutHistoryData(); }}
+        hideDuplicateHeader={true}
       />
 
       {/* Binary Payout Statements Table */}
-      <div className="glass-card" style={{ padding: '24px', marginTop: '28px', borderRadius: '18px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <div className="glass-card" style={{ padding: '20px', marginTop: '22px', borderRadius: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>📜 Binary Payout Settlement Statements</h3>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>Official audit logs of processed 1:1 pair matching bonuses with 5% Admin & 5% TDS deductions.</p>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: '800', margin: 0 }}>📜 Binary Payout Settlement Statements</h3>
+            <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>Official audit logs of processed 1:1 pair matching bonuses with 5% Admin & 5% TDS deductions.</p>
           </div>
-          <span className="badge badge-amber" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>
+          <span className="badge badge-amber" style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: '700' }}>
             {payoutHistory.length} Statements Logged
           </span>
         </div>
@@ -387,12 +388,12 @@ export const AffiliateMlmPortal: React.FC = () => {
                 {payoutHistory.map((item) => (
                   <tr key={item._id}>
                     <td>{new Date(item.cycleDate).toLocaleString('en-IN')}</td>
-                    <td><strong style={{ color: '#FBBF24' }}>{item.matchedVolume} PV</strong></td>
+                    <td><strong style={{ color: 'var(--badge-amber-color)' }}>{item.matchedVolume} PV</strong></td>
                     <td>₹{item.grossBonus}</td>
                     <td>₹{item.cappedGrossBonus}</td>
-                    <td style={{ color: '#FB7185' }}>- ₹{item.adminFee}</td>
-                    <td style={{ color: '#FB7185' }}>- ₹{item.tdsDeduction}</td>
-                    <td><strong style={{ color: '#34D399', fontSize: '0.9rem' }}>₹{item.netPayout}</strong></td>
+                    <td style={{ color: 'var(--badge-rose-color)', fontWeight: '600' }}>- ₹{item.adminFee}</td>
+                    <td style={{ color: 'var(--badge-rose-color)', fontWeight: '600' }}>- ₹{item.tdsDeduction}</td>
+                    <td><strong style={{ color: 'var(--badge-emerald-color)', fontSize: '0.9rem' }}>₹{item.netPayout}</strong></td>
                     <td><span className="badge badge-emerald" style={{ fontSize: '0.7rem' }}>{item.status}</span></td>
                   </tr>
                 ))}
@@ -423,7 +424,7 @@ export const AffiliateMlmPortal: React.FC = () => {
               <QrCode size={160} color="#000" />
             </div>
 
-            <div style={{ fontSize: '0.85rem', color: '#FBBF24', fontWeight: '700' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--badge-amber-color)', fontWeight: '700' }}>
               Referral Code: {stats?.referralCode || user?.userId || 'EDU-99201'}
             </div>
           </div>
