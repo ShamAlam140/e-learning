@@ -164,6 +164,7 @@ export const CourseCreationWizardModal: React.FC<CourseCreationWizardModalProps>
   description,
   onDescriptionChange,
 
+  thumbnailFile,
   thumbnailPreview,
   thumbnailUrl,
   onThumbnailFileChange,
@@ -174,6 +175,7 @@ export const CourseCreationWizardModal: React.FC<CourseCreationWizardModalProps>
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [stepError, setStepError] = useState('');
+  const [thumbnailFit, setThumbnailFit] = useState<'contain' | 'cover'>('contain');
   const [customTopicInput, setCustomTopicInput] = useState('');
   const [newCurriculumTitle, setNewCurriculumTitle] = useState('');
   const [newCurriculumLectures, setNewCurriculumLectures] = useState('5');
@@ -2652,24 +2654,180 @@ export const CourseCreationWizardModal: React.FC<CourseCreationWizardModalProps>
                   )}
                 </div>
 
-                {/* Thumbnail Upload */}
+                {/* Thumbnail Upload & Fit Options */}
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)', display: 'block' }}>
-                      📸 Course Thumbnail / Banner Image
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                      📸 Course Thumbnail / Banner Image *
                     </label>
                     <span className="badge badge-amber" style={{ fontSize: '0.66rem', padding: '1px 6px' }}>
                       MAX 2MB
                     </span>
                   </div>
 
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/webp"
-                    onChange={onThumbnailFileChange}
-                    className="form-input"
-                    style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                  />
+                  {thumbnailPreview || thumbnailUrl ? (
+                    <div
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-card)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div
+                          style={{
+                            width: '80px',
+                            height: '48px',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            background: '#0B0F19',
+                            flexShrink: 0,
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            position: 'relative'
+                          }}
+                        >
+                          <img
+                            src={thumbnailPreview || thumbnailUrl}
+                            alt="Selected Banner"
+                            style={{ width: '100%', height: '100%', objectFit: thumbnailFit }}
+                          />
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {thumbnailFile ? thumbnailFile.name : 'Course Banner Attached'}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {thumbnailFile ? `${(thumbnailFile.size / (1024 * 1024)).toFixed(2)} MB • ` : ''}
+                            <span style={{ color: thumbnailFit === 'contain' ? '#10B981' : '#3B82F6', fontWeight: '700' }}>
+                              {thumbnailFit === 'contain' ? '📐 Full Image Fit (No Crop)' : '🖼️ Full Frame Fill (Cover)'}
+                            </span>
+                          </div>
+                        </div>
+                        <label
+                          htmlFor="change-banner-file-input"
+                          style={{
+                            fontSize: '0.74rem',
+                            fontWeight: '700',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            background: 'var(--bg-surface)',
+                            border: '1px solid var(--border-color)',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          Change File
+                          <input
+                            id="change-banner-file-input"
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                            onChange={onThumbnailFileChange}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                      </div>
+
+                      {/* Display Fit Toggle */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '6px' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                          Display Fit Mode:
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setThumbnailFit('contain')}
+                            style={{
+                              border: 'none',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: thumbnailFit === 'contain' ? '700' : '500',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              background: thumbnailFit === 'contain' ? '#F59E0B' : 'var(--bg-surface)',
+                              color: thumbnailFit === 'contain' ? '#FFFFFF' : 'var(--text-secondary)',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            📐 Fit Full Image (No Crop)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setThumbnailFit('cover')}
+                            style={{
+                              border: 'none',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: thumbnailFit === 'cover' ? '700' : '500',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              background: thumbnailFit === 'cover' ? '#3B82F6' : 'var(--bg-surface)',
+                              color: thumbnailFit === 'cover' ? '#FFFFFF' : 'var(--text-secondary)',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            🖼️ Fill & Crop (Cover)
+                          </button>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                        💡 <strong>"Fit Full Image"</strong> ensures all text, dialogs, diagrams, and screenshot content remain 100% visible without being cut off.
+                      </div>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="step4-thumbnail-input"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '14px 16px',
+                        borderRadius: '12px',
+                        border: '1px dashed var(--border-color)',
+                        background: 'var(--bg-card)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <UploadCloud size={22} style={{ color: '#F59E0B' }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                          Click to Select Course Thumbnail / Banner
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          JPG, PNG, WEBP up to 2MB (16:9 ratio recommended)
+                        </div>
+                      </div>
+                      <span className="btn-secondary" style={{ fontSize: '0.74rem', padding: '6px 12px', pointerEvents: 'none', flexShrink: 0 }}>
+                        Browse File
+                      </span>
+                      <input
+                        id="step4-thumbnail-input"
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        onChange={onThumbnailFileChange}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  )}
                 </div>
 
                 {/* Description */}
@@ -2704,7 +2862,36 @@ export const CourseCreationWizardModal: React.FC<CourseCreationWizardModalProps>
                   }}
                 >
                   {/* Banner Image Preview */}
-                  <div style={{ position: 'relative', height: '140px', background: 'rgba(0,0,0,0.1)' }}>
+                  <div
+                    style={{
+                      position: 'relative',
+                      width: '100%',
+                      aspectRatio: '16 / 9',
+                      maxHeight: '220px',
+                      background: '#0B0F19',
+                      borderRadius: '12px 12px 0 0',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {/* Blurred background layer for contain mode to prevent ugly borders */}
+                    {thumbnailFit === 'contain' && (thumbnailPreview || thumbnailUrl) && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          backgroundImage: `url(${thumbnailPreview || thumbnailUrl})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          filter: 'blur(20px) brightness(0.35)',
+                          opacity: 0.65,
+                          transform: 'scale(1.2)'
+                        }}
+                      />
+                    )}
+
                     <img
                       src={
                         thumbnailPreview ||
@@ -2712,19 +2899,73 @@ export const CourseCreationWizardModal: React.FC<CourseCreationWizardModalProps>
                         'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80'
                       }
                       alt="Preview"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      style={{
+                        position: 'relative',
+                        width: '100%',
+                        height: '100%',
+                        objectFit: thumbnailFit,
+                        zIndex: 1,
+                        transition: 'all 0.2s ease'
+                      }}
                     />
-                    <div style={{ position: 'absolute', top: '8px', left: '8px', display: 'flex', gap: '6px' }}>
+
+                    {/* Translucent floating badges */}
+                    <div style={{ position: 'absolute', top: '8px', left: '8px', display: 'flex', gap: '6px', zIndex: 2 }}>
                       <span
                         className={courseMode === 'LIVE_ONLINE' ? 'badge badge-rose' : 'badge badge-primary'}
-                        style={{ fontSize: '0.64rem', padding: '2px 6px', fontWeight: '800' }}
+                        style={{
+                          fontSize: '0.64rem',
+                          padding: '2px 8px',
+                          fontWeight: '800',
+                          backdropFilter: 'blur(6px)',
+                          background: courseMode === 'LIVE_ONLINE' ? 'rgba(225, 29, 72, 0.85)' : 'rgba(79, 70, 229, 0.85)',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                        }}
                       >
                         {courseMode === 'LIVE_ONLINE' ? '🔴 LIVE ONLINE' : courseMode === 'RECORDED_VIDEO' ? '📹 RECORDED' : '⚡ HYBRID'}
                       </span>
-                      <span className="badge badge-amber" style={{ fontSize: '0.64rem', padding: '2px 6px', fontWeight: '700' }}>
+                      <span
+                        className="badge badge-amber"
+                        style={{
+                          fontSize: '0.64rem',
+                          padding: '2px 8px',
+                          fontWeight: '700',
+                          backdropFilter: 'blur(6px)',
+                          background: 'rgba(217, 119, 6, 0.85)',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                        }}
+                      >
                         {subjectName || 'Subject'}
                       </span>
                     </div>
+
+                    {/* Quick Fit Toggle on Preview */}
+                    <button
+                      type="button"
+                      onClick={() => setThumbnailFit(prev => prev === 'contain' ? 'cover' : 'contain')}
+                      title="Click to toggle Full Image Fit vs Cover Fill"
+                      style={{
+                        position: 'absolute',
+                        bottom: '8px',
+                        right: '8px',
+                        zIndex: 2,
+                        background: 'rgba(0, 0, 0, 0.75)',
+                        color: '#FFFFFF',
+                        border: '1px solid rgba(255, 255, 255, 0.25)',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        fontSize: '0.66rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        backdropFilter: 'blur(6px)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                      }}
+                    >
+                      {thumbnailFit === 'contain' ? '📐 Full Fit' : '🖼️ Cover'}
+                    </button>
                   </div>
 
                   {/* Card Content */}

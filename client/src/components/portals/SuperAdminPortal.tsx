@@ -4655,6 +4655,7 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({ backendUptim
         onCurriculumChange={setNewCurriculum}
         description={newDescription}
         onDescriptionChange={setNewDescription}
+        thumbnailFile={thumbnailFile}
         thumbnailPreview={thumbnailPreview}
         thumbnailUrl={newThumbnailUrl}
         onThumbnailFileChange={handleThumbnailFileChange}
