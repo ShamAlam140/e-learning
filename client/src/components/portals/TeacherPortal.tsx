@@ -460,15 +460,14 @@ export const TeacherPortal: React.FC = () => {
     setShowBulkMcqModal(true);
   };
 
-  // Sample CSV Downloader for MCQs
+  // Sample CSV Downloader for MCQs (courseId is automatically linked from selected course batch)
   const handleDownloadSampleMcqCsvTemplate = () => {
-    const defaultId = bulkMcqCourseId || (coursesList.length > 0 ? coursesList[0]._id : 'PASTE_COURSE_ID_HERE');
-    const header = 'courseId,quizSetTitle,questionText,optionA,optionB,optionC,optionD,correctOption,explanation,marks\n';
-    const r1 = `"${defaultId}","Chapter 1 - Chemical Reactions","What is the chemical formula of Rust?","Fe2O3.xH2O","Fe3O4","FeO","Fe(OH)2","A","Rust is hydrated iron(III) oxide with formula Fe2O3.xH2O.",1\n`;
-    const r2 = `"${defaultId}","Chapter 1 - Chemical Reactions","Which gas is liberated when Zinc granules react with dilute HCl?","Oxygen","Hydrogen","Chlorine","Nitrogen","B","Zn + 2HCl -> ZnCl2 + H2 (Hydrogen gas is released with a pop sound).",1\n`;
-    const r3 = `"${defaultId}","Chapter 1 - Chemical Reactions","What is the pH value of pure distilled water at 25°C?","5","6","7","8","C","Pure water is neutral on the pH scale and has a value of 7.",1\n`;
-    const r4 = `"${defaultId}","Chapter 1 - Chemical Reactions","Which of the following processes is exothermic in nature?","Respiration","Photosynthesis","Evaporation","Sublimation","A","Respiration produces energy (ATP) by breaking down glucose.",1\n`;
-    const r5 = `"${defaultId}","Chapter 1 - Chemical Reactions","What is the oxidation state of Manganese in Potassium Permanganate (KMnO4)?","+2","+4","+6","+7","D","In KMnO4: K(+1) + Mn(x) + 4*O(-2) = 0 => x = +7.",1\n`;
+    const header = 'quizSetTitle,questionText,optionA,optionB,optionC,optionD,correctOption,explanation,marks\n';
+    const r1 = `"Chapter 1 - Chemical Reactions","What is the chemical formula of Rust?","Fe2O3.xH2O","Fe3O4","FeO","Fe(OH)2","A","Rust is hydrated iron(III) oxide with formula Fe2O3.xH2O.",1\n`;
+    const r2 = `"Chapter 1 - Chemical Reactions","Which gas is liberated when Zinc granules react with dilute HCl?","Oxygen","Hydrogen","Chlorine","Nitrogen","B","Zn + 2HCl -> ZnCl2 + H2 (Hydrogen gas is released with a pop sound).",1\n`;
+    const r3 = `"Chapter 1 - Chemical Reactions","What is the pH value of pure distilled water at 25°C?","5","6","7","8","C","Pure water is neutral on the pH scale and has a value of 7.",1\n`;
+    const r4 = `"Chapter 1 - Chemical Reactions","Which of the following processes is exothermic in nature?","Respiration","Photosynthesis","Evaporation","Sublimation","A","Respiration produces energy (ATP) by breaking down glucose.",1\n`;
+    const r5 = `"Chapter 1 - Chemical Reactions","What is the oxidation state of Manganese in Potassium Permanganate (KMnO4)?","+2","+4","+6","+7","D","In KMnO4: K(+1) + Mn(x) + 4*O(-2) = 0 => x = +7.",1\n`;
 
     const blob = new Blob([header + r1 + r2 + r3 + r4 + r5], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -1487,64 +1486,17 @@ export const TeacherPortal: React.FC = () => {
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                       Delivery Mode: <strong>{crs.courseMode || 'RECORDED_VIDEO'}</strong> • Price: <strong style={{ color: 'var(--badge-emerald-color, #047857)' }}>₹{crs.price}</strong> (MRP: ₹{crs.originalPrice})
                     </div>
-                    {/* Course MongoDB ID Display with 1-Click Copy for CSV/Excel */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)', fontWeight: '600' }}>Course _id:</span>
-                      <code style={{ fontSize: '0.74rem', background: 'rgba(99, 102, 241, 0.12)', color: '#818CF8', padding: '2px 8px', borderRadius: '5px', border: '1px solid rgba(99, 102, 241, 0.28)', fontFamily: 'monospace', fontWeight: '700' }}>
-                        {crs._id}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyCourseId(crs._id)}
-                        style={{
-                          background: copiedCourseId === crs._id ? 'rgba(16, 185, 129, 0.22)' : 'rgba(255, 255, 255, 0.06)',
-                          border: copiedCourseId === crs._id ? '1px solid #10B981' : '1px solid var(--border-color)',
-                          color: copiedCourseId === crs._id ? 'var(--badge-emerald-color, #047857)' : 'var(--text-secondary)',
-                          padding: '2px 8px',
-                          borderRadius: '5px',
-                          fontSize: '0.72rem',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                        title="Copy Course ID for MCQ CSV / Excel bulk upload"
-                      >
-                        {copiedCourseId === crs._id ? (
-                          <>
-                            <Check size={12} /> Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={12} /> Copy ID
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenBulkMcqForCourse(crs._id, crs.title)}
-                        style={{
-                          background: 'rgba(245, 158, 11, 0.12)',
-                          border: '1px solid rgba(245, 158, 11, 0.3)',
-                          color: '#FBBF24',
-                          padding: '2px 8px',
-                          borderRadius: '5px',
-                          fontSize: '0.72rem',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                        title="Bulk upload MCQ questions for this specific course batch"
-                      >
-                        <FileSpreadsheet size={12} /> Bulk Upload MCQs
-                      </button>
-                    </div>
                   </div>
 
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => handleOpenBulkMcqForCourse(crs._id, crs.title)}
+                      style={{ fontSize: '0.75rem', padding: '5px 10px', color: '#F59E0B', borderColor: 'rgba(245,158,11,0.3)' }}
+                      title="Upload CSV / Excel questions directly to this course batch"
+                    >
+                      <FileSpreadsheet size={13} style={{ marginRight: '4px' }} /> Bulk Upload MCQs
+                    </button>
                     <button
                       className="btn-secondary"
                       onClick={() => handleInspectTeacherCourseRoster(crs._id)}
@@ -1730,30 +1682,8 @@ export const TeacherPortal: React.FC = () => {
                   ))}
                 </select>
                 {selectedMcqCourseId && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Target Course ID:</span>
-                    <code style={{ fontSize: '0.75rem', background: 'rgba(99, 102, 241, 0.15)', color: '#818CF8', padding: '2px 8px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: '700' }}>
-                      {selectedMcqCourseId}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyCourseId(selectedMcqCourseId)}
-                      style={{
-                        background: copiedCourseId === selectedMcqCourseId ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
-                        border: copiedCourseId === selectedMcqCourseId ? '1px solid #10B981' : '1px solid var(--border-color)',
-                        color: copiedCourseId === selectedMcqCourseId ? 'var(--badge-emerald-color, #047857)' : 'var(--text-secondary)',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.72rem',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      {copiedCourseId === selectedMcqCourseId ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy ID</>}
-                    </button>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--badge-emerald-color, #047857)', marginTop: '8px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <CheckCircle2 size={13} /> Questions will be linked directly to this selected course batch
                   </div>
                 )}
               </div>
@@ -3342,7 +3272,7 @@ export const TeacherPortal: React.FC = () => {
               </div>
 
               <div style={{ marginTop: '10px', fontSize: '0.72rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '6px', fontFamily: 'monospace', overflowX: 'auto' }}>
-                <strong>Required Columns:</strong> courseId, quizSetTitle, questionText, optionA, optionB, optionC, optionD, correctOption (A/B/C/D), explanation, marks
+                <strong>Columns:</strong> quizSetTitle, questionText, optionA, optionB, optionC, optionD, correctOption (A/B/C/D), explanation, marks <span style={{ color: 'var(--badge-emerald-color, #047857)', fontWeight: '700' }}>(courseId is optional — auto-assigned from dropdown)</span>
               </div>
             </div>
 
@@ -3350,7 +3280,7 @@ export const TeacherPortal: React.FC = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '18px' }}>
               <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)' }}>
                 <label style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
-                  🎯 Target Course Batch (Fallback / Default) *
+                  🎯 Target Course Batch *
                 </label>
                 <select
                   className="form-input"
@@ -3374,18 +3304,8 @@ export const TeacherPortal: React.FC = () => {
                 </select>
 
                 {bulkMcqCourseId && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Course ID:</span>
-                    <code style={{ fontSize: '0.73rem', background: 'rgba(99, 102, 241, 0.15)', color: '#818CF8', padding: '1px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
-                      {bulkMcqCourseId}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyCourseId(bulkMcqCourseId)}
-                      style={{ background: 'none', border: 'none', color: copiedCourseId === bulkMcqCourseId ? 'var(--badge-emerald-color, #047857)' : '#818CF8', fontSize: '0.72rem', cursor: 'pointer', fontWeight: '700' }}
-                    >
-                      {copiedCourseId === bulkMcqCourseId ? '✓ Copied' : '📋 Copy'}
-                    </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '6px', fontSize: '0.74rem', color: 'var(--badge-emerald-color, #047857)', fontWeight: '700' }}>
+                    <CheckCircle2 size={13} /> Questions will be automatically linked to this selected course batch
                   </div>
                 )}
               </div>
@@ -3480,7 +3400,7 @@ export const TeacherPortal: React.FC = () => {
                     rows={6}
                     value={bulkMcqPastedText}
                     onChange={(e) => handlePasteTextMcqChange(e.target.value)}
-                    placeholder={`Paste CSV or copy cells directly from Excel / Google Sheets here...\n\nExample:\ncourseId,quizSetTitle,questionText,optionA,optionB,optionC,optionD,correctOption,explanation,marks\n${bulkMcqCourseId || 'PASTE_COURSE_ID'},Unit 1 Test,What is H2O?,Water,Salt,Acid,Base,A,Chemical formula of water,1`}
+                    placeholder={`Paste CSV or copy cells directly from Excel / Google Sheets here...\n\nExample:\nquizSetTitle,questionText,optionA,optionB,optionC,optionD,correctOption,explanation,marks\nUnit 1 Test,What is H2O?,Water,Salt,Acid,Base,A,Chemical formula of water,1`}
                     style={{ width: '100%', fontSize: '0.8rem', fontFamily: 'monospace' }}
                   />
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
