@@ -44,9 +44,9 @@
   --badge-primary-color: #4F46E5;
   --badge-primary-border: rgba(79, 70, 229, 0.25);
 
-  --badge-emerald-bg: rgba(5, 150, 105, 0.1);
-  --badge-emerald-color: #059669;
-  --badge-emerald-border: rgba(5, 150, 105, 0.25);
+  --badge-emerald-bg: rgba(5, 150, 105, 0.08);
+  --badge-emerald-color: #047857;
+  --badge-emerald-border: rgba(5, 150, 105, 0.28);
 
   --badge-amber-bg: rgba(217, 119, 6, 0.1);
   --badge-amber-color: #D97706;
@@ -342,6 +342,78 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--badge-rose-color);
   border: 1px solid var(--badge-rose-border);
 }
+
+/* High-Contrast Professional Course Tag */
+.course-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-weight: 700;
+  background: rgba(5, 150, 105, 0.08);
+  color: #047857;
+  border: 1px solid rgba(5, 150, 105, 0.28);
+}
+[data-theme="dark"] .course-tag-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+/* High-Contrast MCQ Correct Option & Pill */
+.mcq-option-correct {
+  background: rgba(5, 150, 105, 0.08) !important;
+  border: 1.5px solid #059669 !important;
+  color: #064E3B !important;
+  font-weight: 700 !important;
+}
+[data-theme="dark"] .mcq-option-correct {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border: 1.5px solid #10B981 !important;
+  color: #ECFDF5 !important;
+  font-weight: 700 !important;
+}
+
+.mcq-correct-pill {
+  background: #059669;
+  color: #FFFFFF;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 4px;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
+}
+[data-theme="dark"] .mcq-correct-pill {
+  background: #10B981;
+  color: #064E3B;
+}
+
+/* Quiz Attendance Score Contrast */
+.text-score-passed {
+  color: #047857 !important;
+  font-weight: 800;
+}
+[data-theme="dark"] .text-score-passed {
+  color: #34D399 !important;
+  font-weight: 800;
+}
+
+.text-score-failed {
+  color: #E11D48 !important;
+  font-weight: 800;
+}
+[data-theme="dark"] .text-score-failed {
+  color: #FB7185 !important;
+  font-weight: 800;
+}
+
 
 /* Modal Overlay */
 .modal-overlay {

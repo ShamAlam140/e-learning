@@ -1234,7 +1234,7 @@ export const TeacherPortal: React.FC = () => {
       {/* 100% Dynamic Metric Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px' }}>
         <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.12) 100%)' }}>
-          <div style={{ fontSize: '0.72rem', color: '#34D399', fontWeight: '700', marginBottom: '2px' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--badge-emerald-color, #047857)', fontWeight: '800', marginBottom: '2px' }}>
             MY TOTAL SALES ROYALTIES (70% SHARE)
           </div>
           <div style={{ fontSize: '1.4rem', fontWeight: '800' }}>
@@ -1485,7 +1485,7 @@ export const TeacherPortal: React.FC = () => {
                       )}
                     </div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      Delivery Mode: <strong>{crs.courseMode || 'RECORDED_VIDEO'}</strong> • Price: <strong style={{ color: '#34D399' }}>₹{crs.price}</strong> (MRP: ₹{crs.originalPrice})
+                      Delivery Mode: <strong>{crs.courseMode || 'RECORDED_VIDEO'}</strong> • Price: <strong style={{ color: 'var(--badge-emerald-color, #047857)' }}>₹{crs.price}</strong> (MRP: ₹{crs.originalPrice})
                     </div>
                     {/* Course MongoDB ID Display with 1-Click Copy for CSV/Excel */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
@@ -1499,7 +1499,7 @@ export const TeacherPortal: React.FC = () => {
                         style={{
                           background: copiedCourseId === crs._id ? 'rgba(16, 185, 129, 0.22)' : 'rgba(255, 255, 255, 0.06)',
                           border: copiedCourseId === crs._id ? '1px solid #10B981' : '1px solid var(--border-color)',
-                          color: copiedCourseId === crs._id ? '#34D399' : 'var(--text-secondary)',
+                          color: copiedCourseId === crs._id ? 'var(--badge-emerald-color, #047857)' : 'var(--text-secondary)',
                           padding: '2px 8px',
                           borderRadius: '5px',
                           fontSize: '0.72rem',
@@ -1585,7 +1585,7 @@ export const TeacherPortal: React.FC = () => {
       {activeTab === 'CREATE' && (
         <div style={{ maxWidth: '1020px', margin: '0 auto' }}>
           {courseCreatedSuccess && (
-            <div style={{ padding: '10px 14px', borderRadius: '12px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34D399', fontSize: '0.86rem', fontWeight: '700', marginBottom: '16px' }}>
+            <div style={{ padding: '10px 14px', borderRadius: '12px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: 'var(--badge-emerald-color, #047857)', fontSize: '0.86rem', fontWeight: '800', marginBottom: '16px' }}>
               🎉 Course batch published successfully! It is now live in your course directory.
             </div>
           )}
@@ -1698,7 +1698,7 @@ export const TeacherPortal: React.FC = () => {
           </div>
 
           {mcqSavedSuccess && (
-            <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#34D399', fontSize: '0.88rem', fontWeight: '700', marginBottom: '16px' }}>
+            <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', color: 'var(--badge-emerald-color, #047857)', fontSize: '0.88rem', fontWeight: '800', marginBottom: '16px' }}>
               ✅ Successfully published {mcqSavedCount} MCQ question(s) to course test bank!
             </div>
           )}
@@ -1741,7 +1741,7 @@ export const TeacherPortal: React.FC = () => {
                       style={{
                         background: copiedCourseId === selectedMcqCourseId ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
                         border: copiedCourseId === selectedMcqCourseId ? '1px solid #10B981' : '1px solid var(--border-color)',
-                        color: copiedCourseId === selectedMcqCourseId ? '#34D399' : 'var(--text-secondary)',
+                        color: copiedCourseId === selectedMcqCourseId ? 'var(--badge-emerald-color, #047857)' : 'var(--text-secondary)',
                         padding: '2px 8px',
                         borderRadius: '4px',
                         fontSize: '0.72rem',
@@ -1893,7 +1893,7 @@ export const TeacherPortal: React.FC = () => {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div>
-                      <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#34D399', marginBottom: '4px', display: 'block' }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--badge-emerald-color, #047857)', marginBottom: '4px', display: 'block' }}>
                         Select Correct Answer Option *
                       </label>
                       <select
@@ -2069,7 +2069,7 @@ export const TeacherPortal: React.FC = () => {
                             📁 {mcq.quizSetTitle || 'Practice Test Set'}
                           </span>
                           {courseTitle && (
-                            <span style={{ fontSize: '0.72rem', padding: '2px 7px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.12)', color: '#34D399', fontWeight: '600' }}>
+                            <span className="course-tag-badge">
                               📚 {courseTitle}
                             </span>
                           )}
@@ -2116,25 +2116,29 @@ export const TeacherPortal: React.FC = () => {
                           return (
                             <div
                               key={letter}
+                              className={isCorrect ? 'mcq-option-correct' : ''}
                               style={{
-                                padding: '4px 8px',
+                                padding: '5px 10px',
                                 borderRadius: '6px',
-                                background: isCorrect ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.02)',
-                                border: isCorrect ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-color)',
-                                color: isCorrect ? '#34D399' : 'var(--text-secondary)',
-                                fontWeight: isCorrect ? '700' : 'normal',
+                                background: isCorrect ? undefined : 'var(--bg-surface)',
+                                border: isCorrect ? undefined : '1px solid var(--border-color)',
+                                color: isCorrect ? undefined : 'var(--text-secondary)',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '4px',
+                                gap: '6px',
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis'
                               }}
                               title={mcq.options?.[optIdx] || ''}
                             >
-                              <strong style={{ color: isCorrect ? '#34D399' : 'var(--text-muted)' }}>{letter})</strong>
+                              <strong style={{ color: isCorrect ? 'inherit' : 'var(--text-muted)' }}>{letter})</strong>
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{mcq.options?.[optIdx] || '-'}</span>
-                              {isCorrect && <CheckCircle2 size={12} style={{ color: '#34D399', flexShrink: 0, marginLeft: 'auto' }} />}
+                              {isCorrect && (
+                                <span className="mcq-correct-pill">
+                                  <CheckCircle2 size={10} /> Correct Answer
+                                </span>
+                              )}
                             </div>
                           );
                         })}
@@ -2174,7 +2178,7 @@ export const TeacherPortal: React.FC = () => {
               </div>
               <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Passed Tests</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#34D399' }}>{passedAttemptsCount}</div>
+                <div className="text-score-passed" style={{ fontSize: '1.2rem' }}>{passedAttemptsCount}</div>
               </div>
               <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.08)', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Needs Improvement</div>
@@ -2269,7 +2273,7 @@ export const TeacherPortal: React.FC = () => {
                             📁 {att.quizSetTitle || 'Practice Test Set'}
                           </span>
                           {courseTitle && (
-                            <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.12)', color: '#34D399' }}>
+                            <span className="course-tag-badge">
                               📚 {courseTitle}
                             </span>
                           )}
@@ -2286,7 +2290,7 @@ export const TeacherPortal: React.FC = () => {
                       {/* Score & Status */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '0.88rem', fontWeight: '800', color: att.passed ? '#34D399' : '#FB7185' }}>
+                          <div className={att.passed ? 'text-score-passed' : 'text-score-failed'} style={{ fontSize: '0.88rem' }}>
                             Score: {att.score} / {att.totalMarks} ({att.percentage}%)
                           </div>
                           <span className={`badge ${att.passed ? 'badge-emerald' : 'badge-rose'}`} style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
@@ -2363,14 +2367,14 @@ export const TeacherPortal: React.FC = () => {
               {/* CARD 3: Total Available Withdrawable Balance */}
               <div style={{ padding: '18px 20px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(5, 150, 105, 0.08) 100%)', border: '1px solid rgba(16, 185, 129, 0.4)', gridColumn: 'span 1' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '0.72rem', color: '#34D399', fontWeight: '800', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--badge-emerald-color, #047857)', fontWeight: '800', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                     💰 TOTAL WITHDRAWABLE BALANCE
                   </span>
                   <span className="badge badge-emerald" style={{ fontSize: '0.64rem', padding: '2px 6px' }}>
                     100% CASHOUT READY
                   </span>
                 </div>
-                <div style={{ fontSize: '2.1rem', fontWeight: '900', color: '#34D399', margin: '4px 0' }}>
+                <div style={{ fontSize: '2.1rem', fontWeight: '900', color: 'var(--badge-emerald-color, #047857)', margin: '4px 0' }}>
                   ₹ {(stats?.walletBalance || 0).toLocaleString('en-IN')}
                 </div>
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2388,7 +2392,7 @@ export const TeacherPortal: React.FC = () => {
             </div>
 
             {payoutSuccessMsg && (
-              <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34D399', fontSize: '0.84rem', fontWeight: '700', marginBottom: '14px' }}>
+              <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: 'var(--badge-emerald-color, #047857)', fontSize: '0.84rem', fontWeight: '800', marginBottom: '14px' }}>
                 {payoutSuccessMsg}
               </div>
             )}
@@ -2475,9 +2479,9 @@ export const TeacherPortal: React.FC = () => {
                     style={{
                       padding: '10px',
                       borderRadius: '10px',
-                      border: payoutMethod === 'UPI' ? '2px solid #34D399' : '1px solid var(--border-color)',
+                      border: payoutMethod === 'UPI' ? '2px solid var(--badge-emerald-color, #047857)' : '1px solid var(--border-color)',
                       background: payoutMethod === 'UPI' ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-surface)',
-                      color: payoutMethod === 'UPI' ? '#34D399' : 'var(--text-secondary)',
+                      color: payoutMethod === 'UPI' ? 'var(--badge-emerald-color, #047857)' : 'var(--text-secondary)',
                       fontWeight: '800',
                       fontSize: '0.82rem',
                       display: 'flex',
@@ -2666,7 +2670,7 @@ export const TeacherPortal: React.FC = () => {
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '1.2rem', fontWeight: '900', color: isApproved ? '#34D399' : isRejected ? '#FB7185' : 'var(--text-primary)' }}>
+                          <span style={{ fontSize: '1.2rem', fontWeight: '900', color: isApproved ? 'var(--badge-emerald-color, #047857)' : isRejected ? '#FB7185' : 'var(--text-primary)' }}>
                             ₹ {item.amount.toLocaleString('en-IN')}
                           </span>
                           <span
@@ -2705,7 +2709,7 @@ export const TeacherPortal: React.FC = () => {
                         </div>
 
                         {item.utrNumber && (
-                          <div style={{ fontSize: '0.76rem', color: '#34D399', fontWeight: '700', marginTop: '2px' }}>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--badge-emerald-color, #047857)', fontWeight: '700', marginTop: '2px' }}>
                             ✓ Bank UTR: <u>{item.utrNumber}</u>
                           </div>
                         )}
@@ -2756,7 +2760,7 @@ export const TeacherPortal: React.FC = () => {
                         style={{
                           background: copiedCourseId === selectedCourseDetail._id ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
                           border: copiedCourseId === selectedCourseDetail._id ? '1px solid #10B981' : '1px solid var(--border-color)',
-                          color: copiedCourseId === selectedCourseDetail._id ? '#34D399' : 'var(--text-secondary)',
+                          color: copiedCourseId === selectedCourseDetail._id ? 'var(--badge-emerald-color, #047857)' : 'var(--text-secondary)',
                           padding: '2px 8px',
                           borderRadius: '5px',
                           fontSize: '0.72rem',
@@ -2790,7 +2794,7 @@ export const TeacherPortal: React.FC = () => {
                   </div>
                   <div style={{ padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)' }}>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '700' }}>LEVEL 3 TARGET / BOARD</div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#34D399' }}>🎯 {selectedCourseDetail.subCategoryTitle || selectedCourseDetail.subCategory || 'General'}</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--badge-emerald-color, #047857)' }}>🎯 {selectedCourseDetail.subCategoryTitle || selectedCourseDetail.subCategory || 'General'}</div>
                   </div>
                   <div style={{ padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)' }}>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '700' }}>LEVEL 5 TARGET SUBJECT</div>
@@ -2805,7 +2809,7 @@ export const TeacherPortal: React.FC = () => {
                 <div style={{ padding: '12px', borderRadius: '10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', marginBottom: '16px' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>PRICE & DELIVERY MODE</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                    <span style={{ fontSize: '1.2rem', fontWeight: '900', color: '#34D399' }}>
+                    <span style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--badge-emerald-color, #047857)' }}>
                       ₹{selectedCourseDetail.price} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>₹{selectedCourseDetail.originalPrice}</span>
                     </span>
                     <span className="badge badge-primary" style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
@@ -2941,7 +2945,7 @@ export const TeacherPortal: React.FC = () => {
             <div className="glass-card" style={{ padding: '18px 20px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(5,150,105,0.08) 100%)', border: '1px solid rgba(16,185,129,0.25)', marginBottom: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                 <div style={{ flex: 1, minWidth: '280px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34D399', fontWeight: '800', fontSize: '0.95rem', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--badge-emerald-color, #047857)', fontWeight: '800', fontSize: '0.95rem', marginBottom: '8px' }}>
                     <HelpCircle size={18} />
                     <span>Instructor Bulk Upload Guidelines & Specifications</span>
                   </div>
@@ -2951,7 +2955,7 @@ export const TeacherPortal: React.FC = () => {
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginTop: '12px' }}>
                     <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#34D399', display: 'block', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--badge-emerald-color, #047857)', display: 'block', marginBottom: '4px' }}>
                         ✅ Mandatory Required Columns:
                       </span>
                       <ul style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0, paddingLeft: '16px', lineHeight: 1.4 }}>
@@ -2985,7 +2989,7 @@ export const TeacherPortal: React.FC = () => {
 
                 {/* Download Template Action Card */}
                 <div style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', padding: '16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minWidth: '220px' }}>
-                  <FileSpreadsheet size={32} style={{ color: '#34D399', marginBottom: '8px' }} />
+                  <FileSpreadsheet size={32} style={{ color: 'var(--badge-emerald-color, #047857)', marginBottom: '8px' }} />
                   <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#FFF', marginBottom: '4px' }}>
                     Need Sample Template?
                   </div>
@@ -3012,7 +3016,7 @@ export const TeacherPortal: React.FC = () => {
             )}
 
             {bulkUploadResult && (
-              <div style={{ padding: '14px 18px', borderRadius: '12px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34D399', fontSize: '0.9rem', fontWeight: '700', marginBottom: '16px' }}>
+              <div style={{ padding: '14px 18px', borderRadius: '12px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: 'var(--badge-emerald-color, #047857)', fontSize: '0.9rem', fontWeight: '800', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                   <CheckCircle2 size={18} />
                   <span>Bulk Upload Completed! {bulkUploadResult.successCount} Courses Successfully Published to your Instructor Account.</span>
@@ -3060,7 +3064,7 @@ export const TeacherPortal: React.FC = () => {
                     Parsed Rows Live Preview ({parsedBulkCourses.length} Items)
                   </h4>
                   <div style={{ display: 'flex', gap: '10px', fontSize: '0.78rem', fontWeight: '700' }}>
-                    <span style={{ color: '#34D399' }}>
+                    <span style={{ color: 'var(--badge-emerald-color, #047857)' }}>
                       ✓ {parsedBulkCourses.filter(c => c.isValid).length} Valid Ready
                     </span>
                     <span style={{ color: '#FB7185' }}>
@@ -3103,7 +3107,7 @@ export const TeacherPortal: React.FC = () => {
                           <td style={{ padding: '8px 12px' }}>
                             <span className="badge badge-primary" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>{row.courseMode}</span>
                           </td>
-                          <td style={{ padding: '8px 12px', fontWeight: '800', color: '#34D399' }}>
+                          <td style={{ padding: '8px 12px', fontWeight: '800', color: 'var(--badge-emerald-color, #047857)' }}>
                             ₹{row.price} <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', fontSize: '0.7rem' }}>₹{row.originalPrice}</span>
                           </td>
                         </tr>
@@ -3184,7 +3188,7 @@ export const TeacherPortal: React.FC = () => {
                   <span>•</span>
                   <span>Subject: <strong style={{ color: 'var(--text-primary)' }}>{selectedTeacherCourseRoster.course.subjectName || 'All Subjects'}</strong></span>
                   <span>•</span>
-                  <span>Batch Price: <strong style={{ color: '#34D399' }}>₹{selectedTeacherCourseRoster.course.price || 0}</strong></span>
+                  <span>Batch Price: <strong style={{ color: 'var(--badge-emerald-color, #047857)' }}>₹{selectedTeacherCourseRoster.course.price || 0}</strong></span>
                 </div>
               </div>
               <button
@@ -3378,7 +3382,7 @@ export const TeacherPortal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleCopyCourseId(bulkMcqCourseId)}
-                      style={{ background: 'none', border: 'none', color: copiedCourseId === bulkMcqCourseId ? '#34D399' : '#818CF8', fontSize: '0.72rem', cursor: 'pointer', fontWeight: '700' }}
+                      style={{ background: 'none', border: 'none', color: copiedCourseId === bulkMcqCourseId ? 'var(--badge-emerald-color, #047857)' : '#818CF8', fontSize: '0.72rem', cursor: 'pointer', fontWeight: '700' }}
                     >
                       {copiedCourseId === bulkMcqCourseId ? '✓ Copied' : '📋 Copy'}
                     </button>
@@ -3495,7 +3499,7 @@ export const TeacherPortal: React.FC = () => {
             )}
 
             {bulkMcqSuccessMsg && (
-              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#34D399', fontSize: '0.86rem', fontWeight: '800', marginBottom: '14px' }}>
+              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', color: 'var(--badge-emerald-color, #047857)', fontSize: '0.86rem', fontWeight: '800', marginBottom: '14px' }}>
                 {bulkMcqSuccessMsg}
               </div>
             )}
@@ -3512,7 +3516,7 @@ export const TeacherPortal: React.FC = () => {
                       {parsedBulkMcqs.filter((q) => q.isValid).length} Valid
                     </span>
                     {parsedBulkMcqs.some((q) => !q.isValid) && (
-                      <span className="badge badge-rose" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+                       <span className="badge badge-rose" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
                         {parsedBulkMcqs.filter((q) => !q.isValid).length} Error(s)
                       </span>
                     )}
@@ -3543,12 +3547,12 @@ export const TeacherPortal: React.FC = () => {
                             <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               A: {row.optionA} | B: {row.optionB} | C: {row.optionC} | D: {row.optionD}
                             </td>
-                            <td style={{ padding: '6px 8px', fontWeight: '800', color: '#34D399' }}>
+                            <td style={{ padding: '6px 8px', fontWeight: '800', color: 'var(--badge-emerald-color, #047857)' }}>
                               {correctLetter}
                             </td>
                             <td style={{ padding: '6px 8px' }}>
                               {row.isValid ? (
-                                <span style={{ color: '#34D399', fontWeight: '700' }}>✓ Ready</span>
+                                <span style={{ color: 'var(--badge-emerald-color, #047857)', fontWeight: '700' }}>✓ Ready</span>
                               ) : (
                                 <span style={{ color: '#FB7185', fontWeight: '700' }} title={row.errors.join(', ')}>
                                   ⚠️ Error

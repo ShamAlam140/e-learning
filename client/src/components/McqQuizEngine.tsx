@@ -111,7 +111,7 @@ export const McqQuizEngine: React.FC<McqQuizEngineProps> = ({ isOpen, onClose })
               Test Submitted Successfully!
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '24px' }}>
-              You scored <strong style={{ color: '#34D399', fontSize: '1.4rem' }}>{calculateScore()}</strong> out of <strong style={{ color: '#FFF' }}>{MOCK_MCQS.length}</strong> questions ({Math.round((calculateScore() / MOCK_MCQS.length) * 100)}% Accuracy).
+              You scored <strong style={{ color: 'var(--badge-emerald-color, #047857)', fontSize: '1.4rem' }}>{calculateScore()}</strong> out of <strong style={{ color: 'var(--text-primary)' }}>{MOCK_MCQS.length}</strong> questions ({Math.round((calculateScore() / MOCK_MCQS.length) * 100)}% Accuracy).
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
@@ -140,7 +140,7 @@ export const McqQuizEngine: React.FC<McqQuizEngineProps> = ({ isOpen, onClose })
                       borderRadius: '10px',
                       border: isCurrent ? '2px solid var(--primary-accent)' : '1px solid var(--border-color)',
                       background: isAnswered ? 'rgba(16,185,129,0.2)' : isCurrent ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
-                      color: isAnswered ? '#34D399' : isCurrent ? '#818CF8' : 'var(--text-secondary)',
+                      color: isAnswered ? 'var(--badge-emerald-color, #047857)' : isCurrent ? '#818CF8' : 'var(--text-secondary)',
                       fontWeight: '800',
                       cursor: 'pointer'
                     }}
@@ -174,13 +174,13 @@ export const McqQuizEngine: React.FC<McqQuizEngineProps> = ({ isOpen, onClose })
 
                   if (isAnswered) {
                     if (isCorrect) {
-                      bgColor = 'rgba(16,185,129,0.15)';
-                      borderColor = '#34D399';
-                      textColor = '#34D399';
+                      bgColor = 'rgba(16,185,129,0.12)';
+                      borderColor = 'var(--badge-emerald-color, #047857)';
+                      textColor = 'var(--badge-emerald-color, #047857)';
                     } else if (isSelected && !isCorrect) {
-                      bgColor = 'rgba(239,68,68,0.15)';
-                      borderColor = '#FCA5A5';
-                      textColor = '#FCA5A5';
+                      bgColor = 'rgba(239,68,68,0.12)';
+                      borderColor = '#E11D48';
+                      textColor = '#E11D48';
                     }
                   }
 
