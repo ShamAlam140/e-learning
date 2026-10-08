@@ -534,9 +534,10 @@ export const StudentPortal: React.FC = () => {
   };
 
   // Load Browse Platform Courses — filtered by student preference or all
-  const loadBrowse = async () => {
+  const loadBrowse = async (forceShowAll: boolean = false) => {
     setIsLoadingBrowse(true);
-    const params = filterMode === 'EXPLORE_ALL' ? { showAll: true } : {};
+    const shouldShowAll = forceShowAll || filterMode === 'EXPLORE_ALL' || selectedCategoryFilter !== 'ALL';
+    const params = shouldShowAll ? { showAll: true } : {};
     const res = await fetchBrowseCourses(params);
     if (res.success && res.data) {
       setBrowseCoursesList(res.data.courses || []);
@@ -624,10 +625,10 @@ export const StudentPortal: React.FC = () => {
     }
   }, [activeTab]);
 
-  // Reload courses when filter mode toggles (Goal Match ↔ Explore All)
+  // Reload courses when filter mode toggles or category filter selected
   useEffect(() => {
     loadBrowse();
-  }, [filterMode]);
+  }, [filterMode, selectedCategoryFilter]);
 
   const handlePreferenceSaved = (updatedUser: any) => {
     setCurrentUserObj(updatedUser);
@@ -1738,6 +1739,9 @@ export const StudentPortal: React.FC = () => {
                     onClick={() => {
                       setSelectedCategoryFilter(sec.id);
                       setSelectedCategoryTitle(sec.title);
+                      if (filterMode !== 'EXPLORE_ALL') {
+                        setFilterMode('EXPLORE_ALL');
+                      }
                     }}
                     style={{
                       background: 'transparent',
@@ -1766,6 +1770,9 @@ export const StudentPortal: React.FC = () => {
                         onClick={() => {
                           setSelectedCategoryFilter(item.filterKey);
                           setSelectedCategoryTitle(item.name.replace('\n', ' '));
+                          if (filterMode !== 'EXPLORE_ALL') {
+                            setFilterMode('EXPLORE_ALL');
+                          }
                         }}
                         className="squircle-cat-item"
                         style={{
@@ -1843,7 +1850,7 @@ export const StudentPortal: React.FC = () => {
                 </div>
               </div>
 
-              <button className="btn-secondary" onClick={loadBrowse} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
+              <button className="btn-secondary" onClick={() => loadBrowse()} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
                 <RefreshCw size={14} className={isLoadingBrowse ? 'animate-spin' : ''} /> Refresh Catalog
               </button>
             </div>
@@ -1867,12 +1874,38 @@ export const StudentPortal: React.FC = () => {
               const filteredList = browseCoursesList.filter((crs) => {
                 if (selectedCategoryFilter === 'ALL') return true;
                 const filterLower = selectedCategoryFilter.toLowerCase();
-                const matchCat = ((crs as any).categoryCode || (typeof crs.category === 'string' ? crs.category : (crs.category as any)?.code))?.toLowerCase() === filterLower;
-                const matchSub = (crs as any).subCategory?.toLowerCase()?.includes(filterLower) ||
-                                 crs.title?.toLowerCase()?.includes(filterLower) ||
-                                 crs.description?.toLowerCase()?.includes(filterLower) ||
-                                 (crs as any).boardOrGrade?.toLowerCase()?.includes(filterLower) ||
-                                 (crs as any).subjectName?.toLowerCase()?.includes(filterLower);
+                const cleanFilter = filterLower.replace(/[^a-z0-9]/g, '');
+
+                const crsCatCode = ((crs as any).categoryCode || (typeof crs.category === 'string' ? crs.category : (crs.category as any)?.code) || '').toLowerCase();
+                const cleanCatCode = crsCatCode.replace(/[^a-z0-9]/g, '');
+                const matchCat = crsCatCode === filterLower || cleanCatCode === cleanFilter;
+
+                const subCat = ((crs as any).subCategory || '').toLowerCase();
+                const cleanSub = subCat.replace(/[^a-z0-9]/g, '');
+
+                const subCatTitle = ((crs as any).subCategoryTitle || '').toLowerCase();
+                const cleanSubTitle = subCatTitle.replace(/[^a-z0-9]/g, '');
+
+                const title = (crs.title || '').toLowerCase();
+                const cleanTitle = title.replace(/[^a-z0-9]/g, '');
+
+                const desc = (crs.description || '').toLowerCase();
+                const board = ((crs as any).boardOrGrade || '').toLowerCase();
+                const stream = ((crs as any).stream || '').toLowerCase();
+                const subject = ((crs as any).subjectName || '').toLowerCase();
+
+                const matchSub =
+                  subCat.includes(filterLower) ||
+                  cleanSub.includes(cleanFilter) ||
+                  subCatTitle.includes(filterLower) ||
+                  cleanSubTitle.includes(cleanFilter) ||
+                  title.includes(filterLower) ||
+                  cleanTitle.includes(cleanFilter) ||
+                  desc.includes(filterLower) ||
+                  board.includes(filterLower) ||
+                  stream.includes(filterLower) ||
+                  subject.includes(filterLower);
+
                 return matchCat || matchSub;
               });
 
