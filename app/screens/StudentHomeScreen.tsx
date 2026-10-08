@@ -48,6 +48,36 @@ import {
 
 const DEFAULT_COURSE_BANNER = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800';
 
+export interface IndianStateItem {
+  code: string;
+  name: string;
+  popular: string;
+  icon: string;
+}
+
+export const INDIAN_STATES_DATA: IndianStateItem[] = [
+  { code: 'UP', name: 'Uttar Pradesh', popular: 'UP Board, UPPCS, UP Police, RO/ARO', icon: '📍' },
+  { code: 'BR', name: 'Bihar', popular: 'Bihar Board, BPSC, Bihar SI, Teacher (TRE)', icon: '📍' },
+  { code: 'RJ', name: 'Rajasthan', popular: 'RBSE Board, RAS, REET, Rajasthan Police', icon: '📍' },
+  { code: 'MP', name: 'Madhya Pradesh', popular: 'MP Board, MPPSC, Vyapam/PEB, Patwari', icon: '📍' },
+  { code: 'DL', name: 'Delhi NCR', popular: 'DSSSB, Delhi Police, DSEU, CET', icon: '📍' },
+  { code: 'MH', name: 'Maharashtra', popular: 'Maharashtra Board, MPSC, Police Bharti', icon: '📍' },
+  { code: 'HR', name: 'Haryana', popular: 'HBSE Board, HPSC, HSSC, CET', icon: '📍' },
+  { code: 'PB', name: 'Punjab', popular: 'PSEB Board, PPSC, PSSSB, Punjab Police', icon: '📍' },
+  { code: 'WB', name: 'West Bengal', popular: 'WBBSE Board, WBCS, WB Police', icon: '📍' },
+  { code: 'KA', name: 'Karnataka', popular: 'KSEEB, KPSC, KCET, Karnataka Police', icon: '📍' },
+  { code: 'GJ', name: 'Gujarat', popular: 'GSEB Board, GPSC, Talati, Constable', icon: '📍' },
+  { code: 'JH', name: 'Jharkhand', popular: 'JAC Board, JPSC, JSSC CGL', icon: '📍' },
+  { code: 'CH', name: 'Chhattisgarh', popular: 'CGBSE Board, CGPSC, Vyapam', icon: '📍' },
+  { code: 'UK', name: 'Uttarakhand', popular: 'UBSE Board, UKPSC, UKSSSC', icon: '📍' },
+  { code: 'TS', name: 'Telangana', popular: 'TSBIE, TSPSC, TS Police', icon: '📍' },
+  { code: 'AP', name: 'Andhra Pradesh', popular: 'BIEAP, APPSC, AP Police', icon: '📍' },
+  { code: 'TN', name: 'Tamil Nadu', popular: 'TN State Board, TNPSC', icon: '📍' },
+  { code: 'KL', name: 'Kerala', popular: 'Kerala DHSE, Kerala PSC', icon: '📍' },
+  { code: 'OD', name: 'Odisha', popular: 'CHSE Odisha, OPSC, OSSSC', icon: '📍' },
+  { code: 'AS', name: 'Assam', popular: 'AHSEC, APSC, Assam Police', icon: '📍' },
+];
+
 const MobileTreeNodeItem: React.FC<{
   node?: any | null;
   positionLabel: string;
@@ -373,6 +403,13 @@ export const StudentHomeScreen: React.FC = () => {
   const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
   const [withdrawSuccessMsg, setWithdrawSuccessMsg] = useState('');
   const [withdrawErrorMsg, setWithdrawErrorMsg] = useState('');
+
+  // Central Level vs State Level Exam Scope Filter State
+  const [showLevelModal, setShowLevelModal] = useState(true); // Auto-launches upon student screen load
+  const [levelModalTab, setLevelModalTab] = useState<'CHOOSE_LEVEL' | 'CHOOSE_STATE'>('CHOOSE_LEVEL');
+  const [selectedExamLevel, setSelectedExamLevel] = useState<'ALL' | 'CENTRAL' | 'STATE'>('ALL');
+  const [selectedState, setSelectedState] = useState<IndianStateItem | null>(null);
+  const [stateSearchQuery, setStateSearchQuery] = useState('');
 
   // Interactive MCQ Quiz State
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
@@ -2023,6 +2060,151 @@ export const StudentHomeScreen: React.FC = () => {
             </View>
           </View>
 
+          {/* 2.5 UPPER MASTER LEVEL FILTER BAR (CENTRAL vs STATE) */}
+          <View
+            style={{
+              backgroundColor: colors.cardBg,
+              borderRadius: 16,
+              padding: 14,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: colors.cardBorder,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isDarkMode ? 0.2 : 0.05,
+              shadowRadius: 6,
+              elevation: 2,
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>
+                  🎯 Curriculum Scope:
+                </Text>
+                <View
+                  style={{
+                    backgroundColor:
+                      selectedExamLevel === 'CENTRAL'
+                        ? 'rgba(99, 102, 241, 0.15)'
+                        : selectedExamLevel === 'STATE'
+                        ? 'rgba(16, 185, 129, 0.15)'
+                        : 'rgba(245, 158, 11, 0.15)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 6,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: '800',
+                      color:
+                        selectedExamLevel === 'CENTRAL'
+                          ? '#6366F1'
+                          : selectedExamLevel === 'STATE'
+                          ? '#10B981'
+                          : '#D97706',
+                    }}
+                  >
+                    {selectedExamLevel === 'CENTRAL'
+                      ? '🏛️ Central Level (All India)'
+                      : selectedExamLevel === 'STATE'
+                      ? `🗺️ State: ${selectedState?.name || 'Selected State'}`
+                      : '🌐 All Platform Courses'}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setLevelModalTab('CHOOSE_LEVEL');
+                  setShowLevelModal(true);
+                }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 3,
+                  backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)',
+                  paddingHorizontal: 9,
+                  paddingVertical: 5,
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  borderColor: 'rgba(99,102,241,0.3)',
+                }}
+              >
+                <Text style={{ color: '#6366F1', fontSize: 11, fontWeight: '800' }}>Change</Text>
+                <Text style={{ color: '#6366F1', fontSize: 10 }}>▾</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Quick Master Level Switcher Buttons */}
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedExamLevel('CENTRAL');
+                  setSelectedState(null);
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  backgroundColor: selectedExamLevel === 'CENTRAL' ? '#6366F1' : colors.itemSubCard,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: selectedExamLevel === 'CENTRAL' ? '#6366F1' : colors.cardBorder,
+                }}
+              >
+                <Text style={{ color: selectedExamLevel === 'CENTRAL' ? '#FFFFFF' : colors.textPrimary, fontSize: 11, fontWeight: '700' }}>
+                  🏛️ Central (NEET/JEE)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  if (selectedState) {
+                    setSelectedExamLevel('STATE');
+                  } else {
+                    setLevelModalTab('CHOOSE_STATE');
+                    setShowLevelModal(true);
+                  }
+                }}
+                style={{
+                  flex: 1.2,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  backgroundColor: selectedExamLevel === 'STATE' ? '#10B981' : colors.itemSubCard,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: selectedExamLevel === 'STATE' ? '#10B981' : colors.cardBorder,
+                }}
+              >
+                <Text style={{ color: selectedExamLevel === 'STATE' ? '#FFFFFF' : colors.textPrimary, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>
+                  🗺️ {selectedState ? selectedState.name : 'Choose State ▾'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedExamLevel('ALL');
+                  setSelectedState(null);
+                }}
+                style={{
+                  flex: 0.8,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  backgroundColor: selectedExamLevel === 'ALL' ? '#F59E0B' : colors.itemSubCard,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: selectedExamLevel === 'ALL' ? '#F59E0B' : colors.cardBorder,
+                }}
+              >
+                <Text style={{ color: selectedExamLevel === 'ALL' ? '#FFFFFF' : colors.textPrimary, fontSize: 11, fontWeight: '700' }}>
+                  🌐 All
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* 3. 6 CATEGORIZED 4-COLUMN ICON GRIDS (Muthoot Fincorp ONE Style) */}
           {CATEGORY_SECTIONS.map((sec) => (
             <View
@@ -2237,6 +2419,32 @@ export const StudentHomeScreen: React.FC = () => {
               <ActivityIndicator color="#6366F1" style={{ marginVertical: 20 }} />
             ) : (() => {
               const filteredList = browseCoursesList.filter((crs) => {
+                // 1. UPPER MASTER LEVEL FILTER (Central vs State)
+                if (selectedExamLevel === 'CENTRAL') {
+                  const isCentral = !crs.stateCode || crs.stateCode === 'GLOBAL' || crs.stateCode === 'CENTRAL' || crs.stateCode === 'ALL_INDIA';
+                  if (!isCentral) return false;
+                } else if (selectedExamLevel === 'STATE') {
+                  if (selectedState) {
+                    const stCode = (crs.stateCode || '').toUpperCase();
+                    const targetCode = selectedState.code.toUpperCase();
+                    const targetName = selectedState.name.toLowerCase();
+                    const crsTitle = (crs.title || '').toLowerCase();
+                    const crsDesc = (crs.description || '').toLowerCase();
+                    const crsBoard = ((crs as any).boardOrGrade || '').toLowerCase();
+                    const crsSub = ((crs as any).subCategory || '').toLowerCase();
+
+                    const matchState =
+                      stCode === targetCode ||
+                      crsTitle.includes(targetName) ||
+                      crsDesc.includes(targetName) ||
+                      crsBoard.includes(targetName) ||
+                      crsSub.includes(targetName);
+
+                    if (!matchState) return false;
+                  }
+                }
+
+                // 2. CATEGORY & KEYWORD FILTER
                 if (selectedCategoryFilter === 'ALL') return true;
                 const filterLower = selectedCategoryFilter.toLowerCase();
                 const cleanFilter = filterLower.replace(/[^a-z0-9]/g, '');
@@ -2275,24 +2483,39 @@ export const StudentHomeScreen: React.FC = () => {
               });
 
               if (filteredList.length === 0) {
+                const scopeLabel = selectedExamLevel === 'CENTRAL' ? 'Central Level' : selectedExamLevel === 'STATE' ? selectedState?.name || 'Selected State' : '';
                 return (
                   <View style={{ alignItems: 'center', padding: 24, backgroundColor: colors.itemSubCard, borderRadius: 12 }}>
                     <Text style={{ fontSize: 32, marginBottom: 8 }}>📚</Text>
                     <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '800', textAlign: 'center' }}>
-                      No direct batches found for "{selectedCategoryTitle}"
+                      No direct batches found {scopeLabel ? `for "${scopeLabel}"` : ''} {selectedCategoryFilter !== 'ALL' ? `in "${selectedCategoryTitle}"` : ''}
                     </Text>
                     <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 4, marginBottom: 14 }}>
-                      Upcoming live online batches are being scheduled. Check out all available batches below!
+                      Upcoming live online batches are being scheduled. Check out all available batches or switch scope below!
                     </Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setSelectedCategoryFilter('ALL');
-                        setSelectedCategoryTitle('All Platform Courses');
-                      }}
-                      style={{ backgroundColor: '#6366F1', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
-                    >
-                      <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>View All Available Batches</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedCategoryFilter('ALL');
+                          setSelectedCategoryTitle('All Platform Courses');
+                          setSelectedExamLevel('ALL');
+                        }}
+                        style={{ backgroundColor: '#6366F1', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
+                      >
+                        <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>View All Available Batches</Text>
+                      </TouchableOpacity>
+                      {selectedExamLevel !== 'CENTRAL' && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            setSelectedExamLevel('CENTRAL');
+                            setSelectedCategoryFilter('ALL');
+                          }}
+                          style={{ backgroundColor: '#10B981', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
+                        >
+                          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>Explore Central Exams (NEET/JEE/UPSC)</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 );
               }
@@ -3533,6 +3756,265 @@ export const StudentHomeScreen: React.FC = () => {
                   )}
                 </TouchableOpacity>
               </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* POPUP SCREEN: CENTRAL LEVEL VS STATE LEVEL ONBOARDING / SCOPE MODAL */}
+      <Modal visible={showLevelModal} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 16 }}>
+          <View
+            style={{
+              backgroundColor: colors.cardBg,
+              borderRadius: 20,
+              padding: 20,
+              borderWidth: 1,
+              borderColor: colors.cardBorder,
+              maxHeight: '90%',
+            }}
+          >
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Modal Top Header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginBottom: 4 }}>
+                    <Text style={{ color: '#6366F1', fontSize: 10, fontWeight: '800' }}>
+                      {levelModalTab === 'CHOOSE_STATE' ? 'STEP 2 OF 2: STATE SELECTION' : 'EXAM SCOPE & CURRICULUM'}
+                    </Text>
+                  </View>
+                  <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '900' }}>
+                    {levelModalTab === 'CHOOSE_STATE' ? 'Select Your Target State' : 'Choose Your Learning Level'}
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>
+                    {levelModalTab === 'CHOOSE_STATE'
+                      ? 'Pick your state to view state education boards & civil exam batches'
+                      : 'Explore All India national exams or your state-specific syllabus'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => setShowLevelModal(false)}
+                  style={{ padding: 4 }}
+                >
+                  <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '800' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {levelModalTab === 'CHOOSE_LEVEL' ? (
+                <View style={{ gap: 14 }}>
+                  {/* OPTION 1: CENTRAL LEVEL (All India Exams) */}
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      setSelectedExamLevel('CENTRAL');
+                      setSelectedState(null);
+                      setShowLevelModal(false);
+                      setFilterMode('EXPLORE_ALL');
+                    }}
+                    style={{
+                      borderRadius: 16,
+                      padding: 16,
+                      backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.12)' : 'rgba(99, 102, 241, 0.08)',
+                      borderWidth: 1.5,
+                      borderColor: '#6366F1',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ fontSize: 24 }}>🏛️</Text>
+                        <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '800' }}>
+                          Central Level (All India)
+                        </Text>
+                      </View>
+                      <View style={{ backgroundColor: '#6366F1', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 }}>
+                        <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '800' }}>PAN INDIA</Text>
+                      </View>
+                    </View>
+
+                    <Text style={{ color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginBottom: 10 }}>
+                      National entrance exams, central civil services, defense and banking curricula.
+                    </Text>
+
+                    <View style={{ backgroundColor: isDarkMode ? 'rgba(255,255,255,0.04)' : '#F8FAFC', borderRadius: 10, padding: 10, marginBottom: 12 }}>
+                      <Text style={{ color: '#6366F1', fontSize: 11, fontWeight: '700' }}>Popular Batches Included:</Text>
+                      <Text style={{ color: colors.textPrimary, fontSize: 11, marginTop: 4, lineHeight: 16 }}>
+                        • NEET UG/PG, IIT JEE (Main & Adv), CUET{'\n'}
+                        • UPSC CSE, SSC (CGL/CHSL), Banking (IBPS/SBI){'\n'}
+                        • Defence (NDA/CDS/AFCAT), Railways (RRB), GATE
+                      </Text>
+                    </View>
+
+                    <View style={{ backgroundColor: '#6366F1', borderRadius: 8, paddingVertical: 9, alignItems: 'center' }}>
+                      <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>
+                        Explore Central Courses →
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* OPTION 2: STATE LEVEL (State Boards & State Exams) */}
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => setLevelModalTab('CHOOSE_STATE')}
+                    style={{
+                      borderRadius: 16,
+                      padding: 16,
+                      backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)',
+                      borderWidth: 1.5,
+                      borderColor: '#10B981',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ fontSize: 24 }}>🗺️</Text>
+                        <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '800' }}>
+                          State Level (State Exams)
+                        </Text>
+                      </View>
+                      <View style={{ backgroundColor: '#10B981', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 }}>
+                        <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '800' }}>STATE SPECIFIC</Text>
+                      </View>
+                    </View>
+
+                    <Text style={{ color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginBottom: 10 }}>
+                      State secondary boards, state civil services (PSC), police recruitment & teacher eligibility.
+                    </Text>
+
+                    <View style={{ backgroundColor: isDarkMode ? 'rgba(255,255,255,0.04)' : '#F8FAFC', borderRadius: 10, padding: 10, marginBottom: 12 }}>
+                      <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '700' }}>Select From Indian States:</Text>
+                      <Text style={{ color: colors.textPrimary, fontSize: 11, marginTop: 4, lineHeight: 16 }}>
+                        • Uttar Pradesh (UP Board, UPPCS, Police){'\n'}
+                        • Bihar (BSEB, BPSC, Bihar SI, Teacher){'\n'}
+                        • Rajasthan, MP, Maharashtra, Delhi NCR & More
+                      </Text>
+                    </View>
+
+                    <View style={{ backgroundColor: '#10B981', borderRadius: 8, paddingVertical: 9, alignItems: 'center' }}>
+                      <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>
+                        Select Your State (UP, Bihar, etc.) ❯
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* OPTION 3: EXPLORE ALL */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedExamLevel('ALL');
+                      setSelectedState(null);
+                      setShowLevelModal(false);
+                    }}
+                    style={{
+                      paddingVertical: 10,
+                      alignItems: 'center',
+                      borderRadius: 10,
+                      backgroundColor: colors.itemSubCard,
+                      borderWidth: 1,
+                      borderColor: colors.cardBorder,
+                      marginTop: 4,
+                    }}
+                  >
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                      🌐 Skip & View All Platform Batches
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                /* STATE SELECTION SCREEN */
+                <View>
+                  <TouchableOpacity
+                    onPress={() => setLevelModalTab('CHOOSE_LEVEL')}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12, alignSelf: 'flex-start' }}
+                  >
+                    <Text style={{ color: '#6366F1', fontSize: 13, fontWeight: '800' }}>← Back to Level Choice</Text>
+                  </TouchableOpacity>
+
+                  {/* Search State Input */}
+                  <TextInput
+                    value={stateSearchQuery}
+                    onChangeText={setStateSearchQuery}
+                    placeholder="Search state (e.g. Bihar, UP, Rajasthan)..."
+                    placeholderTextColor="#94A3B8"
+                    style={{
+                      backgroundColor: colors.inputBg,
+                      borderWidth: 1,
+                      borderColor: colors.cardBorder,
+                      borderRadius: 10,
+                      paddingHorizontal: 12,
+                      paddingVertical: 9,
+                      color: colors.textPrimary,
+                      fontSize: 13,
+                      marginBottom: 12,
+                    }}
+                  />
+
+                  {/* States List */}
+                  <View style={{ gap: 8 }}>
+                    {INDIAN_STATES_DATA.filter((st) =>
+                      st.name.toLowerCase().includes(stateSearchQuery.toLowerCase()) ||
+                      st.code.toLowerCase().includes(stateSearchQuery.toLowerCase()) ||
+                      st.popular.toLowerCase().includes(stateSearchQuery.toLowerCase())
+                    ).map((st) => {
+                      const isSelected = selectedState?.code === st.code;
+                      return (
+                        <TouchableOpacity
+                          key={st.code}
+                          activeOpacity={0.75}
+                          onPress={() => {
+                            setSelectedState(st);
+                            setSelectedExamLevel('STATE');
+                            setShowLevelModal(false);
+                            setFilterMode('EXPLORE_ALL');
+                          }}
+                          style={{
+                            padding: 12,
+                            borderRadius: 12,
+                            backgroundColor: isSelected
+                              ? (isDarkMode ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.12)')
+                              : colors.itemSubCard,
+                            borderWidth: 1.5,
+                            borderColor: isSelected ? '#10B981' : colors.cardBorder,
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={{ fontSize: 14 }}>{st.icon}</Text>
+                              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '800' }}>
+                                {st.name}
+                              </Text>
+                              <View style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                                <Text style={{ color: '#6366F1', fontSize: 9, fontWeight: '800' }}>{st.code}</Text>
+                              </View>
+                            </View>
+                            <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>
+                              {st.popular}
+                            </Text>
+                          </View>
+
+                          <View
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: 11,
+                              backgroundColor: isSelected ? '#10B981' : colors.inputBg,
+                              borderWidth: 1,
+                              borderColor: isSelected ? '#10B981' : colors.cardBorder,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Text style={{ color: isSelected ? '#FFFFFF' : colors.textMuted, fontSize: 11, fontWeight: '900' }}>
+                              {isSelected ? '✓' : '›'}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>
