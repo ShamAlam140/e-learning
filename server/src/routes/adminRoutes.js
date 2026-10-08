@@ -12,6 +12,7 @@ const {
   createAdminCourse,
   bulkCreateAdminCourses,
   uploadCourseThumbnail,
+  uploadStudyMaterialDocument,
   updateAdminCourse,
   deleteAdminCourse,
   getCourseEnrolledStudents
@@ -22,7 +23,7 @@ const {
   rejectAdminWithdrawal
 } = require('../controllers/withdrawalController');
 const { protect, restrictTo } = require('../middlewares/authMiddleware');
-const { uploadKycImage } = require('../middlewares/uploadMiddleware');
+const { uploadKycImage, uploadDocumentFile } = require('../middlewares/uploadMiddleware');
 
 const router = express.Router();
 
@@ -45,6 +46,7 @@ router.get('/courses/:courseId/students', getCourseEnrolledStudents);
 router.post('/courses/bulk', bulkCreateAdminCourses);
 router.post('/courses', uploadKycImage.single('thumbnailFile'), createAdminCourse);
 router.post('/upload-thumbnail', uploadKycImage.single('thumbnailFile'), uploadCourseThumbnail);
+router.post('/upload-material', uploadDocumentFile.single('documentFile'), uploadStudyMaterialDocument);
 router.put('/courses/:courseId/toggle-active', toggleCourseStatus);
 router.put('/courses/:id', updateAdminCourse);
 router.delete('/courses/:id', deleteAdminCourse);

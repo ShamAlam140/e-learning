@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   BookOpen, Video, Radio, FileText, Plus, Trash2,
   Sparkles, Award, Layers, X, Check, ChevronRight, ChevronLeft,
-  AlertCircle, Eye, ExternalLink, ChevronDown, ChevronUp
+  AlertCircle, Eye, ExternalLink, ChevronDown, ChevronUp,
+  UploadCloud, CheckCircle2, Loader2
 } from 'lucide-react';
 import {
   INDIAN_STATES_LIST,
@@ -15,7 +16,8 @@ import {
   CourseCurriculumItem,
   CourseStudyMaterialItem,
   CourseMockTestItem,
-  CourseMockTestQuestion
+  CourseMockTestQuestion,
+  uploadStudyMaterialDocument
 } from '../services/adminService';
 
 export interface CourseCreationWizardModalProps {
@@ -180,12 +182,21 @@ export const CourseCreationWizardModal: React.FC<CourseCreationWizardModalProps>
   // Step 3 Sub-Navigation Tabs: 'DOCS' | 'TESTS' | 'PERKS'
   const [step3ActiveTab, setStep3ActiveTab] = useState<'DOCS' | 'TESTS' | 'PERKS'>('DOCS');
 
-  // Study Materials State (Multi-Document)
+  // Study Materials State (Multi-Document & Direct Cloudinary Upload)
   const [newDocTitle, setNewDocTitle] = useState('');
   const [newDocType, setNewDocType] = useState<'PDF' | 'DOC' | 'NOTES' | 'EBOOK'>('PDF');
   const [newDocTopic, setNewDocTopic] = useState('');
   const [newDocCustomTopic, setNewDocCustomTopic] = useState('');
   const [newDocUrl, setNewDocUrl] = useState('');
+  const [docSourceMode, setDocSourceMode] = useState<'UPLOAD' | 'URL'>('UPLOAD');
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [uploadedDocMeta, setUploadedDocMeta] = useState<{
+    originalName: string;
+    sizeFormatted: string;
+    format: string;
+    fileUrl: string;
+  } | null>(null);
+  const [docUploadError, setDocUploadError] = useState<string | null>(null);
 
   // Topic-Wise MCQ Tests State
   const [newTestTitle, setNewTestTitle] = useState('');
@@ -245,14 +256,77 @@ export const CourseCreationWizardModal: React.FC<CourseCreationWizardModalProps>
     });
   };
 
+  // Direct Cloudinary Document Upload Handler
+  const handleDocFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 25 * 1024 * 1024) {
+      alert('File size exceeds 25MB limit. Please upload a document up to 25MB.');
+      e.target.value = '';
+      return;
+    }
+
+    setDocUploadError(null);
+    setIsUploadingDoc(true);
+
+    // Auto-detect format type based on extension
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (['doc', 'docx'].includes(ext)) {
+      setNewDocType('DOC');
+    } else if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+      setNewDocType('NOTES');
+    } else if (['epub', 'mobi'].includes(ext)) {
+      setNewDocType('EBOOK');
+    } else {
+      setNewDocType('PDF');
+    }
+
+    // Auto-populate document title if not set
+    if (!newDocTitle.trim()) {
+      const cleanTitle = file.name
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[-_]+/g, ' ')
+        .trim();
+      setNewDocTitle(cleanTitle);
+    }
+
+    try {
+      const res = await uploadStudyMaterialDocument(file, portalType);
+      setNewDocUrl(res.fileUrl);
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      setUploadedDocMeta({
+        originalName: res.originalName || file.name,
+        sizeFormatted: `${sizeMb} MB`,
+        format: (res.format || ext).toUpperCase(),
+        fileUrl: res.fileUrl
+      });
+    } catch (err: any) {
+      console.error('[Document Upload Error]:', err);
+      setDocUploadError(err.message || 'Failed to upload document to Cloudinary CDN.');
+    } finally {
+      setIsUploadingDoc(false);
+      e.target.value = '';
+    }
+  };
+
   // Study Materials Handlers
   const handleAddStudyMaterial = () => {
+    if (isUploadingDoc) {
+      alert('Please wait for the document to finish uploading to Cloudinary CDN.');
+      return;
+    }
+
     if (!newDocTitle.trim()) {
       alert('Please enter a title for the document / notes.');
       return;
     }
     if (!newDocUrl.trim()) {
-      alert('Please enter a valid document download link (e.g. Google Drive, Dropbox, or Cloud URL).');
+      alert(
+        docSourceMode === 'UPLOAD'
+          ? 'Please select and upload a document file (PDF, Word, or Notes) first.'
+          : 'Please enter a valid document download link (e.g. Google Drive, Dropbox, or AWS S3).'
+      );
       return;
     }
 
@@ -279,6 +353,8 @@ export const CourseCreationWizardModal: React.FC<CourseCreationWizardModalProps>
     setNewDocTitle('');
     setNewDocUrl('');
     setNewDocCustomTopic('');
+    setUploadedDocMeta(null);
+    setDocUploadError(null);
   };
 
   const handleRemoveStudyMaterial = (idx: number) => {
@@ -1350,41 +1426,274 @@ export const CourseCreationWizardModal: React.FC<CourseCreationWizardModalProps>
                       </div>
                     )}
 
-                    {/* Download / Drive URL & Add Button */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '10px', alignItems: 'end' }}>
-                      <div>
-                        <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-                          File Download / Cloud URL (Google Drive, Dropbox, AWS S3, etc.) *
+                    {/* Source Mode Toggle: Direct File Upload vs External URL */}
+                    <div style={{ marginTop: '12px', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                        <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                          Document File Source *
                         </label>
-                        <input
-                          type="url"
-                          className="form-input"
-                          value={newDocUrl}
-                          onChange={(e) => setNewDocUrl(e.target.value)}
-                          placeholder="https://drive.google.com/file/d/... or https://..."
-                          style={{ padding: '7px 10px', fontSize: '0.82rem' }}
-                        />
+                        <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-card)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                          <button
+                            type="button"
+                            onClick={() => setDocSourceMode('UPLOAD')}
+                            style={{
+                              border: 'none',
+                              padding: '5px 12px',
+                              borderRadius: '6px',
+                              fontSize: '0.74rem',
+                              fontWeight: docSourceMode === 'UPLOAD' ? '700' : '500',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: docSourceMode === 'UPLOAD' ? '#F59E0B' : 'transparent',
+                              color: docSourceMode === 'UPLOAD' ? '#FFFFFF' : 'var(--text-secondary)',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            <UploadCloud size={14} /> Direct File Upload (Cloudinary CDN)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDocSourceMode('URL')}
+                            style={{
+                              border: 'none',
+                              padding: '5px 12px',
+                              borderRadius: '6px',
+                              fontSize: '0.74rem',
+                              fontWeight: docSourceMode === 'URL' ? '700' : '500',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: docSourceMode === 'URL' ? '#3B82F6' : 'transparent',
+                              color: docSourceMode === 'URL' ? '#FFFFFF' : 'var(--text-secondary)',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            <ExternalLink size={14} /> External Cloud URL (Drive / S3)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* MODE 1: DIRECT FILE UPLOAD (CLOUDINARY) */}
+                      {docSourceMode === 'UPLOAD' && (
+                        <div>
+                          {isUploadingDoc ? (
+                            <div
+                              style={{
+                                padding: '24px 16px',
+                                borderRadius: '12px',
+                                border: '1px dashed #F59E0B',
+                                background: 'rgba(245, 158, 11, 0.06)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                textAlign: 'center'
+                              }}
+                            >
+                              <Loader2 size={26} className="animate-spin" style={{ color: '#F59E0B' }} />
+                              <div style={{ fontSize: '0.84rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                                Uploading document directly to Cloudinary CDN...
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                Streaming file securely to cloud storage. Once complete, it will be instantly accessible to students.
+                              </div>
+                            </div>
+                          ) : uploadedDocMeta ? (
+                            <div
+                              style={{
+                                padding: '14px 16px',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(16, 185, 129, 0.4)',
+                                background: 'rgba(16, 185, 129, 0.08)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '12px',
+                                flexWrap: 'wrap'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                                <div style={{ background: '#10B981', color: '#FFF', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <CheckCircle2 size={22} />
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: '0.84rem', fontWeight: '700', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {uploadedDocMeta.originalName}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.68rem', color: '#059669', fontWeight: '800', background: 'rgba(16, 185, 129, 0.18)', padding: '2px 8px', borderRadius: '4px' }}>
+                                      ☁️ Cloudinary CDN ({uploadedDocMeta.sizeFormatted})
+                                    </span>
+                                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '280px' }}>
+                                      {newDocUrl}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                <a
+                                  href={newDocUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{
+                                    fontSize: '0.74rem',
+                                    color: '#059669',
+                                    fontWeight: '700',
+                                    textDecoration: 'none',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '6px 10px',
+                                    borderRadius: '6px',
+                                    background: 'rgba(16, 185, 129, 0.15)'
+                                  }}
+                                >
+                                  <ExternalLink size={13} /> Test Link
+                                </a>
+                                <label
+                                  htmlFor="study-doc-reupload-input"
+                                  style={{
+                                    fontSize: '0.74rem',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    padding: '6px 10px',
+                                    borderRadius: '6px',
+                                    background: 'var(--bg-card)',
+                                    border: '1px solid var(--border-color)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  Change File
+                                  <input
+                                    id="study-doc-reupload-input"
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.ppt,.pptx,.epub,.txt,image/*"
+                                    onChange={handleDocFileUpload}
+                                    style={{ display: 'none' }}
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <label
+                                htmlFor="study-doc-file-upload-input"
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '8px',
+                                  padding: '24px 16px',
+                                  borderRadius: '12px',
+                                  border: '1px dashed #F59E0B',
+                                  background: 'rgba(245, 158, 11, 0.03)',
+                                  cursor: 'pointer',
+                                  textAlign: 'center',
+                                  transition: 'all 0.2s ease'
+                                }}
+                              >
+                                <div style={{ background: 'rgba(245, 158, 11, 0.12)', width: '48px', height: '48px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <UploadCloud size={24} style={{ color: '#F59E0B' }} />
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '0.84rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                                    Click to Choose Document or Notes File
+                                  </div>
+                                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    Supports PDF, Word (DOC/DOCX), PPT/PPTX, EPUB, TXT, or Image scans up to 25MB
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: '#0284C7', background: 'rgba(56, 189, 248, 0.12)', padding: '2px 10px', borderRadius: '6px', fontWeight: '600' }}>
+                                  ☁️ Uploads to Cloudinary CDN (Instant streaming & student downloads, AWS S3 ready)
+                                </div>
+                                <input
+                                  id="study-doc-file-upload-input"
+                                  type="file"
+                                  accept=".pdf,.doc,.docx,.ppt,.pptx,.epub,.txt,image/*"
+                                  onChange={handleDocFileUpload}
+                                  style={{ display: 'none' }}
+                                />
+                              </label>
+                            </div>
+                          )}
+
+                          {docUploadError && (
+                            <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '0.74rem', color: '#EF4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <AlertCircle size={15} /> {docUploadError}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* MODE 2: EXTERNAL URL INPUT */}
+                      {docSourceMode === 'URL' && (
+                        <div>
+                          <input
+                            type="url"
+                            className="form-input"
+                            value={newDocUrl}
+                            onChange={(e) => {
+                              setNewDocUrl(e.target.value);
+                              setUploadedDocMeta(null);
+                            }}
+                            placeholder="https://drive.google.com/file/d/... or https://s3.amazonaws.com/..."
+                            style={{ padding: '8px 12px', fontSize: '0.82rem' }}
+                          />
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Paste public Google Drive, Dropbox, AWS S3, or direct PDF/DOC download links.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Add Document Action Bar */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        {newDocUrl ? (
+                          <span style={{ color: '#10B981', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <CheckCircle2 size={13} /> Ready to attach ({newDocType})
+                          </span>
+                        ) : (
+                          'Upload a file or provide a URL before adding'
+                        )}
                       </div>
 
                       <button
                         type="button"
                         onClick={handleAddStudyMaterial}
+                        disabled={isUploadingDoc}
                         style={{
-                          background: '#F59E0B',
+                          background: isUploadingDoc ? '#9CA3AF' : '#F59E0B',
                           color: '#FFFFFF',
                           border: 'none',
-                          padding: '8px 16px',
+                          padding: '8px 18px',
                           borderRadius: '8px',
                           fontSize: '0.82rem',
                           fontWeight: '700',
-                          cursor: 'pointer',
+                          cursor: isUploadingDoc ? 'not-allowed' : 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
-                          boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
+                          boxShadow: isUploadingDoc ? 'none' : '0 2px 8px rgba(245, 158, 11, 0.3)',
+                          transition: 'all 0.2s ease'
                         }}
                       >
-                        <Plus size={15} /> Add Document
+                        {isUploadingDoc ? (
+                          <>
+                            <Loader2 size={15} className="animate-spin" /> Uploading to Cloudinary...
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={15} /> + Add Document to Course
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1526,7 +1835,20 @@ export const CourseCreationWizardModal: React.FC<CourseCreationWizardModalProps>
                                     >
                                       #{doc.topic || 'General'}
                                     </span>
-                                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }}>
+                                    {doc.fileUrl.includes('cloudinary') ? (
+                                      <span style={{ fontSize: '0.65rem', color: '#0284C7', background: 'rgba(56, 189, 248, 0.14)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                        ☁️ Cloudinary CDN
+                                      </span>
+                                    ) : doc.fileUrl.includes('drive.google.com') ? (
+                                      <span style={{ fontSize: '0.65rem', color: '#D97706', background: 'rgba(245, 158, 11, 0.14)', border: '1px solid rgba(245, 158, 11, 0.25)', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                        📁 Google Drive
+                                      </span>
+                                    ) : doc.fileUrl.includes('s3.') || doc.fileUrl.includes('amazonaws') ? (
+                                      <span style={{ fontSize: '0.65rem', color: '#7C3AED', background: 'rgba(124, 58, 237, 0.14)', border: '1px solid rgba(124, 58, 237, 0.25)', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                        🪣 AWS S3
+                                      </span>
+                                    ) : null}
+                                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
                                       {doc.fileUrl}
                                     </span>
                                   </div>

@@ -410,6 +410,42 @@ export const uploadAdminCourseThumbnail = async (file: File) => {
 };
 
 /**
+ * Upload course study material document (PDF, Word, PPT, Notes up to 25MB) directly to Cloudinary CDN
+ */
+export const uploadStudyMaterialDocument = async (
+  file: File,
+  portalType: 'ADMIN' | 'TEACHER' = 'ADMIN'
+) => {
+  const formData = new FormData();
+  formData.append('documentFile', file);
+
+  const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+  const endpoint =
+    portalType === 'TEACHER'
+      ? `${API_BASE_URL}/teacher/upload-material`
+      : `${API_BASE_URL}/admin/upload-material`;
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: formData
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Study material document upload failed.');
+  }
+  return data.data as {
+    fileUrl: string;
+    originalName: string;
+    format: string;
+    sizeBytes: number;
+  };
+};
+
+/**
  * Toggle course active/published status by Super Admin
  */
 export const toggleCourseActive = async (courseId: string, active?: boolean) => {

@@ -776,6 +776,32 @@ const uploadCourseThumbnail = catchAsync(async (req, res, next) => {
 });
 
 /**
+ * @route   POST /api/admin/upload-material
+ * @desc    Upload course study material document (PDF, Word, PPT, Notes up to 25MB) directly to Cloudinary
+ * @access  Private (Admin & Teacher)
+ */
+const uploadStudyMaterialDocument = catchAsync(async (req, res, next) => {
+  if (!req.file) {
+    return next(new AppError('Document file (PDF, DOC, DOCX, PPT, TXT, or Image up to 25MB) is required.', 400));
+  }
+
+  const originalName = req.file.originalname || 'document.pdf';
+  const ext = originalName.split('.').pop() || 'pdf';
+
+  const cloudinaryResult = await uploadToCloudinary(req.file.buffer, 'course_study_materials', {
+    originalName,
+    ext
+  });
+
+  return sendSuccess(res, 200, 'Study material document uploaded successfully to Cloudinary.', {
+    fileUrl: cloudinaryResult.secure_url,
+    originalName,
+    format: cloudinaryResult.format || ext,
+    sizeBytes: req.file.size
+  });
+});
+
+/**
  * @route   PUT /api/admin/courses/:id
  * @desc    Update existing course details by Admin
  * @access  Private (Admin Only)
@@ -1270,6 +1296,7 @@ module.exports = {
   createAdminCourse,
   bulkCreateAdminCourses,
   uploadCourseThumbnail,
+  uploadStudyMaterialDocument,
   updateAdminCourse,
   deleteAdminCourse,
   getCourseEnrolledStudents

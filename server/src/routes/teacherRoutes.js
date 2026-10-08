@@ -14,7 +14,8 @@ const {
   getTeacherCourseStudents
 } = require('../controllers/teacherController');
 const { protect, restrictTo } = require('../middlewares/authMiddleware');
-const { uploadKycImage } = require('../middlewares/uploadMiddleware');
+const { uploadKycImage, uploadDocumentFile } = require('../middlewares/uploadMiddleware');
+const { uploadStudyMaterialDocument } = require('../controllers/adminController');
 
 const router = express.Router();
 
@@ -27,6 +28,7 @@ router.get('/courses', getTeacherCourses);
 router.get('/courses/:courseId/students', getTeacherCourseStudents);
 router.post('/courses/bulk', bulkCreateTeacherCourses);
 router.post('/courses', uploadKycImage.single('thumbnailFile'), createTeacherCourse);
+router.post('/upload-material', uploadDocumentFile.single('documentFile'), uploadStudyMaterialDocument);
 router.put('/courses/:id', updateTeacherCourse);
 router.delete('/courses/:id', deleteTeacherCourse);
 router.get('/mcqs', getTeacherMcqs);

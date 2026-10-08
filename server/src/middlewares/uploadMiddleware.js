@@ -30,4 +30,46 @@ const uploadKycImage = multer({
   fileFilter: imageFileFilter
 });
 
-module.exports = { uploadKycImage };
+// File filter: Study Materials & Document Formats (PDF, DOC/DOCX, PPT/PPTX, EPUB, TXT, and Scanned Images)
+const documentFileFilter = (req, file, cb) => {
+  const allowedExtensions = /\.(pdf|doc|docx|ppt|pptx|epub|txt|jpg|jpeg|png|webp)$/i;
+  const isExtAllowed = allowedExtensions.test(file.originalname);
+
+  const allowedMimeTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/epub+zip',
+    'text/plain',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'application/octet-stream' // fallback for browser generic stream when extension is valid
+  ];
+
+  if (isExtAllowed || allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(
+      new AppError(
+        'Invalid document file format. Allowed formats: PDF, Word (DOC/DOCX), PowerPoint (PPT/PPTX), EPUB, TXT, or HD Images (JPG, PNG, WEBP).',
+        400
+      ),
+      false
+    );
+  }
+};
+
+// Multer upload config for documents: 25MB limit (25 * 1024 * 1024 bytes)
+const uploadDocumentFile = multer({
+  storage,
+  limits: {
+    fileSize: 25 * 1024 * 1024 // 25MB Max Document Size
+  },
+  fileFilter: documentFileFilter
+});
+
+module.exports = { uploadKycImage, uploadDocumentFile };
